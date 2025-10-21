@@ -2301,7 +2301,7 @@ geofiles <- function(path_foringest,path_tall,header,path_specieslist, path_temp
     dplyr::select_if(!names(.) %in% c("DBKey", "DateLoadedInDb", "rid", "SpeciesList"))
   all_indicators_unique <- all_indicators[which(!duplicated(all_indicators_dropcols)),]
 
-  i <- add_indicator_columns(template = template,
+  i <- terradactylutils3::add_indicator_columns(template = template,
                              source = "DIMA",
                              all_indicators = all_indicators_unique,
                              prefixes_to_zero = c("AH", "FH", "NumSpp"))
@@ -2605,6 +2605,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
