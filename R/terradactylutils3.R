@@ -390,7 +390,7 @@ create_species_list <- function(tblSpeciesGeneric, tblSpecies, projectkey, path_
   for(projkey in projectkey){
     #path_species <- "D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/species_"
     projsp <- species |> subset(species$SpeciesState == projkey)
-    write.csv(projsp, paste0("species_",path_species_main,  projkey, ".csv"), row.names = F)
+    write.csv(projsp, paste0(path_species_main,"species_",  projkey, ".csv"), row.names = F)
 
   }
 
@@ -2541,6 +2541,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
