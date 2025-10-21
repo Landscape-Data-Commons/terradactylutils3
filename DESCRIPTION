@@ -1,0 +1,18 @@
+Package: terradactylutils3
+Type: Package
+Title: Utility Functions for Transforming DIMA Data into the Landscape Data Commons Formatting
+Version: 0.1.0
+Author: Landscape Data Commons Tech Team
+Maintainer: The package maintainer <bwheeler@nmsu.edu>
+Description: The package includes functions for assigning PrimaryKey to the data, creating the dataHeader table, removing duplicates from the data, removing empty data, calculating Indicator and Species values, translating the data into the LDC formatting and producing the geofiles. Additionally, there are functions that "clean" the tall data to ensure they are in the format for the translating and geofiles function to run. QC functions for checking the tall data and geofiles are also included in the package.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    dplyr,
+    lubridate,
+    magrittr,
+    stringr,
+    tidyr,
+    tidyselect
+RoxygenNote: 7.3.1
