@@ -316,7 +316,7 @@ assign_keys <- function(path_project, format, non_numeric_tables){
   write.csv(pk_date_check |> subset(!is.na(Action)),
             paste0(path_qc,"/primarykey_resolve_", Sys.Date(), ".csv"), row.names=FALSE)
   for(i in names(all_dimas)){
-    write.csv(all_dimas[[i]], paste0(DIMATables,i,".csv"))
+    write.csv(all_dimas[[i]], paste0(DIMATables,"/",i,".csv"))
   }
 
 }
@@ -2605,6 +2605,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
