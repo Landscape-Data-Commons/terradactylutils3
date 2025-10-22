@@ -9,7 +9,9 @@ create_species_list(
   tblSpeciesGeneric,
   tblSpecies,
   projectkey,
-  path_species_main
+  path_species_main,
+  USDA_plants,
+  speciescode
 )
 }
 \arguments{
@@ -22,6 +24,10 @@ create_species_list(
 \item{projectkey}{list of the unique ProjectKeys, which can be found in the dataHeader created using terradactylutils2::create_header()}
 
 \item{path_species_main}{path to where you save your species lists}
+
+\item{USDA_plants}{a data.frame of the USDA plants with the 4 letter code, GrowthHabit and Duration}
+
+\item{speciescode}{the column name in the USDA plant list file that contains the four letter codes}
 }
 \value{
 CSV(s) of a species list for each ProjectKey provided by the user
@@ -30,5 +36,5 @@ CSV(s) of a species list for each ProjectKey provided by the user
 Creates a species list using the information from species tables in the DIMA
 }
 \examples{
-create_species_list(species_list_NOT_created = T, tblSpeciesGeneric = tblSpeciesGeneric, tblSpecies = tblSpecies, projectkey = unique(dataHeader$ProjectKey), path_species_main = paste0("D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/"))
+create_species_list(species_list_NOT_created = T, tblSpeciesGeneric = tblSpeciesGeneric, tblSpecies = tblSpecies, projectkey = unique(dataHeader$ProjectKey), path_species_main = paste0("D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/"), USDA_plants = read.csv(USDA_plants.csv), speciescode = "UpdatedSpeciesCode")
 }

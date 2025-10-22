@@ -335,12 +335,14 @@ assign_keys <- function(path_project, format, non_numeric_tables){
 #' @param projectkey list of the unique ProjectKeys, which can be found in the dataHeader created using terradactylutils2::create_header()
 #' @param path_species_main path to where you save your species lists
 #' @param species_list_NOT_created T when a species list has not been created; F if user already has a species list for geoindicator calculations
+#' @param USDA_plants a data.frame of the USDA plants with the 4 letter code, GrowthHabit and Duration
+#' @param speciescode the column name in the USDA plant list file that contains the four letter codes
 #'
 #' @return CSV(s) of a species list for each ProjectKey provided by the user
 #' @export
 #'
-#' @examples create_species_list(species_list_NOT_created = T, tblSpeciesGeneric = tblSpeciesGeneric, tblSpecies = tblSpecies, projectkey = unique(dataHeader$ProjectKey), path_species_main = paste0("D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/"))
-create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblSpecies, projectkey, path_species_main){
+#' @examples create_species_list(species_list_NOT_created = T, tblSpeciesGeneric = tblSpeciesGeneric, tblSpecies = tblSpecies, projectkey = unique(dataHeader$ProjectKey), path_species_main = paste0("D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/"), USDA_plants = read.csv(USDA_plants.csv), speciescode = "UpdatedSpeciesCode")
+create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblSpecies, projectkey, path_species_main, USDA_plants, speciescode){
 if(species_list_NOT_created){
   woody_codes <- c(1:4)
   tblSpeciesGeneric$GrowthHabit <- ifelse(tblSpeciesGeneric$GrowthHabitCode %in% woody_codes, "Woody",
@@ -377,7 +379,7 @@ if(species_list_NOT_created){
   tblSpecies$Noxious <- ""
   tblSpecies$Invasive <- ifelse(tblSpecies$Invasive == 0, FALSE,
                                 ifelse(tblSpecies$Invasive == 1, TRUE,  NA ))
-  tblSpecies$UpdatedSpeciesCode <- ""
+  tblSpecies$UpdatedSpeciesCode <- USDA_plants$UpdatedSpeciesCode[match(tblSpecies$SpeciesCode, USDA_plants$SpeciesCode)]
   tblSpecies$Notes <- ""
   tblSpecies$SpeciesState <- tblSpecies$project
   tblSpecies$SG_Group <- ""
@@ -385,6 +387,14 @@ if(species_list_NOT_created){
   species_keep <- tblSpecies %>% dplyr::select(SpeciesCode,ScientificName, Family, GrowthHabit, GrowthHabitSub,Duration,
                                                Noxious, Invasive,UpdatedSpeciesCode, Notes,
                                                SpeciesState,SG_Group)
+ #for correct geoindicator calculations, the species list must have the updated species code in the species code column, having all the attributes described
+  `%notin%` <- Negate(`%in%`)
+  updated_species <- species_keep[!is.na(species_keep$UpdatedSpeciesCode), ]
+  updated_species <- updated_species|> filter(updated_species$UpdatedSpeciesCode %notin% updated_species$SpeciesCode)
+
+  if(nrow(updated_species) > 0){
+    updated_species$SpeciesCode <- updated_species$UpdadtedSpeciesCode
+    species_keep <- rbind(species_keep, updated_species)}
 
   species <- rbind(species_keep, generic_keep)
 
