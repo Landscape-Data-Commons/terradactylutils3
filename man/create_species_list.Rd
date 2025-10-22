@@ -5,6 +5,7 @@
 \title{Create species list from DIMA Tables}
 \usage{
 create_species_list(
+  species_list_NOT_created,
   tblSpeciesGeneric,
   tblSpecies,
   projectkey,
@@ -12,6 +13,8 @@ create_species_list(
 )
 }
 \arguments{
+\item{species_list_NOT_created}{T when a species list has not been created; F if user already has a species list for geoindicator calculations}
+
 \item{tblSpeciesGeneric}{as a data.frame tblSpeciesGeneric from DIMA tables}
 
 \item{tblSpecies}{as a data.frame tblSpecies from DIMA tables}
@@ -27,5 +30,5 @@ CSV(s) of a species list for each ProjectKey provided by the user
 Creates a species list using the information from species tables in the DIMA
 }
 \examples{
-create_species_list(tblSpeciesGeneric = tblSpeciesGeneric, tblSpecies = tblSpecies, projectkey = unique(dataHeader$ProjectKey), path_species_main = paste0("D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/"))
+create_species_list(species_list_NOT_created = T, tblSpeciesGeneric = tblSpeciesGeneric, tblSpecies = tblSpecies, projectkey = unique(dataHeader$ProjectKey), path_species_main = paste0("D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/"))
 }

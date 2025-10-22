@@ -334,13 +334,14 @@ assign_keys <- function(path_project, format, non_numeric_tables){
 #' @param tblSpecies as a data.frame tblSpecies from DIMA tables
 #' @param projectkey list of the unique ProjectKeys, which can be found in the dataHeader created using terradactylutils2::create_header()
 #' @param path_species_main path to where you save your species lists
+#' @param species_list_NOT_created T when a species list has not been created; F if user already has a species list for geoindicator calculations
 #'
 #' @return CSV(s) of a species list for each ProjectKey provided by the user
 #' @export
 #'
-#' @examples create_species_list(tblSpeciesGeneric = tblSpeciesGeneric, tblSpecies = tblSpecies, projectkey = unique(dataHeader$ProjectKey), path_species_main = paste0("D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/"))
-create_species_list <- function(tblSpeciesGeneric, tblSpecies, projectkey, path_species_main){
-
+#' @examples create_species_list(species_list_NOT_created = T, tblSpeciesGeneric = tblSpeciesGeneric, tblSpecies = tblSpecies, projectkey = unique(dataHeader$ProjectKey), path_species_main = paste0("D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/"))
+create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblSpecies, projectkey, path_species_main){
+if(species_list_NOT_created){
   woody_codes <- c(1:4)
   tblSpeciesGeneric$GrowthHabit <- ifelse(tblSpeciesGeneric$GrowthHabitCode %in% woody_codes, "Woody",
                                           "NonWoody")
@@ -393,7 +394,9 @@ create_species_list <- function(tblSpeciesGeneric, tblSpecies, projectkey, path_
     write.csv(projsp, paste0(path_species_main,"species_",  projkey, ".csv"), row.names = F)
 
   }
-
+}else{
+  print("User selected that species list is already created, thus not using DIMA files to produce a species list")
+}
 }
 ###############################################
 
