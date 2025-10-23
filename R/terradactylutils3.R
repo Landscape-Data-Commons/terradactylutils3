@@ -393,7 +393,7 @@ if(species_list_NOT_created){
   updated_species <- updated_species|> filter(updated_species$UpdatedSpeciesCode %notin% updated_species$SpeciesCode)
 
   if(nrow(updated_species) > 0){
-    updated_species$SpeciesCode <- updated_species$UpdadtedSpeciesCode
+    updated_species$SpeciesCode <- updated_species$UpdatedSpeciesCode
     species_keep <- rbind(species_keep, updated_species)}
 
   species <- rbind(species_keep, generic_keep)
@@ -2618,6 +2618,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
