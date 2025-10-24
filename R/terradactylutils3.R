@@ -2320,7 +2320,9 @@ geofiles <- function(path_foringest,path_tall,header,path_specieslist, path_temp
                              prefixes_to_zero = c("AH", "FH", "NumSpp"))
 
   i2 <- i
+  if(file.exists(file.path(path_tall, "lpi_tall.Rdata"))) {
   i2$BareSoil <- i2$BareSoilCover
+    }
 
   colnames(i2) = gsub("Grass", "Graminoid", colnames(i2))
 
@@ -2618,6 +2620,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
