@@ -2244,9 +2244,9 @@ geofiles <- function(path_foringest,path_tall,header,path_specieslist, path_temp
                                       species_file = path_specieslist,
                                       dsn = path_template)
 
-
+if(nrow(l_graminoid) > 0){
     l <- dplyr::left_join(l, l_graminoid|> tidyr::pivot_wider(names_from = "indicator", values_from = "percent"))
-
+}
 
   } else {
     l <- NULL
@@ -2620,6 +2620,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
