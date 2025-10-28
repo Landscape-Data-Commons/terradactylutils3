@@ -4,14 +4,18 @@
 \alias{assign_keys}
 \title{Assign keys}
 \usage{
-assign_keys(path_project, format, non_numeric_tables)
+assign_keys(path_project, format, noteformat, nonlineformat, non_line_tables)
 }
 \arguments{
 \item{path_project}{folder in path_parent where data for preparation are stored where path_parent is the path where dima exports file for project is stored and where export files (tall, for ingest and QC files) will be stored}
 
 \item{format}{the format that your tblPlots FormDate is in}
 
-\item{non_numeric_tables}{tables without numeric data in a list}
+\item{noteformat}{the format that your tblPlotNotes NoteDate is in}
+
+\item{nonlineformat}{the format that your nonline data DateRecorded is in}
+
+\item{non_line_tables}{tables without numeric data in a list}
 }
 \value{
 R data with PrimaryKey, LineKey, PlotKey and RecKey assigned to each plot as well as R data with QC information about PrimaryKey assignment
@@ -20,5 +24,5 @@ R data with PrimaryKey, LineKey, PlotKey and RecKey assigned to each plot as wel
 Assigns all of the keys (primarykey, reckey, linekey, dbkey) to the DIMA tables. When using, ensure that the files are structured in the path_project folder with a file titled by the project/file(s) titled with the name of the location within that project and _ date data were received with format %Y-%m-%d/all the files exported from DIMA with the typical DIMA export naming such as tblGapHeader for instance, my file structure could be NWERN/HAFB_10062025/tbl...csv. path_qc, DIMATables, path_tall,path_original_files must be objects saved to your environment that are the file paths where outputs will be stored
 }
 \examples{
-assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "\%m/\%d/\%Y", non_numeric_tables = c("tblPlots", "tblLines", "tblSites") )
+assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "\%m/\%d/\%Y", noteformat = "\%m/\%d/\%Y",nonlineformat = "\%m/\%d/\%Y",non_line_tables = c("tblPlots", "tblLines", "tblSites") )
 }

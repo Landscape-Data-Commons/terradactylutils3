@@ -13,13 +13,15 @@ use_package("magrittr")
 #'
 #' @param path_project folder in path_parent where data for preparation are stored where path_parent is the path where dima exports file for project is stored and where export files (tall, for ingest and QC files) will be stored
 #' @param format the format that your tblPlots FormDate is in
-#' @param non_numeric_tables tables without numeric data in a list
+#' @param noteformat the format that your tblPlotNotes NoteDate is in
+#' @param nonlineformat the format that your nonline data DateRecorded is in
+#' @param non_line_tables tables without numeric data in a list
 #'
 #' @return R data with PrimaryKey, LineKey, PlotKey and RecKey assigned to each plot as well as R data with QC information about PrimaryKey assignment
 #' @export
 #'
-#' @examples assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "%m/%d/%Y", non_numeric_tables = c("tblPlots", "tblLines", "tblSites") )
-assign_keys <- function(path_project, format, non_numeric_tables){
+#' @examples assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "%m/%d/%Y", noteformat = "%m/%d/%Y",nonlineformat = "%m/%d/%Y",non_line_tables = c("tblPlots", "tblLines", "tblSites") )
+assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line_tables){
   # get list of all export files
   dima_export_files <- data.frame(file_path = list.files(path = path_project,
                                                          pattern = ".csv",
@@ -133,19 +135,21 @@ assign_keys <- function(path_project, format, non_numeric_tables){
                             # For tblPlotsNotes, create a PrimaryKey from PlotKey and NoteDate
                             if(X=="tblPlotNotes"){
                               data <- all_dimas[[X]] |> dplyr::mutate(
-                                DateVisited = NoteDate |> lubridate::mdy_hms(),
+                                DateVisited = as.Date(NoteDate, format = noteformat),
+                                NoteDate = as.Date(NoteDate, format = noteformat),
                                 PrimaryKey = paste0(PlotKey, DateVisited))
                             }else
                               # For tblPlotHistory, create a PrimaryKey from PlotKey and DateRecorded
                               if(X=="tblPlotHistory"){
                                 data <- all_dimas[[X]] |> dplyr::mutate(
-                                  DateVisited = DateRecorded |> lubridate::mdy_hms(),
+                                  DateVisited = as.Date(DateRecorded, format = nonlineformat),
+                                  DateRecorded <- as.Date(DateRecorded, format = nonlineformat),
                                   PrimaryKey = paste0(PlotKey, DateVisited))
                               }else
                                 # For tblSoilPits, create add a PlotKey and DateVisited. We'll join PrimaryKey later for all plots
                                 if(X=="tblSoilPits"){
                                   data <- all_dimas[[X]] |> dplyr::mutate(
-                                    DateRecorded = DateRecorded |> lubridate::mdy_hms()
+                                    DateRecorded = as.Date(DateRecorded, format = nonlineformat)
                                   )
                                 }else
                                   # For tblSoilPitHorizons, first join with tblSoilPits, then
@@ -154,7 +158,7 @@ assign_keys <- function(path_project, format, non_numeric_tables){
                                     data <- dplyr::left_join(all_dimas[[X]],
                                                              all_dimas$tblSoilPits |>
                                                                dplyr::select(PlotKey, DateRecorded, SoilKey, project, dbname))|>
-                                      dplyr::mutate(DateRecorded = DateRecorded |> lubridate::mdy_hms())
+                                      dplyr::mutate(DateRecorded = as.Date(DateRecorded, format = nonlineformat))
                                   }else{
                                     all_dimas[[X]]
                                   }
@@ -163,7 +167,7 @@ assign_keys <- function(path_project, format, non_numeric_tables){
   names(data_no_lines) <- no_lines_tables
 
   # Plots, Lines, SoilPits, and SoilPit Horizons all need PrimaryKeys that correspond with visit of the PlotKey
-  table_plots<- non_numeric_tables # list of nonnumeric tables in data; could include c("tblPlots", "tblLines", "tblSites", "tblSoilPits", "tblSoilPitHorizons")
+  table_plots<- non_line_tables # list of nonnumeric tables in data; could include c("tblPlots", "tblLines", "tblSites", "tblSoilPits", "tblSoilPitHorizons")
 
 
   # get all of the unique method PrimaryKeys
