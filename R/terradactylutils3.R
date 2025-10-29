@@ -143,7 +143,7 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
                               if(X=="tblPlotHistory"){
                                 data <- all_dimas[[X]] |> dplyr::mutate(
                                   DateVisited = as.Date(DateRecorded, format = nonlineformat),
-                                  DateRecorded <- as.Date(DateRecorded, format = nonlineformat),
+                                  DateRecorded = as.Date(DateRecorded, format = nonlineformat),
                                   PrimaryKey = paste0(PlotKey, DateVisited))
                               }else
                                 # For tblSoilPits, create add a PlotKey and DateVisited. We'll join PrimaryKey later for all plots
@@ -2624,6 +2624,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
