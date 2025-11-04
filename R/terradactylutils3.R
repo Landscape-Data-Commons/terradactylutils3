@@ -9,7 +9,7 @@ use_package("magrittr")
 #########################################
 #' Assign keys
 #'
-#' Assigns all of the keys (primarykey, reckey, linekey, dbkey) to the DIMA tables. When using, ensure that the files are structured in the path_project folder with a file titled by the project/file(s) titled with the name of the location within that project and _ date data were received with format %Y-%m-%d/all the files exported from DIMA with the typical DIMA export naming such as tblGapHeader for instance, my file structure could be NWERN/HAFB_10062025/tbl...csv. path_qc, DIMATables, path_tall,path_original_files must be objects saved to your environment that are the file paths where outputs will be stored
+#' Assigns all of the keys (primarykey, reckey, linekey, dbkey) to the DIMA tables. When using, ensure that the files are structured in the path_project folder as: "project"/"file(s) titled with the name of the location within that project with _ date data were received with format %Y-%m-%d"/"all the files exported from DIMA with the typical DIMA export naming such as tblGapHeader". For instance, my file structure could be NWERN/dima_exports/NWERN_HAFB/NWERN_HAFB_10062025/tbl...csv. path_qc, DIMATables, path_tall,path_original_files must be objects saved to your environment that are the file paths where outputs will be stored
 #'
 #' @param path_project folder in path_parent where data for preparation are stored where path_parent is the path where dima exports file for project is stored and where export files (tall, for ingest and QC files) will be stored
 #' @param format the format that your tblPlots FormDate is in
@@ -40,8 +40,6 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
 
 
   # this code reads all CSVs at once, appends and assigns table name
-  # my code each file is read individually
-
   # read all DIMA types and append
   all_dimas <- lapply(X = unique(dima_export_files$table),
                       FUN = function(X) {
@@ -68,12 +66,8 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
 
 
 
-  # the primary key is assigned from the large CSV with name from table assigned - however
+  # the primary key is assigned from the large (appended) CSV with name from table assigned to each observation - however
   # this is done in multiple parts depending on the table type
-
-  # my code, the user selects T or F for a method and I individually assign the
-  # primary key for each table
-
 
   # create PrimaryKeys by joining PlotKey to DateVisited. We first have to join to the header tables, then the detail tables
   header_tables <- lapply(X = all_dimas[names(all_dimas) |> stringr::str_detect("Header")],
@@ -210,14 +204,14 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
 
 
 
-  # does a QC checking all tables have date and pkey assigned - this is missing from my code
+  # QC checking all tables have date and pkey assigned
 
 
   # put all the tables together
   all_dimas_pks <- c(plots_pks, data_no_lines[!names(data_no_lines) %in% table_plots], detail_header)
 
   # QC
-  # First, check that all tables that should have a PrimaryKey and DateVisited assigned
+  # First, check that all tables have a PrimaryKey and DateVisited assigned
   primarykey_check <- do.call(
     rbind,lapply(X = names(all_dimas_pks),
                  function(X){
@@ -247,11 +241,7 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
 
 
 
-  # assigns pkeys to details and compares by pkey - I assign pkey to table first, and have a check
-  # is in the header - not sure the end result of this code but could create a table showing
-  # pkeys in detail or header that is not in either (orphaned)
-
-
+  # assign pkeys to details and compares by pkey 
   # QC PrimaryKeys and DateVisited
   # First we'll see how identify any PrimaryKey issues (e.g., NA, orphaned records)
   pk_date_check <- all_dimas_pks$tblPlots |>
@@ -270,9 +260,6 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
 
 
 
-
-
-  # checking for near dates, same as in my code
 
   # Identify PrimaryKeys where date visits are close to each other--this could mean that unique plots are improperly assigned
   pk_date_check <- pk_date_check |> dplyr::group_by(PlotKey) |>
@@ -301,7 +288,7 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
 
 
 
-  # code removes NA and generic plots - need to remove NA in my script
+  # code removes NA and generic plots - orphaned records are identified, but deletion is handled within the gather function
   # Flag generic plots and orphaned records for deletion
   pk_date_check <- pk_date_check |>
     # Make a note of the issue
@@ -424,7 +411,7 @@ if(species_list_NOT_created){
 #'checks the data produced from assign_keys, including checks for missingness and missing coordinates. Problem PrimaryKeys are removed. Thus, prior to running, check with the data owner about the PrimaryKeys with NAs or that were sampled within a certain number of days to ensure removing the problem PrimaryKeys is desired.
 #'
 #' @param dima_data_list as an object, all_dimas_pks.RDS from the assign_keys function
-#' @param primarykey_qc as an abject, primarykey_resolve_date.csv from assign_keys function
+#' @param primarykey_qc as an object, primarykey_resolve_date.csv from assign_keys function
 #' @param path_qc path where the QC data will be saved
 #'
 #' @return CSVs of the QC related to the PrimaryKey assignment in the assigned QC folder
@@ -451,7 +438,7 @@ dima_table_qc <- function(dima_data_list, primarykey_qc, path_qc){
 
 
 
-  # check for missingness of observations is not in my script
+  # check for missingness of observations
   # check for NAs in observations
   missingness <- do.call(rbind,lapply(X = names(dima_data_list),
 
@@ -536,7 +523,7 @@ dima_table_qc <- function(dima_data_list, primarykey_qc, path_qc){
 #'
 #'creates the header table used to produce all of the tall tables
 #'
-#' @param path_tall a file path where your tall data will be stored, that is linked to path_parent, where path_parent is the path with the dima exports file for the project and export files (tall, for ingest and QC files)
+#' @param path_tall a file path where your tall data will be stored, that is saved within path_parent, where path_parent is the path with the dima exports file for the project and export files (tall, for ingest and QC files)
 #' @param tblPlots tblPlots from the DIMA tables read in as a data.frame
 #' @param todaysDate today's date
 #' @param source source type such as "DIMA" or "Terradat"
@@ -595,8 +582,6 @@ create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_ke
 
 
 ###############################
-#### Function 4 -
-
 #' Remove duplicates
 #'
 #' removes duplicated data that is not kept in the LDC or used in the terradactylutils2::clean_tall_"method" functions. This is for data produced using the terradactyl gather functions.
@@ -2575,16 +2560,6 @@ db_info <- function(path_foringest, DateLoadedInDb){
   if(file.exists(file.path(path_foringest, "/dataSpeciesInventory.csv"))){
     spin <- read.csv(paste0(path_foringest, "/dataSpeciesInventory.csv"))}
 
-  # have to assign DBKey based on the date
-  # header$DBKey <- rep(dbname)
-  # ind$DBKey <- rep(dbname)
-  # if(doLPI) LPI$DBKey <- rep(dbname)
-  # if(doGap) gap$DBKey <- rep(dbname)
-  # if(doHt) hgt$DBKey <- rep(dbname)
-  # if(doSS) ss$DBKey <- rep(dbname)
-  # if(doSP) sp$DBKey <- rep(dbname)
-  #
-
 
   header$DateLoadedInDb <- rep(todaysDate)
   ind$DateLoadedInDb <- header$DateLoadedInDb[match(ind$PrimaryKey, header$PrimaryKey)]
@@ -2624,6 +2599,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
