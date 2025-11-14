@@ -706,50 +706,77 @@ tdact_remove_empty <- function(indata, datatype){
 add_indicator_columns <- function(template,
                                   source,
                                   all_indicators,
-                                  prefixes_to_zero = c("AH", "FH", "NumSpp", "Spp")){
+                                  prefixes_to_zero = NULL){
 
   # template can either be a list of column names to add if not present, or a path to a geodatabase
-  if(length(template) == 1) {
-    feature_class_field_names <-
-      sf::st_read(template,
-                  layer = dplyr::if_else(source %in% c("AIM", "TerrADat", "DIMA"), "TerrADat", source))
-    feature_class_field_names <-
-      feature_class_field_names[,!colnames(feature_class_field_names) %in%
-                                  c("created_user", "created_date",
-                                    "last_edited_user", "last_edited_date")] %>%
-      names()
+  # So, we'll check to make sure that template is a character string or vector.
+  if (!is.character(template)) {
+    stop("template must either be a character vector of variable names or the filepath to a geodatabase containing a feature class with the name provided as the argument source and which has the variables to potentially add as variables in the feature class.")
   } else {
-    feature_class_field_names <- template
+    if (length(template) == 1) {
+      # If there's only one character string, try to figure out if it's a valid
+      # filepath to a geodatabase to read in from.
+      current_file_extension <- tools::file_ext(template)
+      if (nchar(current_file_extension) < 1) {
+        # If it's a lone character string with no file extension, that's just
+        # the one variable name, apparently!
+        feature_class_field_names <- template
+      } else if (toupper(current_file_extension) == "GDB") {
+        # Try to grab the feature class if it exists and yank variable names
+        # from that.
+        if (file.exists(template)) {
+          feature_class_field_names <- sf::st_read(template,
+                                                   layer = dplyr::if_else(condition = source %in% c("AIM", "TerrADat", "DIMA"),
+                                                                          true = "TerrADat",
+                                                                          false = source)) |>
+            names(_) |>
+            setdiff(x = _,
+                    y = c("created_user",
+                          "created_date",
+                          "last_edited_user",
+                          "last_edited_date"))
+        }
+      } else {
+        stop(paste("template has the file extension",
+                   current_file_extension,
+                   "but the only valid file extension recognized is GDB."))
+      }
+    } else {
+      # If it's a character vector with more than one string, those are just the
+      # variable names.
+      feature_class_field_names <- template
+    }
   }
 
-  # turn the column names of template into a dataframe
-  # this will go into a join, marking which field names were provided in template
-  indicator_field_names <-
-    data.frame(name = names(all_indicators),
-               calculated = "yes")
-  missing_names <-
-    data.frame(name = feature_class_field_names,
-               feature.class = "yes") %>%
-    # Join feature class field names to indicator field names
-    dplyr::full_join(indicator_field_names) %>%
-    # get the field names where there is not corrollary in calculated
-    subset(is.na(calculated), select = "name") %>%
-    dplyr::mutate(value = NA) %>%
-    # make into a data frame
-    tidyr::spread(key = name, value = value) %>%
-    dplyr::select_if(!(names(.) %in% c("Shape", "GlobalID")))
+  # Which of the template variables are missing?
+  missing_variables <- setdiff(x = feature_class_field_names,
+                               y = names(all_indicators))
 
-  # Add a row for each PrimaryKey inall_indicators
-  missing_names[nrow(all_indicators), ] <- NA
+  # Make a data frame for all those variables that we can bind to all_indicators
+  # starting from an empty matrix which gets converted into a data frame with
+  # the variable names before any that need to be converted to 0s are swapped.
+  missing_data <- matrix(nrow = nrow(all_indicators),
+                         ncol = length(missing_variables)) |>
+    as.data.frame(x = _) |>
+    setNames(object = _,
+             nm = missing_variables)
 
-  # For some indicators, the null value is 0 (to indicate the method was completed,
-  # but no data in that group were collected)
-  regexprefix <- paste0("^", paste(prefixes_to_zero, collapse = "_|^"), "_")
-  missing_names[, grepl(names(missing_names), pattern = regexprefix)] <- 0
+  # Only attempt this if there are actually any prefixes provided!
+  if (length(prefixes_to_zero) > 1) {
+    missing_data <- dplyr::mutate(.data = missing_data,
+                                  # So this works "across" any variable starting with the prefixes
+                                  # and puts 0s there.
+                                  dplyr::across(.cols = tidyselect::starts_with(match = prefixes_to_zero),
+                                                # Silly, but this is an "anonymous" function that
+                                                # takes no arguments and always returns 0.
+                                                .fns = ~ 0))
+  }
 
-  # Merge back to indicator data to create a feature class for export
+
+  # Note that this won't put the indicators in the order that's expected
+  # (except by total chance) so reordering elsewhere will be necessary.
   final_feature_class <- dplyr::bind_cols(all_indicators,
-                                          missing_names)
+                                          missing_data)
 
   return(final_feature_class)
 }
@@ -2599,6 +2626,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
