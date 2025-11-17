@@ -729,7 +729,7 @@ add_indicator_columns <- function(template,
                                                    layer = dplyr::if_else(condition = source %in% c("AIM", "TerrADat", "DIMA"),
                                                                           true = "TerrADat",
                                                                           false = source)) |>
-            names(_) |>
+            names() |>
             setdiff(x = _,
                     y = c("created_user",
                           "created_date",
@@ -2626,6 +2626,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
