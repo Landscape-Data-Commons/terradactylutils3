@@ -241,7 +241,7 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
 
 
 
-  # assign pkeys to details and compares by pkey 
+  # assign pkeys to details and compares by pkey
   # QC PrimaryKeys and DateVisited
   # First we'll see how identify any PrimaryKey issues (e.g., NA, orphaned records)
   pk_date_check <- all_dimas_pks$tblPlots |>
@@ -551,7 +551,7 @@ create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_ke
 
   # keeping only cols of interest
   dataHeader <- dataHeader |> dplyr::select(ProjectKey, PrimaryKey, DateVisited, Latitude_NAD83, Longitude_NAD83,
-                                            DBKey, State, PlotID, RecKey,EcologicalSiteId)
+                                            DBKey, State, County, PlotID, RecKey,EcologicalSiteId)
 
 
   # adding remaining details needed for dataHeader
