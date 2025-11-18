@@ -2236,7 +2236,7 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
 geofiles <- function(path_foringest,path_tall,header,path_specieslist, path_template,doGSP){
   if(file.exists(file.path(path_tall, "lpi_tall.Rdata"))) {
     l <- lpi_calc(
-      lpi_tall = file.path(path_tall, "lpi_tall.rdata"),
+      lpi_tall = readRDS(file.path(path_tall, "lpi_tall.rdata")),
       header = header,
       source = "DIMA",
       species_file = path_specieslist,
@@ -2258,7 +2258,7 @@ if(nrow(l_graminoid) > 0){
 
   if(file.exists(file.path(path_tall, "gap_tall.Rdata"))){ #
     g <- gap_calc(
-      gap_tall = file.path(path_tall, "gap_tall.rdata"),
+      gap_tall = readRDS(file.path(path_tall, "gap_tall.rdata")),
       header = header
     )
   } else {
@@ -2267,7 +2267,7 @@ if(nrow(l_graminoid) > 0){
 
   if(file.exists(file.path(path_tall, "height_tall.Rdata"))){
     h <- height_calc(
-      height_tall = file.path(path_tall, "height_tall.rdata"),
+      height_tall = readRDS(file.path(path_tall, "height_tall.rdata")),
       header = header,
       source = "DIMA",
       species_file = path_specieslist
@@ -2279,7 +2279,7 @@ if(nrow(l_graminoid) > 0){
   if(file.exists(file.path(path_tall, "species_inventory_tall.Rdata"))){
     sr <- spp_inventory_calc(
       header = header,
-      spp_inventory_tall = file.path(path_tall, "species_inventory_tall.rdata"),
+      spp_inventory_tall = readRDS(file.path(path_tall, "species_inventory_tall.rdata")),
       species_file = path_specieslist,
       source = "DIMA"
     )
@@ -2287,8 +2287,7 @@ if(nrow(l_graminoid) > 0){
     sr <- NULL
   }
   if(file.exists(file.path(path_tall, "soil_stability_tall.Rdata"))){
-    ss <- soil_stability_calc(header = header,
-                              soil_stability_tall = file.path(path_tall, "soil_stability_tall.rdata"))
+    ss <- soil_stability_calc(soil_stability_tall = readRDS(file.path(path_tall, "soil_stability_tall.rdata")))
   } else {
     ss <- NULL
   }
