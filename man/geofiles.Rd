@@ -10,7 +10,10 @@ geofiles(
   header,
   path_specieslist,
   path_template,
-  doGSP
+  doGSP = TRUE,
+  calculate_dead = FALSE,
+  date = NULL,
+  verbose = FALSE
 )
 }
 \arguments{
@@ -25,6 +28,10 @@ geofiles(
 \item{path_template}{path to an indicator list using graminoid identifiers, currently used while certain agencies use GRASS}
 
 \item{doGSP}{TRUE unless user does not want a geoSpecies file produced}
+
+\item{calculate_dead}{Logical. If \code{TRUE} and \code{doGSP} is \code{TRUE} then the accumulated species calculations will differentiate between "live" and "dead" records. Defaults to \code{FALSE}.}
+
+\item{date}{Optional character string. The date value for the DateLoadedInDb variable. Must be in the format mm/dd/YYYY, e.g. "6/19/2026". Defaults to the date returned by \code{Sys.date()}.}
 }
 \value{
 geoSpecies and geoIndicators file written to the path_foringest
