@@ -2026,91 +2026,91 @@ lpi_calc_graminoid <- function(header, lpi_tall,species_file,source,dsn,verbose 
 #'
 #' @examples translate_schema2(schema = schema,datatype = "dataHeight",dropcols = TRUE, verbose = TRUE)
 #' @noRd
-translate_schema2 <- function(data, datatype,schema,dropcols = T, verbose = T){
-
+translate_schema2 <- function(data,
+                              datatype,
+                              schema,
+                              dropcols = TRUE,
+                              verbose = TRUE){
+  
+  #### Sanitization ------------------------------------------------------------
+  ##### Schema -----------------------------------------------------------------
   ### standardize names
   # colnames(matrix)[colnames(matrix) == fromcol] <- "terradactylAlias"
   # colnames(matrix)[colnames(matrix) == tocol] <- "ToColumn"
-
+  
   ### process the incoming matrix by assigning actions to take at each row
-  matrix_processed1 <-
-    schema |>
-    dplyr::filter(Table == datatype) |>
-    dplyr::mutate(
-      Field <- stringr::str_trim(Field, side = "both"),
-    ) |>
-    dplyr::filter(Field != "" | terradactylAlias != "") |>
-    dplyr::select(terradactylAlias, Field)
-
-  matrix_processed <- matrix_processed1 |>
-    dplyr::mutate(
-      DropColumn = matrix_processed1$terradactylAlias != "" & matrix_processed1$Field == "",
-      AddColumn = matrix_processed1$Field != "" & matrix_processed1$terradactylAlias == "",
-      ChangeColumn = matrix_processed1$Field != "" & matrix_processed1$terradactylAlias != "" & matrix_processed1$Field != matrix_processed1$terradactylAlias,
-      NoAction = matrix_processed1$Field == matrix_processed1$terradactylAlias & !AddColumn & !DropColumn,
-      Checksum = AddColumn + DropColumn + ChangeColumn + NoAction,
-    )
-
-  ## check for errors (if errors are here the function is not working)
-  errors <-
-    matrix_processed |>
-    dplyr::filter(Checksum != 1)
-
-  if(nrow(errors) > 0) {print("Errors found in translation matrix. Debug function.")
-    return(errors)}
-
+  matrix_processed <- dplyr::filter(.data = schema,
+                                    Table == datatype) |>
+    dplyr::mutate(.data = _,
+                  Field <- stringr::str_trim(string = Field,
+                                             side = "both")) |>
+    dplyr::filter(.data = _,
+                  Field != "" | terradactylAlias != "") |>
+    dplyr::select(.data = _,
+                  tidyselect::all_of(x = c("terradactylAlias",
+                                           "Field"))) |>
+    dplyr::mutate(.data = _,
+                  DropColumn = terradactylAlias != "" & Field == "",
+                  AddColumn = Field != "" & terradactylAlias == "",
+                  ChangeColumn = Field != "" & terradactylAlias != "" & Field != terradactylAlias,
+                  NoAction = Field == terradactylAlias & !AddColumn & !DropColumn,
+                  Error = (AddColumn + DropColumn + ChangeColumn + NoAction) != 1)
+  
+  # Check for errors!
+  if(sum(matrix_processed$Error) > 0) {
+    warning("Errors found in translation matrix. Returning diagnostic information.")
+    return(errors)
+  }
+  
   ChangeColumn <-
     matrix_processed |>
     dplyr::filter(ChangeColumn)
-
+  
   AddColumn <-
     matrix_processed |>
     dplyr::filter(AddColumn)
-
+  
   DropColumn <-
     matrix_processed |>
     dplyr::filter(DropColumn)
-
+  
   ## run translation and add data
-  outdata <- data |>
-    dplyr::rename_at(
-      ChangeColumn$terradactylAlias, ~ ChangeColumn$Field) |>
+  outdata <- dplyr::rename_at(.tbl = data,
+                              .vars = ChangeColumn$terradactylAlias,
+                              .funs = ~ ChangeColumn$Field) |>
     `is.na<-`(AddColumn$Field |> unique())
 
-  # # drop columns from prior schema if enabled
-  # if(dropcols){
-  #   outdata <- outdata |>
-  #     dplyr::select_if(!colnames(.) %in% DropColumn$terradactylAlias)
-  # }
-
+  
   # select only the tables in the out schema
-  goodnames <- matrix_processed |> dplyr::filter(Field != "") |> dplyr::pull(Field)
-
-  if(verbose) {
-    print(paste("Returning", length(goodnames), "columns"))
-    print(dplyr::all_of(goodnames))
+  goodnames <- dplyr::filter(.data = matrix_processed,
+                             Field != "") |>
+    dplyr::pull(.data = _,
+                Field)
+  
+  if (verbose) {
+    message(paste("Returning the following columns/variables:",
+                  paste(goodnames,
+                        collapse = ", ")))
   }
-
-  outdata <- outdata |>
-    dplyr::select(dplyr::all_of(goodnames))
-
-
-  #outdata$ProjectKey <- projectkey
-  #
-  # # return messages if verbose
-  # if(verbose) {
-  #   print(paste0(nrow(ChangeColumn), " columns renamed"))
-  #   print(ChangeColumn[,c("terradactylAlias", "Field")])}
-  #
-  # if(verbose) {
-  #   print(paste0(nrow(AddColumn), " columns added"))
-  #   print(AddColumn$Field)}
-  #
-  # if(verbose & dropcols) {
-  #   print(paste0(nrow(DropColumn), " columns removed"))
-  #   print(DropColumn$terradactylAlias)
-  # }
-
+  
+  # This was an all_of() in the past, but that was brittle.
+  # Now we use an any_of() and then inform the user about the missing variables
+  outdata <- dplyr::select(.data = outdata,
+                           tidyselect::any_of(x = goodnames))
+  
+  missing_names <- setdiff(x = goodnames,
+                           y = names(outdata))
+  if (length(missing_names) > 0) {
+    if (verbose) {
+      message(paste("The following variables are still missing and will be added, populated with the value NA:",
+                    paste(missing_names,
+                          sep = ", ")))
+    }
+    for (current_missing_name in missing_names) {
+      outdata[[current_missing_name]] <- NA
+    }
+  }
+  
   return(outdata)
 }
 #############################################
@@ -2715,6 +2715,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
