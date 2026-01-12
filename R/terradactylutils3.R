@@ -2486,7 +2486,7 @@ geofiles <- function(path_foringest,
                         is.na(Hgt_Species_Avg) &
                         is.na(Hgt_Species_Avg_n))) |>
       dplyr::mutate(.data = _,
-                    DateLoadedInDb = ingestion_date) |>
+                    DateLoadedInDb = ingestion_date) 
       translate_schema2(data = accumulated_species_data,
                         schema = schema,
                         datatype = "geoSpecies",
@@ -2715,6 +2715,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
