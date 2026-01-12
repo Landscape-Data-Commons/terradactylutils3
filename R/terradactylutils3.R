@@ -2238,7 +2238,7 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
 #' @param path_tall path to the tall files produced from terradactylutils2::clean_tall_"method"()
 #' @param header as a data.frame, the tall header file in path_tall
 #' @param path_specieslist path to species lists including the ProjectKey
-#' @param path_template path to an indicator list using graminoid identifiers, currently used while certain agencies use GRASS
+#' @param template path to an indicator list using graminoid identifiers, currently used while certain agencies use GRASS
 #' @param doGSP TRUE unless user does not want a geoSpecies file produced
 #'
 #' @return geoSpecies and geoIndicators file written to the path_foringest
@@ -2250,6 +2250,7 @@ geofiles <- function(path_foringest,
                      header,
                      path_specieslist,
                      path_schema,
+                     template,
                      doGSP = TRUE,
                      calculate_dead = FALSE,
                      ingestion_date = NULL,
@@ -2712,6 +2713,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
