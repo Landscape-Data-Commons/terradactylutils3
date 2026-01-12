@@ -2240,9 +2240,11 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
 #' @param path_specieslist path to species lists including the ProjectKey
 #' @param template path to an indicator list using graminoid identifiers, currently used while certain agencies use GRASS
 #' @param doGSP TRUE unless user does not want a geoSpecies file produced
-#'
+#' @param calculate_dead Logical. If \code{TRUE} and \code{doGSP} is \code{TRUE} then the accumulated species calculations will differentiate between "live" and "dead" records. Defaults to \code{FALSE}.
+#' @param date Optional character string. The date value for the DateLoadedInDb variable. Must be in the format mm/dd/YYYY, e.g. "6/19/2026". Defaults to the date returned by \code{Sys.date()}.
 #' @return geoSpecies and geoIndicators file written to the path_foringest
-#' @export
+#' 
+#'@export
 #'
 #' @examples geofiles(path_foringest = path_foringest,path_tall = file.path(path_parent, "Tall"),header = tall_header, path_specieslist =  paste0(path_species,  projkey, ".csv"),path_template = template)
 geofiles <- function(path_foringest,
@@ -2713,6 +2715,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
