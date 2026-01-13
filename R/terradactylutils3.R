@@ -2258,7 +2258,7 @@ geofiles <- function(path_foringest,
                      calculate_dead = FALSE,
                      ingestion_date = NULL,
                      verbose = FALSE,
-                    digits = 2){
+                    digits = 6){
   
   if (is.null(ingestion_date)){
     ingestion_date <- format(x = Sys.time(),
@@ -2476,6 +2476,7 @@ geofiles <- function(path_foringest,
                                                     species_file = species_list,
                                                     dead = calculate_dead,
                                                     source = "DIMA",
+                                                    digits = digits,
                                                     verbose = verbose) |>
       dplyr::left_join(x = _,
                        y = dplyr::select(.data = header,
@@ -2721,6 +2722,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
