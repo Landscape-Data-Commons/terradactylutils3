@@ -2242,11 +2242,12 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
 #' @param doGSP TRUE unless user does not want a geoSpecies file produced
 #' @param calculate_dead Logical. If \code{TRUE} and \code{doGSP} is \code{TRUE} then the accumulated species calculations will differentiate between "live" and "dead" records. Defaults to \code{FALSE}.
 #' @param date Optional character string. The date value for the DateLoadedInDb variable. Must be in the format mm/dd/YYYY, e.g. "6/19/2026". Defaults to the date returned by \code{Sys.date()}.
+#' @param digits Number of digits user wants observations rounded to
 #' @return geoSpecies and geoIndicators file written to the path_foringest
 #' 
 #'@export
 #'
-#' @examples geofiles(path_foringest = path_foringest,path_tall = file.path(path_parent, "Tall"),header = tall_header, path_specieslist =  paste0(path_species,  projkey, ".csv"),path_template = template)
+#' @examples geofiles(path_foringest = path_foringest,path_tall = file.path(path_parent, "Tall"),header = tall_header, path_specieslist =  paste0(path_species,  projkey, ".csv"),path_template = template, digits = 2)
 geofiles <- function(path_foringest,
                      path_tall,
                      header,
@@ -2256,7 +2257,8 @@ geofiles <- function(path_foringest,
                      doGSP = TRUE,
                      calculate_dead = FALSE,
                      ingestion_date = NULL,
-                     verbose = FALSE){
+                     verbose = FALSE,
+                    digits = 2){
   
   if (is.null(ingestion_date)){
     ingestion_date <- format(x = Sys.time(),
@@ -2338,7 +2340,8 @@ geofiles <- function(path_foringest,
     indicators[["lpi"]] <- terradactyl::lpi_calc(lpi_tall = data[["lpi_tall"]],
                                                  header = header,
                                                  species_file = path_specieslist,
-                                                 verbose = verbose) |>
+                                                 verbose = verbose,
+                                                digits = digits) |>
       dplyr::rename(.data = _,
                     # Because lpi_calc() calls it BareSoilCover and the LDC
                     # (rightfully) does not include "Cover"
@@ -2351,7 +2354,8 @@ geofiles <- function(path_foringest,
     }
     indicators[["gap"]] <- terradactyl::gap_calc(gap_tall = data[["gap_tall"]],
                                                  header = header,
-                                                 verbose = verbose)
+                                                 verbose = verbose,
+                                                digits = digits)
   }
   
   if ("height_tall" %in% names(data)) {
@@ -2362,7 +2366,8 @@ geofiles <- function(path_foringest,
                                                        header = header,
                                                        source = "DIMA",
                                                        species_file = path_specieslist,
-                                                       verbose = verbose)
+                                                       verbose = verbose,
+                                                      digits = digits)
   }
   
   if ("species_inventory_tall" %in% names(data)) {
@@ -2382,7 +2387,8 @@ geofiles <- function(path_foringest,
     }
     indicators[["soil_stability"]] <- terradactyl::soil_stability_calc(header = header,
                                                                        soil_stability_tall = data[["soil_stability_tall"]],
-                                                                       verbose = verbose)
+                                                                       verbose = verbose,
+                                                                      digits = digits)
   }
   
   if ("rangelandhealth_tall" %in% names(data)) {
@@ -2715,6 +2721,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
