@@ -2459,6 +2459,18 @@ geofiles <- function(path_foringest,
                               datatype = "geoIndicators",
                               dropcols = TRUE,
                               verbose = verbose)
+
+  my_sum <- function(x) {
+    if (all(is.na(x))) {
+      return(NA)
+    } else {
+      return(sum(x, na.rm = TRUE))
+    }
+  }
+  
+  geoInd <- geoInd %>%
+    mutate(GapCover_25_plus = my_sum(c(GapCover_25_50, GapCover_51_100, GapCover_101_200, GapCover_200_plus)))
+
   
   write.csv(x = geoInd,
             file = file.path(path_foringest,
@@ -2722,6 +2734,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
