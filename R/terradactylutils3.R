@@ -2577,10 +2577,10 @@ geoind_qc <- function(path_foringest, path_qc){
 
   total_cover <- geoind |> mutate(FH_BareSoil = BareSoil) |> mutate(FH_TotalFoliarCover = TotalFoliarCover)
   total_cover <- total_cover |>
-    select(matches("FH_"), ProjectKey, PrimaryKey)
+    dplyr::select(matches("FH_"), ProjectKey, PrimaryKey)
   total_cover<- subset(total_cover, select=-c(FH_TotalLitterCover)) #? not to be included
   #total_cover$total_cover <- rowSums(total_cover)
-  total_cover <- total_cover |> mutate(total_cover=rowSums(select(total_cover,-ProjectKey, -PrimaryKey), na.rm = T))
+  total_cover <- total_cover |> dplyr::mutate(total_cover=rowSums(dplyr::select(total_cover,-ProjectKey, -PrimaryKey), na.rm = T))
   total_cover$Notes <- ifelse(total_cover$total_cover > 100.01, "Sum of FH cover is greater than 100%", "")
   # putting in an action for all rows for now, at the end, only the problem observation remain and
   #will be seen by the user
@@ -2734,6 +2734,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
