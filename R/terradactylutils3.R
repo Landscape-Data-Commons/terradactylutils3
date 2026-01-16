@@ -2460,16 +2460,25 @@ geofiles <- function(path_foringest,
                               dropcols = TRUE,
                               verbose = verbose)
 
-  my_sum <- function(x) {
-    if (all(is.na(x))) {
-      return(NA)
+ # add missing gap col
+
+  cols_to_sum <- c("GapCover_25_50", "GapCover_51_100", "GapCover_101_200", "GapCover_200_plus")
+  
+  geoInd$GapCover_25_plus <- NA
+  
+  # getting incorrect value with sum function, having to do a for loop
+  for (i in 1:nrow(geoInd)) {
+    
+    row_data <- geoInd[i, cols_to_sum]
+    
+    # need to keep the col NA if all gap vals are NA
+    if (all(is.na(row_data))) {
+      geoInd$GapCover_25_plus[i] <- NA
     } else {
-      return(sum(x, na.rm = TRUE))
+      # sum the cols, removing NA
+      geoInd$GapCover_25_plus[i] <- sum(row_data, na.rm = TRUE)
     }
   }
-  
-  geoInd <- geoInd %>%
-    mutate(GapCover_25_plus = my_sum(c(GapCover_25_50, GapCover_51_100, GapCover_101_200, GapCover_200_plus)))
 
   
   write.csv(x = geoInd,
@@ -2734,6 +2743,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
