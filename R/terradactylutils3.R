@@ -836,7 +836,7 @@ clean_tall_lpi <- function(lpi, dataHeader, path_tall){
   # making sure all codes are capital
   tall_lpi$code <- toupper(tall_lpi$code)
   tall_lpi$ProjectKey <- dataHeader$ProjectKey[match(tall_lpi$PrimaryKey, dataHeader$PrimaryKey)]
-tall_lpi$PointLoc <- as.integer(tall_lpi$PointLoc)
+
 
   saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
   write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
@@ -1488,7 +1488,7 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,  source,tod
   #tall_height$DateVisited <- as.Date(tall_height$DateVisited, format = format)
   tall_height$DateLoadedInDb <- rep(todaysDate) #
   tall_height$FormDate <- tblLPIHeader$FormDate[match(tall_height$PrimaryKey, tblLPIHeader$PrimaryKey)]
-tall_height$PointLoc <- as.integer(tall_height$PointLoc)
+
 
   saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
   write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
@@ -2743,6 +2743,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
