@@ -2385,8 +2385,7 @@ geofiles <- function(path_foringest,
     if (verbose) {
       message("Calculating soil stability indicators")
     }
-    indicators[["soil_stability"]] <- terradactyl::soil_stability_calc(header = header,
-                                                                       soil_stability_tall = data[["soil_stability_tall"]],
+    indicators[["soil_stability"]] <- terradactyl::soil_stability_calc(soil_stability_tall = data[["soil_stability_tall"]],
                                                                        verbose = verbose,
                                                                       digits = digits)
   }
@@ -2743,6 +2742,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
