@@ -2374,7 +2374,7 @@ geofiles <- function(path_foringest,
     if (verbose) {
       message("Calculating species inventory indicators")
     }
-    indicators[["species_inventory"]] <- terradactyl::spp_inventory_calc(header = header,
+    indicators[["species_inventory"]] <- terradactyl::spp_inventory_calc(
                                                                          spp_inventory_tall = data[["species_inventory_tall"]],
                                                                          species_file = path_specieslist,
                                                                          source = "DIMA",
@@ -2742,6 +2742,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
