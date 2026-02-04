@@ -15,6 +15,7 @@ use_package("magrittr")
 #' @param format the format that your tblPlots FormDate is in
 #' @param noteformat the format that your tblPlotNotes NoteDate is in
 #' @param nonlineformat the format that your nonline data DateRecorded is in
+#' @param bsneformat the format that your Box collectDate is in
 #' @param non_line_tables tables without numeric data in a list
 #'
 #' @return R data with PrimaryKey, LineKey, PlotKey and RecKey assigned to each plot as well as R data with QC information about PrimaryKey assignment
@@ -181,7 +182,7 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
     data_pk <- data_pk %>%
       dplyr::mutate(
         # Ensure dates are in the correct format
-        DateVisited = as.Date(collectDate, format = format),
+        DateVisited = as.Date(collectDate, format = bsneformat),
         PrimaryKey = paste0(PlotKey, DateVisited)
       )
     
@@ -2775,6 +2776,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
