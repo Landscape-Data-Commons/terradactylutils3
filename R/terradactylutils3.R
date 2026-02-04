@@ -22,7 +22,7 @@ use_package("magrittr")
 #' @export
 #'
 #' @examples assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "%m/%d/%Y", noteformat = "%m/%d/%Y",nonlineformat = "%m/%d/%Y",non_line_tables = c("tblPlots", "tblLines", "tblSites") )
-assign_keys <- function(path_project, format, noteformat, nonlineformat,bsne_format, non_line_tables){
+assign_keys <- function(path_project, format, noteformat, nonlineformat,bsneformat, non_line_tables){
   # get list of all export files
   dima_export_files <- data.frame(file_path = list.files(path = path_project,
                                                          pattern = ".csv",
@@ -2776,6 +2776,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
