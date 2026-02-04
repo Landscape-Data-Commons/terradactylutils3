@@ -123,7 +123,7 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
   detail_header <- c(detail_tables, header_tables)
 
   # we also need to get PrimaryKey information into the non-Line based data
-  no_lines_tables <- all_dimas[!names(all_dimas) |> stringr::str_detect("Header|Detail")] |> names()
+  no_lines_tables <- all_dimas[!names(all_dimas) |> stringr::str_detect("Header|Detail|Box|Stack")] |> names()
   data_no_lines <- lapply(X = no_lines_tables,
                           function(X){
                             # For tblPlotsNotes, create a PrimaryKey from PlotKey and NoteDate
@@ -163,6 +163,39 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,non_line
   # Plots, Lines, SoilPits, and SoilPit Horizons all need PrimaryKeys that correspond with visit of the PlotKey
   table_plots<- non_line_tables # list of nonnumeric tables in data; could include c("tblPlots", "tblLines", "tblSites", "tblSoilPits", "tblSoilPitHorizons")
 
+
+                            # DDT and flux data
+  bsne <- names(all_dimas)[stringr::str_detect(names(all_dimas), "Collection")]
+  
+  BSNE_tables <- lapply(bsne, function(pkey) {
+    
+    # collection data
+    X <- all_dimas[[pkey]]
+    
+    # join with Box to get StackID, then join Stack to get PlotKey from the all_dimas list
+    data_pk <- X %>% 
+      dplyr::left_join(all_dimas[["tblBSNE_Box"]], by = "BoxID") %>% 
+      dplyr::left_join(all_dimas[["tblBSNE_Stack"]], by = "StackID")
+    
+    # create PrimaryKey
+    data_pk <- data_pk %>%
+      dplyr::mutate(
+        # Ensure dates are in the correct format
+        DateVisited = as.Date(collectDate, format = format),
+        PrimaryKey = paste0(PlotKey, DateVisited)
+      )
+    
+    return(data_pk)
+  })
+  
+  # original table names back to the list
+  names(BSNE_tables) <- bsne
+  
+  
+  
+  # merge with detail and header
+  detail_header <- c(detail_header, BSNE_tables)
+  
 
   # get all of the unique method PrimaryKeys
   unique_pks <- do.call(rbind,
@@ -2742,6 +2775,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
