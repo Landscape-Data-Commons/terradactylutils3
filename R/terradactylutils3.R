@@ -15,14 +15,13 @@ use_package("magrittr")
 #' @param format the format that your tblPlots FormDate is in
 #' @param noteformat the format that your tblPlotNotes NoteDate is in
 #' @param nonlineformat the format that your nonline data DateRecorded is in
-#' @param bsneformat the format that your Box collectDate is in
 #' @param non_line_tables tables without numeric data in a list
 #'
 #' @return R data with PrimaryKey, LineKey, PlotKey and RecKey assigned to each plot as well as R data with QC information about PrimaryKey assignment
 #' @export
 #'
 #' @examples assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "%m/%d/%Y", noteformat = "%m/%d/%Y",nonlineformat = "%m/%d/%Y",non_line_tables = c("tblPlots", "tblLines", "tblSites") )
-assign_keys <- function(path_project, format, noteformat, nonlineformat,bsneformat, non_line_tables){
+assign_keys <- function(path_project, format, noteformat, nonlineformat, non_line_tables){
   # get list of all export files
   dima_export_files <- data.frame(file_path = list.files(path = path_project,
                                                          pattern = ".csv",
@@ -175,14 +174,17 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat,bsneform
     
     # join with Box to get StackID, then join Stack to get PlotKey from the all_dimas list
     data_pk <- X %>% 
-      dplyr::left_join(all_dimas[["tblBSNE_Box"]], by = "BoxID") %>% 
-      dplyr::left_join(all_dimas[["tblBSNE_Stack"]], by = "StackID")
+      dplyr::left_join(all_dimas[["tblBSNE_Box"]], by = "BoxID", 
+                       relationship = "many-to-many")) %>% 
+      dplyr::left_join(all_dimas[["tblBSNE_Stack"]], by = "StackID", 
+                       relationship = "many-to-many"))
     
     # create PrimaryKey
     data_pk <- data_pk %>%
       dplyr::mutate(
         # Ensure dates are in the correct format
-        DateVisited = as.Date(collectDate, format = bsneformat),
+        collectDate = as_date(collectDate),
+        DateVisited = as_date(collectDate),
         PrimaryKey = paste0(PlotKey, DateVisited)
       )
     
@@ -2776,6 +2778,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
