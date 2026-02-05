@@ -175,9 +175,9 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat, non_lin
     # join with Box to get StackID, then join Stack to get PlotKey from the all_dimas list
     data_pk <- X %>% 
       dplyr::left_join(all_dimas[["tblBSNE_Box"]], by = "BoxID", 
-                       relationship = "many-to-many")) %>% 
+                       relationship = "many-to-many") %>% 
       dplyr::left_join(all_dimas[["tblBSNE_Stack"]], by = "StackID", 
-                       relationship = "many-to-many"))
+                       relationship = "many-to-many")
     
     # create PrimaryKey
     data_pk <- data_pk %>%
@@ -2778,6 +2778,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
