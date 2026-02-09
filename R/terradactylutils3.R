@@ -21,7 +21,7 @@ use_package("magrittr")
 #' @export
 #'
 #' @examples assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "%m/%d/%Y", noteformat = "%m/%d/%Y",nonlineformat = "%m/%d/%Y",non_line_tables = c("tblPlots", "tblLines", "tblSites") )
-assign_keys <- function(path_project, format, noteformat, nonlineformat, non_line_tables){
+assign_keys <- function(path_project, non_line_tables){
   # get list of all export files
   dima_export_files <- data.frame(file_path = list.files(path = path_project,
                                                          pattern = ".csv",
@@ -85,10 +85,12 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat, non_lin
                             # Now generate Primarykey based on PlotKey and FormDate
                             data_pk <- data_pk |>
                               dplyr::mutate(
-                                #Format FormDate
-                                DateVisited = as.Date(FormDate, format = format), #format is the current format of FormDate (e.g., format = "%m/%d/%Y")
+                                DateVisited = lubridate::parse_date_time(FormDate, 
+                                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM")),
+                                DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
                                 PrimaryKey = paste0(PlotKey, DateVisited),
-                                FormDate = as.Date(FormDate, format = format))
+                                FormDate = DateVisited # Keeping them synced
+                              )
                           })
 
 
@@ -129,22 +131,33 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat, non_lin
                             # For tblPlotsNotes, create a PrimaryKey from PlotKey and NoteDate
                             if(X=="tblPlotNotes"){
                               data <- all_dimas[[X]] |> dplyr::mutate(
-                                DateVisited = as.Date(NoteDate, format = noteformat),
-                                NoteDate = as.Date(NoteDate, format = noteformat),
-                                PrimaryKey = paste0(PlotKey, DateVisited))
+                                DateVisited = lubridate::parse_date_time(NoteDate, 
+                                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
+                                PrimaryKey = paste0(PlotKey, DateVisited),
+                                NoteDate = DateVisited # Keeping them synced
+                                
+                              )
                             }else
                               # For tblPlotHistory, create a PrimaryKey from PlotKey and DateRecorded
                               if(X=="tblPlotHistory"){
                                 data <- all_dimas[[X]] |> dplyr::mutate(
-                                  DateVisited = as.Date(DateRecorded, format = nonlineformat),
-                                  DateRecorded = as.Date(DateRecorded, format = nonlineformat),
-                                  PrimaryKey = paste0(PlotKey, DateVisited))
+                                  
+                                  DateVisited = lubridate::parse_date_time(DateRecorded, 
+                                                                           orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                  DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
+                                  PrimaryKey = paste0(PlotKey, DateVisited),
+                                  DateRecorded = DateVisited # Keeping them synced
+                                  )
                               }else
                                 # For tblSoilPits, create add a PlotKey and DateVisited. We'll join PrimaryKey later for all plots
                                 if(X=="tblSoilPits"){
                                   data <- all_dimas[[X]] |> dplyr::mutate(
-                                    DateRecorded = as.Date(DateRecorded, format = nonlineformat)
-                                  )
+                                    DateRecorded = lubridate::parse_date_time(DateRecorded, 
+                                                                             orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                    DateRecorded = as.Date(DateRecorded), # Ensure it's a Date object, not POSIXct
+                                    
+                                    )
                                 }else
                                   # For tblSoilPitHorizons, first join with tblSoilPits, then
                                   # add PlotKey and DateVisited
@@ -152,7 +165,13 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat, non_lin
                                     data <- dplyr::left_join(all_dimas[[X]],
                                                              all_dimas$tblSoilPits |>
                                                                dplyr::select(PlotKey, DateRecorded, SoilKey, project, dbname))|>
-                                      dplyr::mutate(DateRecorded = as.Date(DateRecorded, format = nonlineformat))
+                                      dplyr::mutate(
+                                        
+                                        DateRecorded = lubridate::parse_date_time(DateRecorded, 
+                                                                                 orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                        DateRecorded = as.Date(DateRecorded), # Ensure it's a Date object, not POSIXct
+                                        
+                                      )
                                   }else{
                                     all_dimas[[X]]
                                   }
@@ -347,6 +366,7 @@ assign_keys <- function(path_project, format, noteformat, nonlineformat, non_lin
   }
 
 }
+
 ###############################################
 
 
@@ -2778,6 +2798,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
