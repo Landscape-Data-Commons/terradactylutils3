@@ -202,8 +202,10 @@ assign_keys <- function(path_project, non_line_tables){
     data_pk <- data_pk %>%
       dplyr::mutate(
         # Ensure dates are in the correct format
-        collectDate = as_date(collectDate),
-        DateVisited = as_date(collectDate),
+        collectDate = as.Date(lubridate::parse_date_time(collectDate, 
+                                orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+        DateVisited = as.Date(lubridate::parse_date_time(collectDate, 
+                                orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
         PrimaryKey = paste0(PlotKey, DateVisited)
       )
     
@@ -2798,6 +2800,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
