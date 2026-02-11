@@ -32,13 +32,13 @@ assign_keys <- function(path_project, non_line_tables){
       "/",
       names = c("project", "dbname", "table"),
       cols_remove = FALSE)
-
-
-
-
-
-
-
+  
+  
+  
+  
+  
+  
+  
   # this code reads all CSVs at once, appends and assigns table name
   # read all DIMA types and append
   all_dimas <- lapply(X = unique(dima_export_files$table),
@@ -60,15 +60,15 @@ assign_keys <- function(path_project, non_line_tables){
                                                       })
                         )
                       })
-
+  
   #name all of the tables in the all_dimas list
   names(all_dimas) <- unique(dima_export_files$table) |> stringr::str_remove(".csv")
-
-
-
+  
+  
+  
   # the primary key is assigned from the large (appended) CSV with name from table assigned to each observation - however
   # this is done in multiple parts depending on the table type
-
+  
   # create PrimaryKeys by joining PlotKey to DateVisited. We first have to join to the header tables, then the detail tables
   header_tables <- lapply(X = all_dimas[names(all_dimas) |> stringr::str_detect("Header")],
                           function(X){
@@ -92,8 +92,8 @@ assign_keys <- function(path_project, non_line_tables){
                                 FormDate = DateVisited # Keeping them synced
                               )
                           })
-
-
+  
+  
   # join header and detail tables to add PrimaryKey
   detail_list <- names(all_dimas)[names(all_dimas) |> stringr::str_detect("Detail")]
   detail_tables <- lapply(
@@ -104,7 +104,7 @@ assign_keys <- function(path_project, non_line_tables){
       tblDetail <- all_dimas[[X]]
       tblHeader <- header_tables[[X |> stringr::str_replace(pattern = "Detail",
                                                             replacement = "Header")]]
-
+      
       # if tblHeader exists, proceed with join
       if(!is.null(tblHeader)){
         data_pk <- dplyr::left_join(
@@ -118,12 +118,12 @@ assign_keys <- function(path_project, non_line_tables){
         all_dimas[[X]]
       }
     })
-
+  
   names(detail_tables) <- detail_list
-
+  
   # merge the detail and header tables together
   detail_header <- c(detail_tables, header_tables)
-
+  
   # we also need to get PrimaryKey information into the non-Line based data
   no_lines_tables <- all_dimas[!names(all_dimas) |> stringr::str_detect("Header|Detail|Box|Stack")] |> names()
   data_no_lines <- lapply(X = no_lines_tables,
@@ -148,16 +148,16 @@ assign_keys <- function(path_project, non_line_tables){
                                   DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
                                   PrimaryKey = paste0(PlotKey, DateVisited),
                                   DateRecorded = DateVisited # Keeping them synced
-                                  )
+                                )
                               }else
                                 # For tblSoilPits, create add a PlotKey and DateVisited. We'll join PrimaryKey later for all plots
                                 if(X=="tblSoilPits"){
                                   data <- all_dimas[[X]] |> dplyr::mutate(
                                     DateRecorded = lubridate::parse_date_time(DateRecorded, 
-                                                                             orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                                                              orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
                                     DateRecorded = as.Date(DateRecorded), # Ensure it's a Date object, not POSIXct
                                     
-                                    )
+                                  )
                                 }else
                                   # For tblSoilPitHorizons, first join with tblSoilPits, then
                                   # add PlotKey and DateVisited
@@ -168,7 +168,7 @@ assign_keys <- function(path_project, non_line_tables){
                                       dplyr::mutate(
                                         
                                         DateRecorded = lubridate::parse_date_time(DateRecorded, 
-                                                                                 orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                                                                  orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
                                         DateRecorded = as.Date(DateRecorded), # Ensure it's a Date object, not POSIXct
                                         
                                       )
@@ -176,36 +176,46 @@ assign_keys <- function(path_project, non_line_tables){
                                     all_dimas[[X]]
                                   }
                           })
-
+  
   names(data_no_lines) <- no_lines_tables
-
+  
   # Plots, Lines, SoilPits, and SoilPit Horizons all need PrimaryKeys that correspond with visit of the PlotKey
   table_plots<- non_line_tables # list of nonnumeric tables in data; could include c("tblPlots", "tblLines", "tblSites", "tblSoilPits", "tblSoilPitHorizons")
-
-
-                            # DDT and flux data
-  bsne <- names(all_dimas)[stringr::str_detect(names(all_dimas), "Collection")]
   
-  BSNE_tables <- lapply(bsne, function(pkey) {
+  
+  # MWAC
+  
+  mwac <- names(all_dimas)[stringr::str_detect(names(all_dimas), "BoxCollection")]
+
+  
+  MWAC_tables <- lapply(mwac, function(pkey) {
     
     # collection data
     X <- all_dimas[[pkey]]
     
     # join with Box to get StackID, then join Stack to get PlotKey from the all_dimas list
     data_pk <- X %>% 
-      dplyr::left_join(all_dimas[["tblBSNE_Box"]], by = "BoxID", 
-                       relationship = "many-to-many") %>% 
-      dplyr::left_join(all_dimas[["tblBSNE_Stack"]], by = "StackID", 
-                       relationship = "many-to-many")
+      dplyr::left_join(
+        all_dimas[["tblBSNE_Box"]] %>% 
+          dplyr::select(-dbname, -project, -Notes, -DateEstablished), 
+        by = "BoxID", 
+        relationship = "many-to-many"
+      ) %>% 
+      dplyr::left_join(
+        all_dimas[["tblBSNE_Stack"]] %>% 
+          dplyr::select(-dbname, -project, -Notes), 
+        by = "StackID", 
+        relationship = "many-to-many"
+      )
     
     # create PrimaryKey
     data_pk <- data_pk %>%
       dplyr::mutate(
         # Ensure dates are in the correct format
         collectDate = as.Date(lubridate::parse_date_time(collectDate, 
-                                orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
         DateVisited = as.Date(lubridate::parse_date_time(collectDate, 
-                                orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
         PrimaryKey = paste0(PlotKey, DateVisited)
       )
     
@@ -213,14 +223,53 @@ assign_keys <- function(path_project, non_line_tables){
   })
   
   # original table names back to the list
-  names(BSNE_tables) <- bsne
+  names(MWAC_tables) <- mwac
+  
+  
+  
+  # DDT
+  
+  ddt <- names(all_dimas)[stringr::str_detect(names(all_dimas), "TrapCollection")]
+  
+  
+  ddt_tables <- lapply(ddt, function(pkey) {
+    
+    # collection data
+    X <- all_dimas[[pkey]]
+    
+    # join with Box to get StackID, then join Stack to get PlotKey from the all_dimas list
+    data_pk <- X %>% 
+      dplyr::left_join(
+        all_dimas[["tblBSNE_Stack"]] %>% 
+          dplyr::select(-dbname, -project, -Notes), 
+        by = "StackID", 
+        relationship = "many-to-many"
+      )
+    
+    # create PrimaryKey
+    data_pk <- data_pk %>%
+      dplyr::mutate(
+        # Ensure dates are in the correct format
+        collectDate = as.Date(lubridate::parse_date_time(collectDate, 
+                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+        DateVisited = as.Date(lubridate::parse_date_time(collectDate, 
+                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+        PrimaryKey = paste0(PlotKey, DateVisited)
+      )
+    
+    return(data_pk)
+  })
+  
+  # original table names back to the list
+  names(ddt_tables) <- ddt
+  
   
   
   
   # merge with detail and header
-  detail_header <- c(detail_header, BSNE_tables)
+  detail_header <- c(detail_header, MWAC_tables, ddt_tables)
   
-
+  
   # get all of the unique method PrimaryKeys
   unique_pks <- do.call(rbind,
                         lapply(X = names(detail_header),
@@ -228,7 +277,7 @@ assign_keys <- function(path_project, non_line_tables){
                                  print(X)
                                  # If PlotKey exists, we'll merge
                                  if("PlotKey" %in% names(detail_header[[X]])){
-
+                                   
                                    data <-detail_header[[X]] |>
                                      dplyr::select(PlotKey, PrimaryKey, DateVisited, project, dbname) |>
                                      dplyr::mutate(method = X) |>
@@ -242,7 +291,7 @@ assign_keys <- function(path_project, non_line_tables){
     dplyr::mutate(method = method |> stringr::str_remove_all(
       pattern = "Detail|Header|tbl"
     )) |> dplyr::distinct()
-
+  
   # join to table_plots
   plots_pks <- lapply(X = table_plots,
                       function(X){
@@ -255,18 +304,18 @@ assign_keys <- function(path_project, non_line_tables){
                                            relationship = "many-to-many")
                       })
   names(plots_pks) <- table_plots
-
-
-
-
-
-
+  
+  
+  
+  
+  
+  
   # QC checking all tables have date and pkey assigned
-
-
+  
+  
   # put all the tables together
   all_dimas_pks <- c(plots_pks, data_no_lines[!names(data_no_lines) %in% table_plots], detail_header)
-
+  
   # QC
   # First, check that all tables have a PrimaryKey and DateVisited assigned
   primarykey_check <- do.call(
@@ -280,7 +329,7 @@ assign_keys <- function(path_project, non_line_tables){
                      )
                  })
   )
-
+  
   # Print out the problem tables
   if(nrow(primarykey_check[primarykey_check$primarykey_check=="No"&!primarykey_check$table %in%
                            c("tblSites", "tblSpecies", "tblSpeciesGeneric", "tblNestedFreqSpeciesSummary",
@@ -291,13 +340,13 @@ assign_keys <- function(path_project, non_line_tables){
   }else{
     print("All PrimaryKeys assigned")
   }
-
-
-
-
-
-
-
+  
+  
+  
+  
+  
+  
+  
   # assign pkeys to details and compares by pkey
   # QC PrimaryKeys and DateVisited
   # First we'll see how identify any PrimaryKey issues (e.g., NA, orphaned records)
@@ -314,10 +363,10 @@ assign_keys <- function(path_project, non_line_tables){
     tidyr::pivot_wider(names_from = method,
                        values_from = values,
                        values_fill = "no")
-
-
-
-
+  
+  
+  
+  
   # Identify PrimaryKeys where date visits are close to each other--this could mean that unique plots are improperly assigned
   pk_date_check <- pk_date_check |> dplyr::group_by(PlotKey) |>
     dplyr::arrange(desc(DateVisited)) |>
@@ -326,7 +375,7 @@ assign_keys <- function(path_project, non_line_tables){
                     # convert to numeric days
                     stringr::str_remove(" days") |> as.numeric()) |>
     dplyr::ungroup()|>
-
+    
     # add Notes and Action
     dplyr::mutate(Notes = dplyr::case_when( DaysDiff<=7 ~ "Visit within 7 days",
                                             DaysDiff>7 & DaysDiff<=30 ~ "Visit within 7-30 days",
@@ -338,13 +387,13 @@ assign_keys <- function(path_project, non_line_tables){
                                             DaysDiff<=7 ~ "Consider grouping date visits"))|>
     # add PlotID information back in to help users trouble shoot
     dplyr::left_join(all_dimas_pks[["tblPlots"]]|> dplyr::select(PrimaryKey, PlotKey, PlotID) |> dplyr::distinct() |> subset(!is.na(PrimaryKey)))
-
-
-
-
-
-
-
+  
+  
+  
+  
+  
+  
+  
   # code removes NA and generic plots - orphaned records are identified, but deletion is handled within the gather function
   # Flag generic plots and orphaned records for deletion
   pk_date_check <- pk_date_check |>
@@ -366,8 +415,9 @@ assign_keys <- function(path_project, non_line_tables){
   for(i in names(all_dimas)){
     write.csv(all_dimas[[i]], paste0(DIMATables,"/",i,".csv"))
   }
-
+  
 }
+
 
 ###############################################
 
@@ -2800,6 +2850,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
