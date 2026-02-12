@@ -110,11 +110,17 @@ assign_keys <- function(path_project, non_line_tables){
       # if tblHeader exists, proceed with join
       if(!is.null(tblHeader)){
         data_pk <- dplyr::left_join(
-          # join detail table to header
-          tblDetail,
-          tblHeader %>%
-            dplyr::select_if(names(tblHeader) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
-          relationship = "many-to-one")
+  # Force RecKey to character in the Detail table
+  tblDetail %>% 
+    dplyr::mutate(RecKey = as.character(RecKey)),
+  
+  # Force RecKey to character in the Header table
+  tblHeader %>%
+    dplyr::mutate(RecKey = as.character(RecKey)) %>%
+    dplyr::select_if(names(.) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
+  
+  relationship = "many-to-one"
+)
       }else{
         print(paste("No header for table", X, "No join performed. Check that this is expected"))
         all_dimas[[X]]
@@ -2852,6 +2858,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
