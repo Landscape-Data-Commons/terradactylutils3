@@ -74,11 +74,13 @@ assign_keys <- function(path_project, non_line_tables){
                           function(X){
                             # if there is already a PlotKey, no need to do anything, otherwise we need to join PlotKey to the table via tblLines
                             if(!"PlotKey" %in% names(X)){
-                              data_pk <- dplyr::left_join(
-                                X,
-                                all_dimas$tblLines |>
-                                  dplyr::select(PlotKey, LineKey, project, dbname)|> dplyr::distinct(),
-                                relationship = "many-to-one")
+                             data_pk <- dplyr::left_join(
+                              X |> dplyr::mutate(LineKey = as.character(LineKey)),
+                              all_dimas$tblLines |>
+                                dplyr::mutate(LineKey = as.character(LineKey)) |> 
+                                dplyr::select(PlotKey, LineKey, project, dbname) |> 
+                                dplyr::distinct(),
+                              relationship = "many-to-one")
                             }else{
                               data_pk <- X
                             }
@@ -2850,6 +2852,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
