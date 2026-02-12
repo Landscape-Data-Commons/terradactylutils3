@@ -75,9 +75,9 @@ assign_keys <- function(path_project, non_line_tables){
                             # if there is already a PlotKey, no need to do anything, otherwise we need to join PlotKey to the table via tblLines
                             if(!"PlotKey" %in% names(X)){
                              data_pk <- dplyr::left_join(
-                              X |> dplyr::mutate(LineKey = as.character(LineKey)),
+                              X |> dplyr::mutate(LineKey = as.double(LineKey)),
                               all_dimas$tblLines |>
-                                dplyr::mutate(LineKey = as.character(LineKey)) |> 
+                                dplyr::mutate(LineKey = as.double(LineKey)) |> 
                                 dplyr::select(PlotKey, LineKey, project, dbname) |> 
                                 dplyr::distinct(),
                               relationship = "many-to-one")
@@ -112,11 +112,11 @@ assign_keys <- function(path_project, non_line_tables){
         data_pk <- dplyr::left_join(
   # Force RecKey to character in the Detail table
   tblDetail %>% 
-    dplyr::mutate(RecKey = as.character(RecKey)),
+    dplyr::mutate(RecKey = as.double(RecKey)),
   
   # Force RecKey to character in the Header table
   tblHeader %>%
-    dplyr::mutate(RecKey = as.character(RecKey)) %>%
+    dplyr::mutate(RecKey = as.double(RecKey)) %>%
     dplyr::select_if(names(.) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
   
   relationship = "many-to-one"
@@ -2858,6 +2858,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
