@@ -7,69 +7,6 @@ use_package("tidyselect")
 use_package("magrittr")
 
 
-################################################
-#' Create header
-#'
-#'creates the header table used to produce all of the tall tables
-#'
-#' @param path_tall a file path where your tall data will be stored, that is saved within path_parent, where path_parent is the path with the dima exports file for the project and export files (tall, for ingest and QC files)
-#' @param tblPlots tblPlots from the DIMA tables read in as a data.frame
-#' @param todaysDate today's date
-#' @param source source type such as "DIMA" or "Terradat"
-#' @param by_species_key whether the SpeciesState in the header differentiates by state (T) or by ProjectKey(F)
-#'
-#' @return  RDS and CSV of header saved to the tall file directory (path_tall) as well as a data.frame in your console (unless set to an object) with the name dataHeader
-#' @export
-#'
-#' @examples create_header(path_tall = file.path(path_parent, "Tall"), tblPlots = tblPlots, todaysDate = format(Sys.Date(), "%m/%d/%Y"), source = "DIMA", by_species_key = FALSE)
-create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key){
-  problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
-  tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
-  dataHeader <- tblPlots |>
-    rename(
-      ProjectKey = project,
-      DBKey = dbname,
-      Latitude_NAD83 = Latitude,
-      Longitude_NAD83 = Longitude,
-      EcologicalSiteId = EcolSite
-    )
-  dataHeader$SiteID <- tblSites$SiteID[match(dataHeader$SiteKey, tblSites$SiteKey)]
-  dataHeader$RecKey <- dataHeader$PlotKey
-
-  header2 <- dataHeader
-
-  # keeping only cols of interest
-  dataHeader <- dataHeader |> dplyr::select(ProjectKey, PrimaryKey, DateVisited, Latitude_NAD83, Longitude_NAD83,
-                                            DBKey, State, County, PlotID, RecKey,EcologicalSiteId)
-
-
-  # adding remaining details needed for dataHeader
-
-  dataHeader$PercentCoveredByEcoSite <- rep(NA) # leaving blank, doesn't impact calcs
-  dataHeader$wkb_geometry <- rep(NA) # leaving blank, doesn't impact calcs
-  dataHeader$DateLoadedInDb <- rep(todaysDate)
-  dataHeader$source <- rep(source)
-  # for species join to work properly, the SpecieState needs to be the projectkey
-  # unless the project actually is distinguishing the species by state
-  if(by_species_key == TRUE){
-    dataHeader$SpeciesState <- dataHeader$State
-  }
-
-  if(by_species_key == FALSE){
-    dataHeader$SpeciesState <- dataHeader$ProjectKey
-  }
-  #dataHeader$DateVisited <- as.character(dataHeader$DateVisited)
-
-  write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
-  saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
-
-  dataHeader
-
-}
-###############################
-
-
-
 ###############################
 #' Remove duplicates
 #'
@@ -271,68 +208,6 @@ add_indicator_columns <- function(template,
 }
 ###################################
 
-
-
-###################################
-#' Clean Tall LPI
-#'
-#'after gathering lpi, this function makes adjustments to the tall table that are necessary to produce geofiles and the data prepared for the LDC
-#'
-#' @param lpi as a data.frame, the tall_lpi file
-#' @param dataHeader as a data.frame, the dataHeader file produced from terradactylutils2::create_header()
-#' @param path_tall where all tall files from terradactyl::gather_... were saved
-#'
-#' @return updated tall file written to path_tall and a tall_lpi data frame in the console (unless saved to an object)
-#' @export
-#'
-#' @examples clean_tall_lpi(lpi = terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
-clean_tall_lpi <- function(lpi, dataHeader, path_tall){
-  if (any(class(lpi) %in% c("POSIXct", "POSIXt"))) {
-    change_vars <- names(lpi)[do.call(rbind, vapply(lpi,
-                                                    class))[, 1] %in% c("POSIXct", "POSIXt")]
-    lpi <- dplyr::mutate_at(lpi, dplyr::vars(change_vars),
-                            dplyr::funs(as.character))
-  }
-
-  # reorder so that primary key is leftmost column
-  lpi$DBKey <- dataHeader$DBKey[match(lpi$PrimaryKey, dataHeader$PrimaryKey)]
-  lpi <- lpi |>
-    dplyr::select(PrimaryKey, DBKey, LineKey, tidyselect::everything())
-
-  # Drop rows with no data
-  lpi <- lpi |>
-    dplyr::filter(!(is.na(LineKey) &
-                      is.na(layer) &
-                      is.na(code) &
-                      is.na(ShrubShape) &
-                      is.na(PointNbr)))
-
-
-
-
-  ### remove duplicates and empty rows
-
-
-  lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
-
-
-  tall_lpi <- lpi
-
-  pkeys <- dataHeader$PrimaryKey
-  dropcols_lpi <- tall_lpi  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-  tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] |>
-    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
-  # making sure all codes are capital
-  tall_lpi$code <- toupper(tall_lpi$code)
-  tall_lpi$ProjectKey <- dataHeader$ProjectKey[match(tall_lpi$PrimaryKey, dataHeader$PrimaryKey)]
-
-
-  saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
-  write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
-
-  tall_lpi
-}
-####################################
 
 
 
@@ -2231,6 +2106,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
