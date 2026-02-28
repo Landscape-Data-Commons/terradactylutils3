@@ -211,42 +211,6 @@ add_indicator_columns <- function(template,
 
 
 
-############################################
-#' Clean Tall Gap
-#'
-#'removes and adds columns to the tall_gap file produced using terradactyl::gather_gap that are (not) necessary to produce geofiles
-#'
-#' @param tall_gap as a data.frame, tall gap file produced from terradactyl::gather_gap()
-#' @param dataHeader as a data.frame, the dataHeader file produced from terradactylutils2::create_header()
-#' @param path_tall where all tall files from terradactyl::gather_... were saved
-#'
-#' @return an updated tall_gap file saved to path_tall and tall_gap in the console (unless saved to an object)
-#' @export
-#'
-#' @examples clean_tall_gap(tall_gap = terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
-clean_tall_gap <- function(tall_gap, dataHeader, path_tall){
-
-  dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-  pkeys <- dataHeader$PrimaryKey
-  tall_gap <- tall_gap[which(!duplicated(dropcols_gap)),] |>
-    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
-  # add back in cols that are currently being removed with the function
-  tall_gap$DBKey <- dataHeader$DBKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
-
-  tall_gap$DateVisited <- tblGapHeader$DateVisited[match(tall_gap$PrimaryKey, tblGapHeader$PrimaryKey)]
-  #tall_gap$DateVisited <- as.character(tall_gap$DateVisited)
-
-  tall_gap$Direction <- tblGapHeader$Direction[match(tall_gap$PrimaryKey, tblGapHeader$PrimaryKey)]
-  #match
-  tall_gap$ProjectKey <- dataHeader$ProjectKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
-
-  saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
-  write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
-  tall_gap
-}
-#####################################
-
-
 
 #####################################
 #' Tall Gap QC
@@ -1936,6 +1900,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
