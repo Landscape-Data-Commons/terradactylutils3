@@ -134,3 +134,41 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
 ##################################
 
 
+
+
+########################################
+#' Clean Tall Species Richness
+#'
+#'adds or removes columns from the  tall_species_richness file produced with terradactyl::gather_species_richness() that are (not) necessary to run terradactylutils2::geofiles()
+#'
+#' @param tall_species tall_species file produced from terradactyl::gather_species_richness()
+#' @param dataHeader dataHeader file produced from create_header()
+#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#'
+#' @return a CSV saved to the speficied path_tall and the updated tall_species_richness saved to the R enviornment
+#' @export
+#'
+#' @examples clean_tall_species(tall_species = gather_species_inventory(source = "DIMA", tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
+clean_tall_species <- function(tall_species, dataHeader, path_tall){
+
+  dropcols_species <- tall_species  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+  pkeys <- dataHeader$PrimaryKey
+  tall_species <- tall_species[which(!duplicated(dropcols_species)),] |>
+    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
+  # add back in cols that are currently being removed with the function
+  tall_species$DBKey <- dataHeader$DBKey[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
+  tall_species$Direction <- tblSpecRichHeader$Direction[match(tall_species$PrimaryKey, tblSpecRichHeader$PrimaryKey)]
+  #tall_species$DateVisited <- as.character(tall_species$DateVisited)
+  tall_species <- tall_species |>
+    rename(
+      ProjectKey = project
+    )
+
+  saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
+  write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
+
+  tall_species
+}
+########################################
+
+
