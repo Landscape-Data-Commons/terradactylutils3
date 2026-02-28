@@ -96,3 +96,41 @@ clean_tall_gap <- function(tall_gap, dataHeader, path_tall){
 }
 #####################################
 
+
+
+#####################################
+#' Clean Tall Soil Stability
+#'
+#'adds and removes columns to the data produced from terradactyl::gather_soil_stability that are (not) necessary to run terradactylutils2::geofiles()
+#'
+#' @param tall_soil_stability file produced from terradactyl::gather_soil_stability
+#' @param dataHeader dataHeader produced from terradactylutils2::create_header()
+#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#'
+#' @return a CSV saved to the specified path_tall and a tall_soil_stability data frame in the console (unless saved to an object)
+#' @export
+#'
+#' @examples clean_tall_soil_stability(tall_soil_stability = terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = tblSoilStabDetail, tblSoilStabHeader = tblSoilStabHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
+clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall){
+
+  dropcols_soil_stability <- tall_soil_stability  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+
+  pkeys <- dataHeader$PrimaryKey
+  tall_soil_stability <- tall_soil_stability[which(!duplicated(dropcols_soil_stability)),] |>
+    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
+  # add back in cols that are currently being removed with the function
+  tall_soil_stability$DBKey <- dataHeader$DBKey[match(tall_soil_stability$PrimaryKey, dataHeader$PrimaryKey)]
+  tall_soil_stability$Hydro <- rep(FALSE)
+  #tall_soil_stability$DateVisited <- as.character(tall_soil_stability$DateVisited)
+  #rename
+  tall_soil_stability <- tall_soil_stability |>
+    rename(
+      ProjectKey = project
+    )
+  saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
+  write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
+  tall_soil_stability
+}
+##################################
+
+
