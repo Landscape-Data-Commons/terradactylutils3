@@ -1,0 +1,70 @@
+library(devtools)
+use_package("tidyr")
+use_package("dplyr")
+use_package("stringr")
+use_package("lubridate")
+use_package("tidyselect")
+use_package("magrittr")
+
+
+################################################
+#' Create header
+#'
+#'creates the header table used to produce all of the tall tables
+#'
+#' @param path_tall a file path where your tall data will be stored, that is saved within path_parent, where path_parent is the path with the dima exports file for the project and export files (tall, for ingest and QC files)
+#' @param tblPlots tblPlots from the DIMA tables read in as a data.frame
+#' @param todaysDate today's date
+#' @param source source type such as "DIMA" or "Terradat"
+#' @param by_species_key whether the SpeciesState in the header differentiates by state (T) or by ProjectKey(F)
+#'
+#' @return  RDS and CSV of header saved to the tall file directory (path_tall) as well as a data.frame in your console (unless set to an object) with the name dataHeader
+#' @export
+#'
+#' @examples create_header(path_tall = file.path(path_parent, "Tall"), tblPlots = tblPlots, todaysDate = format(Sys.Date(), "%m/%d/%Y"), source = "DIMA", by_species_key = FALSE)
+create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key){
+  problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
+  tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
+  dataHeader <- tblPlots |>
+    rename(
+      ProjectKey = project,
+      DBKey = dbname,
+      Latitude_NAD83 = Latitude,
+      Longitude_NAD83 = Longitude,
+      EcologicalSiteId = EcolSite
+    )
+  dataHeader$SiteID <- tblSites$SiteID[match(dataHeader$SiteKey, tblSites$SiteKey)]
+  dataHeader$RecKey <- dataHeader$PlotKey
+
+  header2 <- dataHeader
+
+  # keeping only cols of interest
+  dataHeader <- dataHeader |> dplyr::select(ProjectKey, PrimaryKey, DateVisited, Latitude_NAD83, Longitude_NAD83,
+                                            DBKey, State, County, PlotID, RecKey,EcologicalSiteId)
+
+
+  # adding remaining details needed for dataHeader
+
+  dataHeader$PercentCoveredByEcoSite <- rep(NA) # leaving blank, doesn't impact calcs
+  dataHeader$wkb_geometry <- rep(NA) # leaving blank, doesn't impact calcs
+  dataHeader$DateLoadedInDb <- rep(todaysDate)
+  dataHeader$source <- rep(source)
+  # for species join to work properly, the SpecieState needs to be the projectkey
+  # unless the project actually is distinguishing the species by state
+  if(by_species_key == TRUE){
+    dataHeader$SpeciesState <- dataHeader$State
+  }
+
+  if(by_species_key == FALSE){
+    dataHeader$SpeciesState <- dataHeader$ProjectKey
+  }
+  #dataHeader$DateVisited <- as.character(dataHeader$DateVisited)
+
+  write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
+  saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
+
+  dataHeader
+
+}
+###############################
+
