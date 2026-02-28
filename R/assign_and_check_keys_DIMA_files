@@ -1,0 +1,549 @@
+library(devtools)
+use_package("tidyr")
+use_package("dplyr")
+use_package("stringr")
+use_package("lubridate")
+use_package("tidyselect")
+use_package("magrittr")
+
+#########################################
+#' Assign keys
+#'
+#' Assigns all of the keys (primarykey, reckey, linekey, dbkey) to the DIMA tables. When using, ensure that the files are structured in the path_project folder as: "project"/"file(s) titled with the name of the location within that project with _ date data were received with format %Y-%m-%d"/"all the files exported from DIMA with the typical DIMA export naming such as tblGapHeader". For instance, my file structure could be NWERN/dima_exports/NWERN_HAFB/NWERN_HAFB_10062025/tbl...csv. path_qc, DIMATables, path_tall,path_original_files must be objects saved to your environment that are the file paths where outputs will be stored
+#'
+#' @param path_project folder in path_parent where data for preparation are stored where path_parent is the path where dima exports file for project is stored and where export files (tall, for ingest and QC files) will be stored
+#' @param format the format that your tblPlots FormDate is in
+#' @param noteformat the format that your tblPlotNotes NoteDate is in
+#' @param nonlineformat the format that your nonline data DateRecorded is in
+#' @param non_line_tables tables without numeric data in a list
+#'
+#' @return R data with PrimaryKey, LineKey, PlotKey and RecKey assigned to each plot as well as R data with QC information about PrimaryKey assignment
+#' @export
+#'
+#' @examples assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "%m/%d/%Y", noteformat = "%m/%d/%Y",nonlineformat = "%m/%d/%Y",non_line_tables = c("tblPlots", "tblLines", "tblSites") )
+assign_keys <- function(path_project, non_line_tables){
+  # get list of all export files
+  dima_export_files <- data.frame(file_path = list.files(path = path_project,
+                                                         pattern = ".csv",
+                                                         recursive = T,
+                                                         include.dirs = T)) |>
+    tidyr::separate_wider_delim(
+      file_path,
+      "/",
+      names = c("project", "dbname", "table"),
+      cols_remove = FALSE)
+  
+  
+  
+  
+  
+  
+  
+  # this code reads all CSVs at once, appends and assigns table name
+  # read all DIMA types and append
+  all_dimas <- lapply(X = unique(dima_export_files$table),
+                      FUN = function(X) {
+                        # read each file associated with a data_type
+                        file_list <- dima_export_files$file_path[dima_export_files$table==X]
+                        # read the all files associated with a particular DIMA table type and append
+                        data <- do.call(rbind, lapply(X = file_list,
+                                                      FUN = function(X) {
+                                                        print(X)
+                                                        data <- read.csv(paste0(path_project,X),
+                                                                         # change blanks to NA
+                                                                         na.strings = c("", "NA")) |>
+                                                          # add file path
+                                                          dplyr::mutate(file_path = X) |>
+                                                          # join to dima_export file to get project, dbname, and table name
+                                                          dplyr::left_join(dima_export_files) |>
+                                                          dplyr::select(-c(file_path, table))
+                                                      })
+                        )
+                      })
+  
+  #name all of the tables in the all_dimas list
+  names(all_dimas) <- unique(dima_export_files$table) |> stringr::str_remove(".csv")
+  
+  
+  
+  # the primary key is assigned from the large (appended) CSV with name from table assigned to each observation - however
+  # this is done in multiple parts depending on the table type
+  
+  # create PrimaryKeys by joining PlotKey to DateVisited. We first have to join to the header tables, then the detail tables
+  header_tables <- lapply(X = all_dimas[names(all_dimas) |> stringr::str_detect("Header")],
+                          function(X){
+                            # if there is already a PlotKey, no need to do anything, otherwise we need to join PlotKey to the table via tblLines
+                            if(!"PlotKey" %in% names(X)){
+                             data_pk <- dplyr::left_join(
+                              X |> dplyr::mutate(LineKey = as.double(LineKey)),
+                              all_dimas$tblLines |>
+                                dplyr::mutate(LineKey = as.double(LineKey)) |> 
+                                dplyr::select(PlotKey, LineKey, project, dbname) |> 
+                                dplyr::distinct(),
+                              relationship = "many-to-one")
+                            }else{
+                              data_pk <- X
+                            }
+                            # Now generate Primarykey based on PlotKey and FormDate
+                            data_pk <- data_pk |>
+                              dplyr::mutate(
+                                DateVisited = lubridate::parse_date_time(FormDate, 
+                                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM")),
+                                DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
+                                PrimaryKey = paste0(PlotKey, DateVisited),
+                                FormDate = DateVisited # Keeping them synced
+                              )
+                          })
+  
+  
+  # join header and detail tables to add PrimaryKey
+  detail_list <- names(all_dimas)[names(all_dimas) |> stringr::str_detect("Detail")]
+  detail_tables <- lapply(
+    # we will work one method at a time through the list
+    X = detail_list,
+    function(X){
+      # we need to find the associated header table
+      tblDetail <- all_dimas[[X]]
+      tblHeader <- header_tables[[X |> stringr::str_replace(pattern = "Detail",
+                                                            replacement = "Header")]]
+      
+      # if tblHeader exists, proceed with join
+      if(!is.null(tblHeader)){
+        data_pk <- dplyr::left_join(
+  # Force RecKey to character in the Detail table
+  tblDetail %>% 
+    dplyr::mutate(RecKey = as.double(RecKey)),
+  
+  # Force RecKey to character in the Header table
+  tblHeader %>%
+    dplyr::mutate(RecKey = as.double(RecKey)) %>%
+    dplyr::select_if(names(.) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
+  
+  relationship = "many-to-one"
+)
+      }else{
+        print(paste("No header for table", X, "No join performed. Check that this is expected"))
+        all_dimas[[X]]
+      }
+    })
+  
+  names(detail_tables) <- detail_list
+  
+  # merge the detail and header tables together
+  detail_header <- c(detail_tables, header_tables)
+  
+  # we also need to get PrimaryKey information into the non-Line based data
+  no_lines_tables <- all_dimas[!names(all_dimas) |> stringr::str_detect("Header|Detail|Box|Stack")] |> names()
+  data_no_lines <- lapply(X = no_lines_tables,
+                          function(X){
+                            # For tblPlotsNotes, create a PrimaryKey from PlotKey and NoteDate
+                            if(X=="tblPlotNotes"){
+                              data <- all_dimas[[X]] |> dplyr::mutate(
+                                DateVisited = lubridate::parse_date_time(NoteDate, 
+                                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
+                                PrimaryKey = paste0(PlotKey, DateVisited),
+                                NoteDate = DateVisited # Keeping them synced
+                                
+                              )
+                            }else
+                              # For tblPlotHistory, create a PrimaryKey from PlotKey and DateRecorded
+                              if(X=="tblPlotHistory"){
+                                data <- all_dimas[[X]] |> dplyr::mutate(
+                                  
+                                  DateVisited = lubridate::parse_date_time(DateRecorded, 
+                                                                           orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                  DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
+                                  PrimaryKey = paste0(PlotKey, DateVisited),
+                                  DateRecorded = DateVisited # Keeping them synced
+                                )
+                              }else
+                                # For tblSoilPits, create add a PlotKey and DateVisited. We'll join PrimaryKey later for all plots
+                                if(X=="tblSoilPits"){
+                                  data <- all_dimas[[X]] |> dplyr::mutate(
+                                    DateRecorded = lubridate::parse_date_time(DateRecorded, 
+                                                                              orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                    DateRecorded = as.Date(DateRecorded), # Ensure it's a Date object, not POSIXct
+                                    
+                                  )
+                                }else
+                                  # For tblSoilPitHorizons, first join with tblSoilPits, then
+                                  # add PlotKey and DateVisited
+                                  if(X=="tblSoilPitHorizons"){
+                                    data <- dplyr::left_join(all_dimas[[X]],
+                                                             all_dimas$tblSoilPits |>
+                                                               dplyr::select(PlotKey, DateRecorded, SoilKey, project, dbname))|>
+                                      dplyr::mutate(
+                                        
+                                        DateRecorded = lubridate::parse_date_time(DateRecorded, 
+                                                                                  orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS")),
+                                        DateRecorded = as.Date(DateRecorded), # Ensure it's a Date object, not POSIXct
+                                        
+                                      )
+                                  }else{
+                                    all_dimas[[X]]
+                                  }
+                          })
+  
+  names(data_no_lines) <- no_lines_tables
+  
+  # Plots, Lines, SoilPits, and SoilPit Horizons all need PrimaryKeys that correspond with visit of the PlotKey
+  table_plots<- non_line_tables # list of nonnumeric tables in data; could include c("tblPlots", "tblLines", "tblSites", "tblSoilPits", "tblSoilPitHorizons")
+  
+  
+  # MWAC
+  
+  mwac <- names(all_dimas)[stringr::str_detect(names(all_dimas), "BoxCollection")]
+
+  
+  MWAC_tables <- lapply(mwac, function(pkey) {
+    
+    # collection data
+    X <- all_dimas[[pkey]]
+    
+    # join with Box to get StackID, then join Stack to get PlotKey from the all_dimas list
+    data_pk <- X %>% 
+      dplyr::left_join(
+        all_dimas[["tblBSNE_Box"]] %>% 
+          dplyr::select(-dbname, -project, -Notes, -DateEstablished), 
+        by = "BoxID", 
+        relationship = "many-to-many"
+      ) %>% 
+      dplyr::left_join(
+        all_dimas[["tblBSNE_Stack"]] %>% 
+          dplyr::select(-dbname, -project, -Notes), 
+        by = "StackID", 
+        relationship = "many-to-many"
+      )
+    
+    # create PrimaryKey
+    data_pk <- data_pk %>%
+      dplyr::mutate(
+        # Ensure dates are in the correct format
+        collectDate = as.Date(lubridate::parse_date_time(collectDate, 
+                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+        DateVisited = as.Date(lubridate::parse_date_time(collectDate, 
+                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+        PrimaryKey = paste0(PlotKey, DateVisited)
+      )
+    
+    return(data_pk)
+  })
+  
+  # original table names back to the list
+  names(MWAC_tables) <- mwac
+  
+  
+  
+  # DDT
+  
+  ddt <- names(all_dimas)[stringr::str_detect(names(all_dimas), "TrapCollection")]
+  
+  
+  ddt_tables <- lapply(ddt, function(pkey) {
+    
+    # collection data
+    X <- all_dimas[[pkey]]
+    
+    # join with Box to get StackID, then join Stack to get PlotKey from the all_dimas list
+    data_pk <- X %>% 
+      dplyr::left_join(
+        all_dimas[["tblBSNE_Stack"]] %>% 
+          dplyr::select(-dbname, -project, -Notes), 
+        by = "StackID", 
+        relationship = "many-to-many"
+      )
+    
+    # create PrimaryKey
+    data_pk <- data_pk %>%
+      dplyr::mutate(
+        # Ensure dates are in the correct format
+        collectDate = as.Date(lubridate::parse_date_time(collectDate, 
+                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+        DateVisited = as.Date(lubridate::parse_date_time(collectDate, 
+                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
+        PrimaryKey = paste0(PlotKey, DateVisited)
+      )
+    
+    return(data_pk)
+  })
+  
+  # original table names back to the list
+  names(ddt_tables) <- ddt
+  
+  
+  
+  
+  # merge with detail and header
+  detail_header <- c(detail_header, MWAC_tables, ddt_tables)
+  
+  
+  # get all of the unique method PrimaryKeys
+  unique_pks <- do.call(rbind,
+                        lapply(X = names(detail_header),
+                               FUN = function(X){
+                                 print(X)
+                                 # If PlotKey exists, we'll merge
+                                 if("PlotKey" %in% names(detail_header[[X]])){
+                                   
+                                   data <-detail_header[[X]] |>
+                                     dplyr::select(PlotKey, PrimaryKey, DateVisited, project, dbname) |>
+                                     dplyr::mutate(method = X) |>
+                                     dplyr::distinct()
+                                 }else{
+                                   message(paste("No PlotKeys found in table", X, ". This table will be dropped from output"))
+                                 }
+                               })
+  ) |>
+    # make sure the methods are distinct, regardless of Header or Detail
+    dplyr::mutate(method = method |> stringr::str_remove_all(
+      pattern = "Detail|Header|tbl"
+    )) |> dplyr::distinct()
+  
+  # join to table_plots
+  plots_pks <- lapply(X = table_plots,
+                      function(X){
+                        print(X)
+                        data <- data_no_lines[[X]] |>
+                          dplyr::left_join(unique_pks |>
+                                             # remove method
+                                             dplyr::select(-method) |>
+                                             dplyr::distinct(),
+                                           relationship = "many-to-many")
+                      })
+  names(plots_pks) <- table_plots
+  
+  
+  
+  
+  
+  
+  # QC checking all tables have date and pkey assigned
+  
+  
+  # put all the tables together
+  all_dimas_pks <- c(plots_pks, data_no_lines[!names(data_no_lines) %in% table_plots], detail_header)
+  
+  # QC
+  # First, check that all tables have a PrimaryKey and DateVisited assigned
+  primarykey_check <- do.call(
+    rbind,lapply(X = names(all_dimas_pks),
+                 function(X){
+                   data <- all_dimas_pks[[X]]
+                   data <- data.frame(table = X) |>
+                     dplyr::mutate(primarykey_check = dplyr::if_else(
+                       "PrimaryKey" %in% colnames(all_dimas_pks[[X]]),
+                       "Yes", "No")
+                     )
+                 })
+  )
+  
+  # Print out the problem tables
+  if(nrow(primarykey_check[primarykey_check$primarykey_check=="No"&!primarykey_check$table %in%
+                           c("tblSites", "tblSpecies", "tblSpeciesGeneric", "tblNestedFreqSpeciesSummary",
+                             "tblNestedFreqSpeciesDetail"),])>0){
+    primarykey_check[primarykey_check$primarykey_check=="No"&!primarykey_check$table %in%
+                       c("tblSites", "tblSpecies", "tblSpeciesGeneric", "tblNestedFreqSpeciesSummary",
+                         "tblNestedFreqSpeciesDetail"),]
+  }else{
+    print("All PrimaryKeys assigned")
+  }
+  
+  
+  
+  
+  
+  
+  
+  # assign pkeys to details and compares by pkey
+  # QC PrimaryKeys and DateVisited
+  # First we'll see how identify any PrimaryKey issues (e.g., NA, orphaned records)
+  pk_date_check <- all_dimas_pks$tblPlots |>
+    dplyr::select(PlotKey, PrimaryKey, DateVisited, dbname, project) |>
+    # add method
+    dplyr::mutate(method = "tblPlots")|>
+    dplyr::distinct()|>
+    # join to transect data observations
+    dplyr::bind_rows(unique_pks)|>
+    # make wider so we can compare by PrimaryKey
+    # add a value row
+    dplyr::mutate(values = "yes") |>
+    tidyr::pivot_wider(names_from = method,
+                       values_from = values,
+                       values_fill = "no")
+  
+  
+  
+  
+  # Identify PrimaryKeys where date visits are close to each other--this could mean that unique plots are improperly assigned
+  pk_date_check <- pk_date_check |> dplyr::group_by(PlotKey) |>
+    dplyr::arrange(desc(DateVisited)) |>
+    dplyr::mutate(ClosestDateVisited = dplyr::lead(DateVisited))|>
+    dplyr::mutate(DaysDiff = difftime(DateVisited, ClosestDateVisited, units = "days") |>
+                    # convert to numeric days
+                    stringr::str_remove(" days") |> as.numeric()) |>
+    dplyr::ungroup()|>
+    
+    # add Notes and Action
+    dplyr::mutate(Notes = dplyr::case_when( DaysDiff<=7 ~ "Visit within 7 days",
+                                            DaysDiff>7 & DaysDiff<=30 ~ "Visit within 7-30 days",
+                                            DaysDiff>7 & DaysDiff<=30 ~ "Visit within 7-30 days",
+                                            DaysDiff>30 & DaysDiff<=60 ~ "Visit within 30-60 days",
+                                            DaysDiff>60 & DaysDiff<=275 ~ "Visit within 30-275 days"),
+                  # recommend action
+                  Action = dplyr::case_when(DaysDiff>7 & DaysDiff<=275 ~ "Confirm date visited",
+                                            DaysDiff<=7 ~ "Consider grouping date visits"))|>
+    # add PlotID information back in to help users trouble shoot
+    dplyr::left_join(all_dimas_pks[["tblPlots"]]|> dplyr::select(PrimaryKey, PlotKey, PlotID) |> dplyr::distinct() |> subset(!is.na(PrimaryKey)))
+  
+  
+  
+  
+  
+  
+  
+  # code removes NA and generic plots - orphaned records are identified, but deletion is handled within the gather function
+  # Flag generic plots and orphaned records for deletion
+  pk_date_check <- pk_date_check |>
+    # Make a note of the issue
+    dplyr::mutate(Notes = dplyr::case_when(is.na(PlotKey) ~ "Orphan records",
+                                           PlotKey %in% c("123123123", "999999999") ~ "Generic plots",
+                                           .default = Notes),
+                  # recommend action
+                  Action = dplyr::case_when(is.na(PlotKey) ~ "Delete",
+                                            PlotKey %in% c("123123123", "999999999") ~ "Delete",
+                                            .default = Action),
+                  DataOwnerResponse = NA)
+  # Save files for QC
+  saveRDS(all_dimas, file.path(path_qc, "all_dimas.Rdata"))
+  saveRDS(all_dimas_pks,   file.path(path_qc, "all_dimas_pks.Rdata"))
+  write.csv(pk_date_check, file.path(path_qc, "primarykey_date_check.csv"), row.names=FALSE)
+  write.csv(pk_date_check |> subset(!is.na(Action)),
+            paste0(path_qc,"/primarykey_resolve_", Sys.Date(), ".csv"), row.names=FALSE)
+  for(i in names(all_dimas)){
+    write.csv(all_dimas[[i]], paste0(DIMATables,"/",i,".csv"))
+  }
+  
+}
+
+
+###############################################
+
+
+
+
+
+
+
+
+###############################################
+#' DIMA table QC
+#'
+#'checks the data produced from assign_keys, including checks for missingness and missing coordinates. Problem PrimaryKeys are removed. Thus, prior to running, check with the data owner about the PrimaryKeys with NAs or that were sampled within a certain number of days to ensure removing the problem PrimaryKeys is desired.
+#'
+#' @param dima_data_list as an object, all_dimas_pks.RDS from the assign_keys function
+#' @param primarykey_qc as an object, primarykey_resolve_date.csv from assign_keys function
+#' @param path_qc path where the QC data will be saved
+#'
+#' @return CSVs of the QC related to the PrimaryKey assignment in the assigned QC folder
+#' @export
+#'
+#' @examples dima_table_qc(dima_data_list = readRDS("QC/all_dima_pks.Rdata"), primarykey_qc = read.csv(paste0("QC/primarykey_resolve_", date_pkey_qc_run, ".csv")), path_qc = file.path("D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/QC"))
+dima_table_qc <- function(dima_data_list, primarykey_qc, path_qc){
+  # we've already identified a few plots as problematic while generating the PrimaryKey, let's remove those
+  problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
+
+  # check lat/longs
+  coord_qc <- dima_data_list[["tblPlots"]] |> subset(is.na(Latitude)|is.na(Longitude)|Latitude==0|Longitude==0) |>
+    # remove previously identified PrimaryKeys
+    subset(!PrimaryKey %in% problem_pk) |>
+    dplyr::select(project, dbname, PlotKey, PlotID, PrimaryKey, Latitude, Longitude) |>
+    tidyr::pivot_longer(cols = -c(project, dbname, PlotKey, PlotID, PrimaryKey,),
+                        names_to = "Field",
+                        values_to = "n_missing") |>
+    dplyr::mutate(n_missing = 1,
+                  Notes = "Coordinates missing 0 or missing",
+                  Action = "Populate or delete plot")
+
+
+
+
+
+  # check for missingness of observations
+  # check for NAs in observations
+  missingness <- do.call(rbind,lapply(X = names(dima_data_list),
+
+                                      function(X){
+                                        data <- dima_data_list[[X]]
+
+                                        # for tables with PrimaryKeys, check for NAs in columns
+                                        if("PrimaryKey" %in% colnames(data)){
+                                          # remove previously identified PrimaryKeys
+                                          data <- data|>
+                                            subset(!PrimaryKey %in% problem_pk)
+
+                                          # identify number of missing rows per field
+                                          missingness <- data|>
+                                            dplyr::group_by(project, dbname, PrimaryKey) |>
+                                            dplyr::summarise(dplyr::across(dplyr::everything(), ~ sum(is.na(.x))))|>
+                                            dplyr::ungroup()
+
+                                          # pivot longer so we can summarize
+                                          missingness_tall <-  missingness |>
+                                            tidyr::pivot_longer(cols = -c("project", "dbname", "PrimaryKey"),
+                                                                names_to = "Field",
+                                                                values_to = "n_missing")
+
+                                          missingness_summary <- missingness_tall |>
+                                            dplyr::group_by(project, dbname,Field) |>
+                                            dplyr::summarise(
+                                              avg_missing = mean(n_missing),
+                                              n_records = dplyr::n()
+
+                                            ) |> dplyr::ungroup()
+
+                                          # join back to tall table
+                                          missingness_tall <- missingness_tall |>
+                                            dplyr::left_join(missingness_summary) |>
+                                            # add interpreation. If the number missing > standard deviation, we'll flag that
+                                            dplyr::mutate(
+                                              anomaly = (n_missing-avg_missing),
+                                              prop_missing = n_missing/n_records
+                                            ) |>
+
+                                            # add table identifier
+                                            dplyr::mutate(table = X)
+                                        }
+
+                                      })
+  )
+
+  # Add notes based on the importance of fields
+  missingness_notes <- missingness |>
+    # add in PlotID info
+    dplyr::left_join(dima_data_list[["tblPlots"]] |> dplyr::select(PrimaryKey, PlotID, PlotKey)) |>
+    # subset where this is no anomaly
+    subset(anomaly!=0) |>
+    # subset where there are no missing values
+    subset(n_missing>0) |>
+    # dplyr::left_join(read.csv("table_fields_importance.csv",
+    #                           na.strings = c("", "NA"))) |>
+    # # join in the coord_qc table for a comprehensive report
+    dplyr::bind_rows(coord_qc)|>
+    dplyr::arrange(Notes, Action) |>
+
+    # rearrange for readability
+    dplyr::relocate(project, dbname,  PlotKey, PlotID, PrimaryKey) |> # removed table, as third obs until get importance csv
+
+    # add a data owner response column
+    dplyr::mutate(DataOwnerResponse = NA)
+
+
+  SWBC_check <- missingness_notes
+
+  write.csv(SWBC_check, file.path(path_qc, "SWBC_DIMA_check_all.csv"), row.names = F)
+  write.csv(SWBC_check |> subset(!is.na(Action)), file.path(path_qc, "SWBC_DIMA_check_resolve.csv"), row.names = F)
+
+}
+################################################
+
