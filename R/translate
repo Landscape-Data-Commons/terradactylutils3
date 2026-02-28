@@ -1,0 +1,218 @@
+
+########################################
+#' Translate Tall Data into LDC Schema
+#'
+#'helper function for translate_coremethods that uses a schema to translate the tall data sets into the LDC format (column class and name). This is an updated version of translate_schema from terradactyl_Utils that does not require user to input projkey.
+#'
+#' @param data any cleaned tall data
+#' @param datatype the data type in the tall table such as lpi
+#' @param schema the LDC schema describing the characteristics of the columns in the tall tables on the LDC
+#' @param dropcols T or F describing whether to drop columns that are not used
+#' @param verbose T or F describing whether to return commentary
+#'
+#' @return rewrites the tall tables in path_tall in the LDC format
+#' @export
+#'
+#' @examples translate_schema2(schema = schema,datatype = "dataHeight",dropcols = TRUE, verbose = TRUE)
+#' @noRd
+translate_schema2 <- function(data,
+                              datatype,
+                              schema,
+                              dropcols = TRUE,
+                              verbose = TRUE){
+  
+  #### Sanitization ------------------------------------------------------------
+  ##### Schema -----------------------------------------------------------------
+  ### standardize names
+  # colnames(matrix)[colnames(matrix) == fromcol] <- "terradactylAlias"
+  # colnames(matrix)[colnames(matrix) == tocol] <- "ToColumn"
+  
+  ### process the incoming matrix by assigning actions to take at each row
+  matrix_processed <- dplyr::filter(.data = schema,
+                                    Table == datatype) |>
+    dplyr::mutate(.data = _,
+                  Field <- stringr::str_trim(string = Field,
+                                             side = "both")) |>
+    dplyr::filter(.data = _,
+                  Field != "" | terradactylAlias != "") |>
+    dplyr::select(.data = _,
+                  tidyselect::all_of(x = c("terradactylAlias",
+                                           "Field"))) |>
+    dplyr::mutate(.data = _,
+                  DropColumn = terradactylAlias != "" & Field == "",
+                  AddColumn = Field != "" & terradactylAlias == "",
+                  ChangeColumn = Field != "" & terradactylAlias != "" & Field != terradactylAlias,
+                  NoAction = Field == terradactylAlias & !AddColumn & !DropColumn,
+                  Error = (AddColumn + DropColumn + ChangeColumn + NoAction) != 1)
+  
+  # Check for errors!
+  if(sum(matrix_processed$Error) > 0) {
+    warning("Errors found in translation matrix. Returning diagnostic information.")
+    return(errors)
+  }
+  
+  ChangeColumn <-
+    matrix_processed |>
+    dplyr::filter(ChangeColumn)
+  
+  AddColumn <-
+    matrix_processed |>
+    dplyr::filter(AddColumn)
+  
+  DropColumn <-
+    matrix_processed |>
+    dplyr::filter(DropColumn)
+  
+  ## run translation and add data
+  outdata <- dplyr::rename_at(.tbl = data,
+                              .vars = ChangeColumn$terradactylAlias,
+                              .funs = ~ ChangeColumn$Field) |>
+    `is.na<-`(AddColumn$Field |> unique())
+
+  
+  # select only the tables in the out schema
+  goodnames <- dplyr::filter(.data = matrix_processed,
+                             Field != "") |>
+    dplyr::pull(.data = _,
+                Field)
+  
+  if (verbose) {
+    message(paste("Returning the following columns/variables:",
+                  paste(goodnames,
+                        collapse = ", ")))
+  }
+  
+  # This was an all_of() in the past, but that was brittle.
+  # Now we use an any_of() and then inform the user about the missing variables
+  outdata <- dplyr::select(.data = outdata,
+                           tidyselect::any_of(x = goodnames))
+  
+  missing_names <- setdiff(x = goodnames,
+                           y = names(outdata))
+  if (length(missing_names) > 0) {
+    if (verbose) {
+      message(paste("The following variables are still missing and will be added, populated with the value NA:",
+                    paste(missing_names,
+                          sep = ", ")))
+    }
+    for (current_missing_name in missing_names) {
+      outdata[[current_missing_name]] <- NA
+    }
+  }
+  
+  return(outdata)
+}
+#############################################
+
+
+#############################################
+#' Translate Core Methods
+#'
+#' produces the tall tables in a format for the LDC using the tall data produced from terradactylutils2::clean_tall_"method"() and a schema
+#'
+#' @param path_tall path to the tall files produced from terradactylutils2::clean_tall_"method"()
+#' @param path_out where to write the files for ingest
+#' @param path_schema file path to a schema used to adjust the tall files
+#' @param verbose T or F describing whether to return commentary
+#'
+#' @return updated CSV of the tall files that are written to path_out (typically, a For Ingest directory)
+#' @export
+#'
+#' @examples translate_coremethods2(path_tall = file.path(path_parent, "Tall"),path_out = path_foringest,path_schema = path_schema,verbose = T)
+translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = F){
+
+  schema <- read.csv(path_schema)
+
+  if(file.exists(file.path(path_tall, "header.Rdata"))){
+    print("Translating header data")
+    header   <- readRDS(file.path(path_tall, "header.Rdata"))
+    dataHeader <- header |>
+      translate_schema2(schema = schema,
+                        #projectkey = projectkey,
+                        datatype = "dataHeader",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataHeader, file.path(path_out, "dataHeader.csv"), row.names = F)
+  } else {
+    stop("Header data not found. Unable to translate data")
+  }
+
+  if(file.exists(file.path(path_tall, "lpi_tall.Rdata"))){
+    print("Translating LPI data")
+    tall_lpi <- readRDS(file.path(path_tall, "lpi_tall.Rdata")) |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    dataLPI <- tall_lpi |>
+      translate_schema2(schema = schema,
+                        #projectkey = projectkey,
+                        datatype = "dataLPI",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataLPI, file.path(path_out, "dataLPI.csv"), row.names = F)
+  } else {
+    print("LPI data not found")
+  }
+
+  if(file.exists(file.path(path_tall, "height_tall.Rdata"))){
+    print("Translating height data")
+    tall_ht  <- readRDS(file.path(path_tall, "height_tall.Rdata")) |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    dataHeight <- tall_ht |>
+      translate_schema2(schema = schema,
+                        # projectkey = projectkey,
+                        datatype = "dataHeight",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataHeight, file.path(path_out, "dataHeight.csv"), row.names = F)
+  } else {
+    print("Height data not found")
+  }
+
+  if(file.exists(file.path(path_tall, "species_inventory_tall.Rdata"))){
+    print("Translating species inventory data")
+    tall_sr  <- readRDS(file.path(path_tall, "species_inventory_tall.Rdata")) |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    dataSpeciesInventory <- tall_sr |>
+      translate_schema2(schema = schema,
+                        # projectkey = projectkey,
+                        datatype = "dataSpeciesInventory",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataSpeciesInventory, file.path(path_out, "dataSpeciesInventory.csv"), row.names = F)
+  } else {
+    print("Species inventory data not found")
+  }
+
+
+  if(file.exists(file.path(path_tall, "soil_stability_tall.Rdata"))){
+    print("Translating soil stability data")
+    tall_ss  <- readRDS(file.path(path_tall, "soil_stability_tall.Rdata")) |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    dataSoilStability <- tall_ss |>
+      translate_schema2(schema = schema,
+                        #  projectkey = projectkey,
+                        datatype = "dataSoilStability",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataSoilStability, file.path(path_out, "dataSoilStability.csv"), row.names = F)
+  } else {
+    print("Soil stability data not found")
+  }
+
+  if(file.exists(file.path(path_tall, "gap_tall.Rdata"))){
+    print("Translating canopy gap data")
+    tall_gap <- readRDS(file.path(path_tall, "gap_tall.Rdata")) |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    dataGap <- tall_gap |>
+      translate_schema2(schema = schema,
+                        #    projectkey = projectkey,
+                        datatype = "dataGap",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataGap, file.path(path_out, "dataGap.csv"), row.names = F)
+  } else {
+    print("Gap data not found")
+  }
+
+}
+##################################
+
