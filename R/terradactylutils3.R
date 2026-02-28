@@ -211,95 +211,6 @@ add_indicator_columns <- function(template,
 
 
 
-##################################
-#' Tall Height QC
-#'
-#' produces QC information using the tall_height file produced from terradactylutils2::clean_tall_height()
-#'
-#' @param tblLPIDetail as a data.frame, tblLPIDetail from the DIMATables
-#' @param cleaned_tall_height as a data.frame, the tall_height file produced from terradactylutils2::clean_tall_height()
-#' @param path_qc path where the QC data will be saved
-#'
-#' @return a CSV file with QC information about the height data saved to the specified path_qc
-#' @export
-#'
-#' @examples height_qc(tblLPIDetail = tblLPIDetail, cleaned_tall_height = cleaned_tall_height, path_qc = file.path("D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/QC"))
-tall_height_qc <- function(tblLPIDetail, cleaned_tall_height, path_qc){
-  ### HGT QC
-  # checking heights are the same in the original and tall data
-tall_height <- cleaned_tall_height
-  heights_og <- tblLPIDetail |> dplyr::select(PrimaryKey, LineKey, PointNbr, HeightWoody, HeightHerbaceous)
-
-  heights_og <- gather(heights_og, "type", "Height", -PrimaryKey, -LineKey,-PointNbr)
-  heights_og$type <- gsub("^.{0,6}", "", heights_og$type)
-
-  heights_og$type <- tolower(heights_og$type)
-
-  heights_og <- heights_og[!is.na(heights_og$Height),]
-  tall_height_max <- tall_height |> dplyr::select(PrimaryKey, LineKey, PointNbr, type, Height)
-
-  max_tall_Height <- slice_max(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-  max_og_Height <- slice_max(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-
-
-  max_Height_error_tall <- dplyr::setdiff(max_og_Height, max_tall_Height)
-  if(nrow(max_Height_error_tall) > 0){
-    max_Height_error_tall$Notes <- "There is a max Height in the tall data that differs from the original data"
-    max_Height_error_tall$Action <- "Determine why gather or clean functions are altering the original Height"
-
-  }
-
-  max_Height_error_og <- dplyr::setdiff(max_tall_Height, max_og_Height)
-  if(nrow(max_Height_error_og) > 0){
-    max_Height_error_og$Notes <- "There is a max Height in the original data that differs from the tall tables"
-    max_Height_error_og$Action <- "Determine why gather or clean functions are altering the tall Height"
-
-  }
-
-
-  max_Height_errors <- rbind(max_Height_error_tall, max_Height_error_og)
-
-  if(nrow(max_Height_errors) > 0){
-    max_Height_errors <- max_Height_errors |> filter_all(any_vars(duplicated(.)))
-  }
-
-
-
-
-  min_tall_Height <- slice_min(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-  min_og_Height <- slice_min(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-
-  min_Height_error_tall <- dplyr::setdiff(min_og_Height, min_tall_Height)
-  if(nrow(min_Height_error_tall) > 0){
-    min_Height_error_tall$Notes <- "There is a min Height in the tall data that differs from the original data"
-    min_Height_error_tall$Action <- "Determine why gather or clean functions are altering the original Height"
-
-  }
-
-  min_Height_error_og <- dplyr::setdiff(min_tall_Height, min_og_Height)
-  if(nrow(min_Height_error_og) > 0){
-    min_Height_error_og$Notes <- "There is a min Height in the original data that differs from the tall tables"
-    min_Height_error_og$Action <- "Determine why gather or clean functions are altering the tall Height"
-
-  }
-
-
-  min_Height_errors <- rbind(min_Height_error_tall, min_Height_error_og)
-
-  if(nrow(min_Height_errors) > 0){
-    min_Height_errors <- min_Height_errors |> filter_all(any_vars(duplicated(.)))
-  }
-
-
-  Height_errors <- rbind(max_Height_errors, min_Height_errors)
-
-  write.csv(Height_errors, file.path(path_qc, "Height_check.csv"), row.names = F)
-
-}
-#########################################
-
-
-
 #########################################
 #' LPI Calculations for Graminoid
 #'
@@ -1454,6 +1365,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
