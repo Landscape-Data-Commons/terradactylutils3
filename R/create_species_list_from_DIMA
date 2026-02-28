@@ -82,6 +82,14 @@ if(species_list_NOT_created){
 
   species <- rbind(species_keep, generic_keep)
 
+species$HigherTaxon	<- ""
+species$Nonnative	<- ""
+species$SpecialStatus	<- ""
+species$Photosynthesis	<- ""
+species$PJ	<- ""
+species$CurrentPLANTSCode <- species$UpdatedSpeciesCode
+
+
   for(projkey in projectkey){
     #path_species <- "D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/species_"
     projsp <- species |> subset(species$SpeciesState == projkey)
