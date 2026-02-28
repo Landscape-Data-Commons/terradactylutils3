@@ -168,3 +168,147 @@ tall_lpi <- cleaned_tall_lpi
 }
 ############################################
 
+
+
+
+
+
+#####################################
+#' Tall Gap QC
+#'
+#' produces QC information using the tall_gap file in the format for running terradactylutils2::geofiles() created using terradactylutils2::clean_tall_gap()
+#'
+#' @param cleaned_tall_gap the tall_gap file that has been through terradactylutils2::clean_tall_gap()
+#' @param tblGapDetail the tblGapDetail file from DIMA tables
+#' @param path_qc path where the QC data will be saved
+#'
+#' @return a CSV with QC information about that tall_gap file saved to the QC folder specified
+#' @export
+#'
+#' @examples gap_qc(cleaned_tall_gap = cleaned_tall_gap, tblGapDetail = tblGapDetail, path_qc = file.path("D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/QC"))
+tall_gap_qc <- function(cleaned_tall_gap, tblGapDetail, path_qc){
+tall_gap <- cleaned_tall_gap
+  # function(tblGapDetail, tall_gap)
+  ### gap QC
+  # checking that the tall and og GapStart data match
+  tall_gap_start <- tall_gap |> dplyr::select(PrimaryKey, LineKey, RecKey,GapStart)
+  og_gap_start <- tblGapDetail |> dplyr::select(PrimaryKey, LineKey, RecKey,GapStart)
+
+  tall_gap_start_differ <- dplyr::setdiff(og_gap_start, tall_gap_start)
+  if(nrow(tall_gap_start_differ) > 0){
+    tall_gap_start_differ$Notes <- "There is a GapStart in the tall data that differs from the original data"
+    tall_gap_start_differ$Action <- "Determine why gather or clean functions are altering the original GapStart"
+
+  }
+
+  og_gap_start_differ <- dplyr::setdiff(tall_gap_start, og_gap_start)
+  if(nrow(og_gap_start_differ) > 0){
+    og_gap_start_differ$Notes <- "There is a GapStart in the original data that differs from the tall tables"
+    og_gap_start_differ$Action <- "Determine why gather or clean functions are altering the tall GapStart"
+
+  }
+
+
+  gap_start_errors <- rbind(tall_gap_start_differ, og_gap_start_differ)
+
+  if(nrow(gap_start_errors) > 0){
+    gap_start_errors <- gap_start_errors |> filter_all(any_vars(duplicated(.)))
+  }
+
+
+  # checking the GapStart is not NA
+  no_start <- tall_gap_start[is.na(tall_gap_start$GapStart),] #
+  if(nrow(no_start) > 0){
+    no_start$Notes <- "The GapStart for the line is NA"
+    no_start$Action <- "Work with project manager to determine whether line needs removed"
+  }
+  gap_start_errors <- rbind(gap_start_errors, no_start)
+
+  write.csv(gap_start_errors, file.path(path_qc, "GapStart_check.csv"), row.names = F)
+
+  # checking max and min
+  tall_gap_gaps <- tall_gap |> dplyr::select(PrimaryKey, LineKey, RecKey,Gap)
+  og_gap_gaps <- tblGapDetail |> dplyr::select(PrimaryKey, LineKey, RecKey,Gap)
+
+  max_tall_gap <- slice_max(tall_gap_gaps, Gap, by = c('PrimaryKey', 'LineKey','RecKey'))
+  max_og_gap <- slice_max(og_gap_gaps, Gap, by = c('PrimaryKey', 'LineKey','RecKey'))
+
+
+  max_gap_error_tall <- dplyr::setdiff(max_og_gap, max_tall_gap)
+  if(nrow(max_gap_error_tall) > 0){
+    max_gap_error_tall$Notes <- "There is a Gap in the tall data that differs from the original data"
+    max_gap_error_tall$Action <- "Determine why gather or clean functions are altering the original Gap"
+
+  }
+
+  max_gap_error_og <- dplyr::setdiff(max_tall_gap, max_og_gap)
+  if(nrow(max_gap_error_og) > 0){
+    max_gap_error_og$Notes <- "There is a Gap in the original data that differs from the tall tables"
+    max_gap_error_og$Action <- "Determine why gather or clean functions are altering the tall Gap"
+
+  }
+
+
+  max_gap_errors <- rbind(max_gap_error_tall, max_gap_error_og)
+
+  if(nrow(max_gap_errors) > 0){
+    max_gap_errors <- max_gap_errors |> filter_all(any_vars(duplicated(.)))
+  }
+
+
+
+
+  min_tall_gap <- slice_min(tall_gap_gaps, Gap, by = c('PrimaryKey', 'LineKey','RecKey'))
+  min_og_gap <- slice_min(og_gap_gaps, Gap, by = c('PrimaryKey', 'LineKey','RecKey'))
+
+
+  min_gap_error_tall <- dplyr::setdiff(min_og_gap, min_tall_gap)
+  if(nrow(min_gap_error_tall) > 0){
+    min_gap_error_tall$Notes <- "There is a Gap in the tall data that differs from the original data"
+    min_gap_error_tall$Action <- "Determine why gather or clean functions are altering the original Gap"
+
+  }
+
+  min_gap_error_og <- dplyr::setdiff(min_tall_gap, min_og_gap)
+  if(nrow(min_gap_error_og) > 0){
+    min_gap_error_og$Notes <- "There is a Gap in the original data that differs from the tall tables"
+    min_gap_error_og$Action <- "Determine why gather or clean functions are altering the tall Gap"
+
+  }
+
+
+  min_gap_errors <- rbind(min_gap_error_tall, min_gap_error_og)
+
+  if(nrow(min_gap_errors) > 0){
+    min_gap_errors <- min_gap_errors |> filter_all(any_vars(duplicated(.)))
+  }
+
+
+  gap_errors <- rbind(max_gap_errors, min_gap_errors)
+
+  ## checking for negatives or NAs
+  neg_gap <- tall_gap_gaps |> filter(Gap < 0)
+  if(nrow(neg_gap) > 0){
+    neg_gap$Notes <- "There are negative gaps present"
+    neg_gap$Action <- "Determine if the gap should be positive or work with project manager to determine whether line needs removed"
+  }
+  gap_errors <- rbind(gap_errors, neg_gap)
+
+  write.csv(gap_errors, file.path(path_qc, "Gap_check.csv"), row.names = F)
+
+  # GapEnd errors
+  tall_gap_end <- tall_gap |> dplyr::select(PrimaryKey, LineKey, RecKey,GapEnd)
+
+  no_end <- tall_gap_end[is.na(tall_gap_end$GapEnd),]
+
+  if(nrow(no_end) > 0){
+    no_end$Notes <- "The GapEnd is NA"
+    no_end$Action <- "Work with project manager to determine whether line needs removed"
+  }
+
+  write.csv(no_end, file.path(path_qc, "GapEnd_check.csv"), row.names = F)
+
+}
+#####################################
+
+
