@@ -210,47 +210,6 @@ add_indicator_columns <- function(template,
 
 
 
-########################################
-#' Clean Tall Height
-#'
-#' adds and removes columns (not) necessary to run terradactylutils2::geofiles() for the the file produced using terradactyl::gather_height()
-#'
-#' @param tall_height as a data.frame, the tall_file produced from terradactyl::gather_height()
-#' @param dataHeader as data.frame, dataHeader file produced from terradactylutils2::create_header()
-#' @param tblLPIHeader as data.frame, tblLPIHeader from the DIMA tables
-#' @param path_tall where all tall files from terradactyl::gather_... were saved
-#'@param source data type
-#'@param todaysDate today's date
-#'
-#' @return a CSV saved to the specified path_tall and an updated tall_height file saved to the console(unless saved to an object)
-#' @export
-#'
-#' @examples clean_tall_height(tall_height = gather_height(source = "DIMA", tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader), dataHeader = dataHeader, tblLPIHeader = tblLPIHeader,  source = DIMA, todaysDate = todaysDate, path_tall = file.path(path_parent, "Tall"))
-clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,  source,todaysDate, path_tall){
-
-  dropcols_height <- tall_height  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "heightList")))
-  pkeys <- dataHeader$PrimaryKey
-  tall_height <- tall_height[which(!duplicated(dropcols_height)),] |>
-    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
-  # add back in cols that are currently being removed with the function
-  tall_height$DBKey <- dataHeader$DBKey[match(tall_height$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_height$ProjectKey <- dataHeader$ProjectKey[match(tall_height$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_height$FormType <- tblLPIHeader$FormType[match(tall_height$PrimaryKey, tblLPIHeader$PrimaryKey)]
-  tall_height$source <- rep(source)
-  tall_height$DateVisited <-tblLPIHeader$DateVisited[match(tall_height$PrimaryKey, tblLPIHeader$PrimaryKey)]
-  #tall_height$DateVisited <- as.Date(tall_height$DateVisited, format = format)
-  tall_height$DateLoadedInDb <- rep(todaysDate) #
-  tall_height$FormDate <- tblLPIHeader$FormDate[match(tall_height$PrimaryKey, tblLPIHeader$PrimaryKey)]
-
-
-  saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
-  write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
-
-  tall_height
-}
-##################################
-
-
 
 ##################################
 #' Tall Height QC
@@ -1495,6 +1454,7 @@ db_info <- function(path_foringest, DateLoadedInDb){
 
 }
 ##############################################
+
 
 
 
