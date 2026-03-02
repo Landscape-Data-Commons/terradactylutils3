@@ -71,7 +71,7 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
     tblSpecies$SpecialStatus<- ""
     tblSpecies$Photosynthesis<- ""
     tblSpecies$PJ	<- ""
-    tblSpecies$CurrentPLANTSCode <- tblSpecies$UpdatedSpeciesCode
+    tblSpecies$CurrentPLANTSCode <- tblSpeciesGeneric$UpdatedSpeciesCode
 
 
     species_keep <- tblSpecies %>% dplyr::select(SpeciesCode,ScientificName, Family, GrowthHabit, GrowthHabitSub,Duration,
