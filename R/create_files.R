@@ -42,12 +42,11 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
     tblSpeciesGeneric$SpecialStatus<- ""
     tblSpeciesGeneric$Photosynthesis<- ""
     tblSpeciesGeneric$PJ	<- ""
-    tblSpeciesGeneric$CurrentPLANTSCode <- tblSpeciesGeneric$UpdatedSpeciesCode
+    tblSpeciesGeneric$CurrentPLANTSCode <- ""
 
     generic_keep <- tblSpeciesGeneric %>% dplyr::select(SpeciesCode,ScientificName, Family, GrowthHabit, GrowthHabitSub, Duration,
                                                         Noxious, Invasive,UpdatedSpeciesCode, Notes,
-                                                        SpeciesState,SG_Group,HigherTaxon, Nonnative, SpecialStatus, Photosynthesis, PJ, CurrentPLANTSCode
-)
+                                                        SpeciesState,SG_Group,HigherTaxon, Nonnative, SpecialStatus, Photosynthesis, PJ, CurrentPLANTSCode)
 
     tblSpecies$GrowthHabit <- ifelse(tblSpecies$GrowthHabitCode %in% woody_codes, "Woody",
                                      "NonWoody")
