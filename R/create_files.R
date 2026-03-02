@@ -46,7 +46,8 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
 
     generic_keep <- tblSpeciesGeneric %>% dplyr::select(SpeciesCode,ScientificName, Family, GrowthHabit, GrowthHabitSub, Duration,
                                                         Noxious, Invasive,UpdatedSpeciesCode, Notes,
-                                                        SpeciesState,SG_Group)
+                                                        SpeciesState,SG_Group,HigherTaxon, Nonnative, SpecialStatus, Photosynthesis, PJ, CurrentPLANTSCode
+)
 
     tblSpecies$GrowthHabit <- ifelse(tblSpecies$GrowthHabitCode %in% woody_codes, "Woody",
                                      "NonWoody")
@@ -75,7 +76,7 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
 
     species_keep <- tblSpecies %>% dplyr::select(SpeciesCode,ScientificName, Family, GrowthHabit, GrowthHabitSub,Duration,
                                                  Noxious, Invasive,UpdatedSpeciesCode, Notes,
-                                                 SpeciesState,SG_Group)
+                                                 SpeciesState,SG_Group,HigherTaxon, Nonnative, SpecialStatus, Photosynthesis, PJ, CurrentPLANTSCode)
     #for correct geoindicator calculations, the species list must have the updated species code in the species code column, having all the attributes described
     `%notin%` <- Negate(`%in%`)
     updated_species <- species_keep[!is.na(species_keep$UpdatedSpeciesCode), ]
