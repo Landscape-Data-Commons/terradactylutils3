@@ -56,9 +56,16 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
     tblSpecies$Invasive <- ifelse(tblSpecies$Invasive == 0, FALSE,
                                   ifelse(tblSpecies$Invasive == 1, TRUE,  NA ))
     tblSpecies$UpdatedSpeciesCode <- USDA_plants$UpdatedSpeciesCode[match(tblSpecies$SpeciesCode, USDA_plants$SpeciesCode)]
-    tblSpecies$Notes <- ""
-    tblSpecies$SpeciesState <- tblSpecies$project
-    tblSpecies$SG_Group <- ""
+    tblSpecies$Notes<- ""
+    tblSpecies$SpeciesState<- tblSpecies$project
+    tblSpecies$SG_Group<- ""
+    tblSpecies$HigherTaxon<- ""
+    tblSpecies$Nonnative<- ""
+    tblSpecies$SpecialStatus<- ""
+    tblSpecies$Photosynthesis<- ""
+    tblSpecies$PJ	<- ""
+    tblSpecies$CurrentPLANTSCode <- tblSpecies$UpdatedSpeciesCode
+
 
     species_keep <- tblSpecies %>% dplyr::select(SpeciesCode,ScientificName, Family, GrowthHabit, GrowthHabitSub,Duration,
                                                  Noxious, Invasive,UpdatedSpeciesCode, Notes,
