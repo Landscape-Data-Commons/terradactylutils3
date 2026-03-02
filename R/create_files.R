@@ -42,7 +42,7 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
     tblSpeciesGeneric$SpecialStatus<- ""
     tblSpeciesGeneric$Photosynthesis<- ""
     tblSpeciesGeneric$PJ	<- ""
-    tblSpeciesGeneric$CurrentPLANTSCode <- tblSpecies$UpdatedSpeciesCode
+    tblSpeciesGeneric$CurrentPLANTSCode <- tblSpeciesGeneric$UpdatedSpeciesCode
 
     generic_keep <- tblSpeciesGeneric %>% dplyr::select(SpeciesCode,ScientificName, Family, GrowthHabit, GrowthHabitSub, Duration,
                                                         Noxious, Invasive,UpdatedSpeciesCode, Notes,
@@ -71,7 +71,7 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
     tblSpecies$SpecialStatus<- ""
     tblSpecies$Photosynthesis<- ""
     tblSpecies$PJ	<- ""
-    tblSpecies$CurrentPLANTSCode <- tblSpeciesGeneric$UpdatedSpeciesCode
+    tblSpecies$CurrentPLANTSCode <- tblSpecies$UpdatedSpeciesCode
 
 
     species_keep <- tblSpecies %>% dplyr::select(SpeciesCode,ScientificName, Family, GrowthHabit, GrowthHabitSub,Duration,
