@@ -99,6 +99,10 @@ translate_schema2 <- function(data,
     }
   }
 
+  # making sure in the correct order after selecting missing names
+  outdata <- outdata |>
+    dplyr::select(tidyselect::all_of(goodnames))
+
   return(outdata)
 }
 #############################################
