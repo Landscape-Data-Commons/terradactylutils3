@@ -79,14 +79,14 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
     #for correct geoindicator calculations, the species list must have the updated species code in the species code column, having all the attributes described
     `%notin%` <- Negate(`%in%`)
     updated_species <- species_keep[!is.na(species_keep$UpdatedSpeciesCode), ]
-    updated_species <- updated_species|> filter(updated_species$UpdatedSpeciesCode %notin% updated_species$SpeciesCode)
+    updated_species <- updated_species|> dplyr::filter(updated_species$UpdatedSpeciesCode %notin% updated_species$SpeciesCode)
 
     if(nrow(updated_species) > 0){
       updated_species$SpeciesCode <- updated_species$UpdatedSpeciesCode
       species_keep <- rbind(species_keep, updated_species)}
 
     species <- rbind(species_keep, generic_keep)
-    species <- species %>% dplyr::distinct()
+    species <- species |> dplyr::distinct()
 
     for(projkey in projectkey){
       #path_species <- "D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/species_"
