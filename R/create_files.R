@@ -86,7 +86,11 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
       species_keep <- rbind(species_keep, updated_species)}
 
     species <- rbind(species_keep, generic_keep)
-    species <- species |> dplyr::distinct()
+    #remove duplicates
+    species$SpeciesCode <- trimws(toupper(as.character(species$SpeciesCode)))
+    species$ScientificName <- trimws(as.character(species$ScientificName))
+       species <- species |>
+      dplyr::distinct(SpeciesCode, ScientificName, GrowthHabitSub, Duration, .keep_all = TRUE)
 
     for(projkey in projectkey){
       #path_species <- "D:/data_preparation_docs_used_from_06012024_04302025/data_preparation_docs_used_from_06012024_04302025/Docs for data prep/Data/species_lists/species_"
