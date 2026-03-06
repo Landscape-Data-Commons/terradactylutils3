@@ -533,3 +533,109 @@ dima_table_qc <- function(dima_data_list, primarykey_qc, path_qc){
 }
 ################################################
 
+
+
+###############################################
+#' NRI table QC
+#'
+#'checks the data produced from assign_keys, including checks for missingness and missing coordinates. Problem PrimaryKeys are removed. Thus, prior to running, check with the data owner about the PrimaryKeys with NAs or that were sampled within a certain number of days to ensure removing the problem PrimaryKeys is desired.
+#'
+#' @param nri as an object, read_nri_text output
+#' @param path_qc path where the QC data will be saved
+#'
+#' @return CSVs of the QC related to the PrimaryKey assignment in the assigned QC folder
+#'
+#' @export
+nri_table_qc <- function(nri, path_qc){
+
+  # check lat/longs
+  coord_qc <- nri[["pointcoordinates"]] |> subset(is.na(TARGET_LATITUDE)|is.na(TARGET_LONGITUDE)|TARGET_LATITUDE==0|TARGET_LONGITUDE==0) |>
+    dplyr::mutate(TARGET_LATITUDE = as.numeric(TARGET_LATITUDE)) |> dplyr::mutate(TARGET_LONGITUDE = as.numeric(TARGET_LONGITUDE)) |>
+    dplyr::select(PrimaryKey, TARGET_LATITUDE, TARGET_LONGITUDE) |>
+    tidyr::pivot_longer(cols = -c(PrimaryKey,),
+                        names_to = "Field",
+                        values_to = "n_missing") |>
+    dplyr::mutate(n_missing = 1,
+                  Notes = "Coordinates missing 0 or missing",
+                  Action = "Populate or delete plot")
+
+
+
+
+
+  # check for missingness of observations
+  # check for NAs in observations
+  missingness <- do.call(rbind,lapply(X = names(nri),
+
+                                      function(X){
+                                        data <- nri[[X]]
+
+                                        # for tables with PrimaryKeys, check for NAs in columns
+                                        if("PrimaryKey" %in% colnames(data)){
+
+                                          # identify number of missing rows per field
+                                          missingness <- data|>
+                                            dplyr::group_by(PrimaryKey) |>
+                                            dplyr::summarise(dplyr::across(dplyr::everything(), ~ sum(is.na(.x))))|>
+                                            dplyr::ungroup()
+
+                                          # pivot longer so we can summarize
+                                          missingness_tall <-  missingness |>
+                                            tidyr::pivot_longer(cols = -c( "PrimaryKey"),
+                                                                names_to = "Field",
+                                                                values_to = "n_missing")
+
+                                          missingness_summary <- missingness_tall |>
+                                            dplyr::group_by(PrimaryKey,Field) |>
+                                            dplyr::summarise(
+                                              avg_missing = mean(n_missing),
+                                              n_records = dplyr::n()
+
+                                            ) |> dplyr::ungroup()
+
+                                          # join back to tall table
+                                          missingness_tall <- missingness_tall |>
+                                            dplyr::left_join(missingness_summary) |>
+                                            # add interpreation. If the number missing > standard deviation, we'll flag that
+                                            dplyr::mutate(
+                                              anomaly = (n_missing-avg_missing),
+                                              prop_missing = n_missing/n_records
+                                            ) |>
+
+                                            # add table identifier
+                                            dplyr::mutate(table = X)
+                                        }
+
+                                      })
+  )
+
+  # Add notes based on the importance of fields
+  missingness_notes <- missingness |>
+    # add in PlotID info
+    dplyr::left_join(nri[["pointcoordinates"]] |> dplyr::select(PrimaryKey)) |>
+    # subset where this is no anomaly
+    subset(anomaly!=0) |>
+    # subset where there are no missing values
+    subset(n_missing>0) |>
+    # dplyr::left_join(read.csv("table_fields_importance.csv",
+    #                           na.strings = c("", "NA"))) |>
+    # # join in the coord_qc table for a comprehensive report
+    dplyr::bind_rows(coord_qc)|>
+    dplyr::arrange(Notes, Action) |>
+
+    # rearrange for readability
+    dplyr::relocate( PrimaryKey) |> # removed table, as third obs until get importance csv
+
+    # add a data owner response column
+    dplyr::mutate(DataOwnerResponse = NA)
+
+
+  SWBC_check <- missingness_notes
+
+  write.csv(SWBC_check, file.path(path_qc, "SWBC_DIMA_check_all.csv"), row.names = F)
+  write.csv(SWBC_check |> subset(!is.na(Action)), file.path(path_qc, "SWBC_DIMA_check_resolve.csv"), row.names = F)
+
+}
+################################################
+
+
