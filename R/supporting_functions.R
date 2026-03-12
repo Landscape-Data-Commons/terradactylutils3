@@ -1,3 +1,20 @@
+###############################
+#' Blank or NA
+#'
+#' ID blank or NA data in tblLPIDetail; used in the bareground QC
+#'
+#' @param x tblLPIDetail with keys assigned
+#'
+#' @return blank and NA observations
+#' @export
+#'
+#' @noRd
+#'
+
+#blank or na helper function
+is_blank_or_na <- function(x) {
+  is.na(x) | trimws(as.character(x)) == ""
+}
 
 ###############################
 #' Remove duplicates

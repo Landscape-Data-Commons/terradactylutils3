@@ -14,5 +14,7 @@ Imports:
     magrittr,
     stringr,
     tidyr,
-    tidyselect
+    tidyselect,
+    purrr
+    readr
 RoxygenNote: 7.3.1
