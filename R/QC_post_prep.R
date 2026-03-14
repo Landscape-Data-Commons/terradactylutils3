@@ -598,7 +598,7 @@ summarize_table_metadata <- function(path_foringest, recursive) {
 
       unique_vals_all <- rbind(unique_vals_all, data)
 
-      return(unique_vals_all)
+
 
     }, error = function(e) {
       return(tibble(TableName = file_name, DBKey = "READ ERROR"))
@@ -606,7 +606,7 @@ summarize_table_metadata <- function(path_foringest, recursive) {
   }
 
 
-  final_report <- metadata_summary %>%
+  final_report <- unique_vals_all %>%
     relocate(TableName) %>%
     arrange(TableName)
 
