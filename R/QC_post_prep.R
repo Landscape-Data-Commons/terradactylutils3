@@ -72,7 +72,7 @@ validate_species_vs_indicators <- function(path_foringest, recursive) {
 
 validate_height_data <- function(path_foringest, recursive) {
   # identify all folders containing a 'geoIndicators.csv'
-  geo_indicator_files <- list.files(path_foringest, pattern = "^geoIndicators\\.csv$",
+  geo_files <- list.files(path_foringest, pattern = "^geoIndicators\\.csv$",
                                     recursive = recursive, full.names = TRUE)
 
 
@@ -543,7 +543,7 @@ audit_height_growth_habits <- function(path_foringest, recursive) {
   }
 
   # save to environment and message status
-  if (length(report_list) > 0) {
+  if (length(height_issue_list) > 0) {
     height_habit_errors <<- do.call(rbind, height_issue_list)
     message("unexpected values found in dataHeight")
     return(height_habit_errors)
@@ -596,7 +596,9 @@ summarize_table_metadata <- function(path_foringest, recursive) {
 
       if (ncol(data) == 0) return(NULL) # Skip if none of the columns exist
 
-      metadata_summary <- rbind(unique_vals_all, data)
+      unique_vals_all <- rbind(unique_vals_all, data)
+
+      return(unique_vals_all)
 
     }, error = function(e) {
       return(tibble(TableName = file_name, DBKey = "READ ERROR"))
