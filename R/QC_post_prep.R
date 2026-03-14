@@ -85,7 +85,7 @@ validate_height_data <- function(path_foringest, recursive) {
 
     # presence of height file in the same folder
     has_height <- "dataHeight.csv" %in% all_folder_files
-    if (!has_height_file) return(NULL)
+    if (!has_height) return(NULL)
 
     # read geoind columns as characters to safely check for NA/content
     df <- read.csv(file)
