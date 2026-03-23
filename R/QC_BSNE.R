@@ -14,7 +14,7 @@ compare_flux_to_og_data <- function(path_parent, recursive) {
   ingest_folder <- dir[grep("For Ingest$", dir)]
 
 
-  if (length(ingest_folder) == 0) stop("Could not find 'dataHorizontalFlux' folder.")
+  if (length(ingest_folder) == 0) stop("Could not find 'For Ingest' folder")
 
   flux_file <- list.files(ingest_folder[1], pattern = "dataHorizontalFlux\\.csv$", full.names = TRUE)
 
