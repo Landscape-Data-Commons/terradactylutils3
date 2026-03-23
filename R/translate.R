@@ -317,11 +317,11 @@ gap$DBKey <- header$DBKey[match(gap$PrimaryKey, header$PrimaryKey)]}
   if(file.exists(file.path(path_foringest, "/dataSpeciesInventory.csv"))) {
     write.csv(spin,paste0(path_foringest,"/dataSpeciesInventory.csv"), row.names=FALSE)}
   if(file.exists(file.path(path_foringest, "/dataDustDeposition.csv"))) {
-    write.csv(spin,paste0(path_foringest,"/dataDustDeposition.csv"), row.names=FALSE)}
+    write.csv(ddt,paste0(path_foringest,"/dataDustDeposition.csv"), row.names=FALSE)}
   if(file.exists(file.path(path_foringest, "/dataHorizontalFlux.csv"))) {
-    write.csv(spin,paste0(path_foringest,"/dataHorizontalFlux.csv"), row.names=FALSE)}
+    write.csv(hf,paste0(path_foringest,"/dataHorizontalFlux.csv"), row.names=FALSE)}
   if(file.exists(file.path(path_foringest, "/dataSoilHorizons.csv"))) {
-    write.csv(spin,paste0(path_foringest,"/dataSoilHorizons.csv"), row.names=FALSE)}
+    write.csv(sh,paste0(path_foringest,"/dataSoilHorizons.csv"), row.names=FALSE)}
 
 
 }
