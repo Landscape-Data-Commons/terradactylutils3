@@ -32,7 +32,7 @@ compare_flux_to_og_data <- function(path_parent, recursive) {
 
   # ingested v og
   df_flux <- read.csv(flux_file, stringsAsFactors = FALSE)
-  df_box  <- read_excel(box_file)
+  df_box  <- read.csv(box_file)
 
   # now lets check a unique id, first making sure col types match
   df_flux$BoxID <- as.character(df_flux$BoxID)
