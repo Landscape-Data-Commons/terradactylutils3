@@ -4,12 +4,14 @@
 \alias{db_info}
 \title{Format for ingest files}
 \usage{
-db_info(path_foringest, DateLoadedInDb)
+db_info(path_foringest, DateLoadedInDb, DBKey_date)
 }
 \arguments{
 \item{path_foringest}{path where data for ingest are saved}
 
 \item{DateLoadedInDb}{in standard date format, the date you are running the code}
+
+\item{DBKey_date}{the date that will be associated with the DBKey. For DIMAs, this is the date the data were received in Y-m-d format}
 }
 \value{
 CSVs of the for ingest files saved to the specified path_foringest

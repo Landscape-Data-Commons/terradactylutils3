@@ -22,7 +22,7 @@ compare_flux_to_og_data <- function(path_parent, recursive) {
   all_dirs <- list.dirs(path_parent, recursive = recursive)
   data_dir <- all_dirs[grep("/DIMATables$", all_dirs)]
 
-  if (length(data_dir) == 0) stop("Could not find 'DIMATables' folder.")
+  if (length(data_dir) == 0) stop("Could not find 'DIMATables' folder")
 
   box_file <- list.files(data_dir[1], pattern = "tblBSNE_BoxCollection", full.names = TRUE)
 
@@ -31,16 +31,17 @@ compare_flux_to_og_data <- function(path_parent, recursive) {
   }
 
   # ingested v og
-  df_flux <- read.csv(flux_file, stringsAsFactors = FALSE)
-  df_box  <- read.csv(box_file)
+  df_flux <- read.csv(flux_file, stringsAsFactors = FALSE, colClasses = "character")
+  df_box  <- read.csv(box_file, stringsAsFactors = FALSE, colClasses = "character")
 
   # now lets check a unique id, first making sure col types match
-  df_flux$BoxID <- as.character(df_flux$BoxID)
-  df_box$BoxID <- as.character(df_box$BoxID)
-  df_box$collectDate <- as.character(df_box$collectDate)
-  df_box$beakerNbr <- as.character(df_box$beakerNbr)
-  df_flux$beakerNbr <- as.character(df_flux$beakerNbr)
-  df_box$beakerNbr <- as.character(df_box$beakerNbr)
+  # df_flux$BoxID <- as.character(df_flux$BoxID)
+  # df_box$BoxID <- as.character(df_box$BoxID)
+  # df_box$collectDate <- as.character(df_box$collectDate)
+  # df_flux$DateVisited <- as.character(df_flux$DateVisited)
+  # df_box$beakerNbr <- as.character(df_box$beakerNbr)
+  # df_flux$beakerNbr <- as.character(df_flux$beakerNbr)
+  # df_box$beakerNbr <- as.character(df_box$beakerNbr)
 
   missing_rows <- anti_join(df_box, df_flux,
                             by = c("BoxID" = "BoxID",
@@ -48,8 +49,8 @@ compare_flux_to_og_data <- function(path_parent, recursive) {
                                    "beakerNbr" = "beakerNbr",
                                    "recordedWeight" = "recordedWeight"))
   missing_rows <- missing_rows %>% dplyr::filter(SampleCompromised == FALSE)
-  if(nrow(missing_rows) > 0){message("Data are missing in the new horizontal flux table.")}
-  if(nrow(missing_rows) == 0){message("Data are all present in the new horizontal flux table.")}
+  if(nrow(missing_rows) > 0){message("Data are missing in the new horizontal flux table")}
+  if(nrow(missing_rows) == 0){message("Data are all present in the new horizontal flux table")}
 
   missing_rows
 }
