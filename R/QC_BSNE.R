@@ -152,3 +152,25 @@ sediment_weight_check_ddt <- function(df){
   df
 
 }
+
+
+
+
+#' Check for all NA cols
+#'
+#' QC check cols not NULL
+#'
+#' @param df data.frame of the data to check for all NA cols
+#'
+#' @export
+
+empty_cols <- function(df){
+
+  empty_cols <-  names(df)[sapply(df, function(x) all(is.na(x)))]
+
+  # trigger warning for all na cols found in BSNE dat
+  if (length(empty_cols) > 0) {
+    warning("The following columns contain only NULL/NA values: ",
+            paste(empty_cols, collapse = ", "))
+  }
+}
