@@ -36,9 +36,11 @@ compare_flux_to_og_data <- function(path_parent, recursive) {
 
   # now lets check a unique id, first making sure col types match
   df_flux$BoxID <- as.character(df_flux$BoxID)
+  df_box$BoxID <- as.character(df_box$BoxID)
   df_box$collectDate <- as.character(df_box$collectDate)
   df_box$beakerNbr <- as.character(df_box$beakerNbr)
   df_flux$beakerNbr <- as.character(df_flux$beakerNbr)
+  df_box$beakerNbr <- as.character(df_box$beakerNbr)
 
   missing_rows <- anti_join(df_box, df_flux,
                             by = c("BoxID" = "BoxID",
