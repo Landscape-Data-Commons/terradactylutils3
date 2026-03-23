@@ -42,7 +42,12 @@ compare_flux_to_og_data <- function(path_parent, recursive) {
   # df_box$beakerNbr <- as.character(df_box$beakerNbr)
   # df_flux$beakerNbr <- as.character(df_flux$beakerNbr)
   # df_box$beakerNbr <- as.character(df_box$beakerNbr)
-
+df_flux <- df_flux %>% dplyr::mutate(
+  DateVisited = lubridate::parse_date_time(DateVisited,
+                                           orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM")))
+df_box <- df_box %>% dplyr::mutate(
+  collectDate = lubridate::parse_date_time(collectDate,
+                                           orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM")))
   missing_rows <- anti_join(df_box, df_flux,
                             by = c("BoxID" = "BoxID",
                                    "collectDate" = "DateVisited",
