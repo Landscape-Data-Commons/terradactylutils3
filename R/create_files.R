@@ -171,4 +171,49 @@ create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_ke
 
 }
 ###############################
+#' Create geoIndicators
+#'
+#'creates the geoIndicators table when there is only BSNE data available
+#'
+#' @param path_schema File path with the latest LDC schema plan
+#' @param path_parent File path where the data are being saved including the For Ingest file
+#'
+#' @return
+#'
+#' @export
 
+create_geoind <- function(path_schema, path_parent){
+  # putting back into schema
+  schema <- read.csv(path_schema)
+
+  target_schema <- schema %>% filter(Table == "geoIndicators")
+  schema_columns <-target_schema$Field
+
+  #getting the for ingest folder and header
+  target_dir <- list.dirs(path_parent, full.names = TRUE, recursive = TRUE)
+  ingest_folder <- target_dir[grep("For Ingest$", target_dir)]
+  ingest_folder <- ingest_folder[1]
+  if (length(ingest_folder) > 0) {
+    file_path <- list.files(ingest_folder, pattern = "dataHeader.*\\.csv$", full.names = TRUE)[1]
+    if (!is.na(file_path)) {
+      # Read the data
+      header <- read.csv(file_path)
+
+      # missing schema cols
+      missing_cols <- setdiff(schema_columns, names(header))
+
+      # add missing columns with NA observations
+      header[missing_cols] <- NA
+
+      # keep only the columns defined in the schema and order them correctly
+      header <- header[, schema_columns, drop = FALSE]
+
+      # 4. Save the new CSV
+      write.csv(header, file.path(ingest_folder, "geoIndicators.csv"), row.names = FALSE)
+    } else {
+      stop("Could not find 'dataHeader' file.")
+    }
+  } else {
+    stop("Could not find 'ForIngest' folder.")
+  }
+}
