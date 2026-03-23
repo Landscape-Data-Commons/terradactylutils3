@@ -232,7 +232,7 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
 #'
 #' @examples db_info(path_foringest = path_foringest,  DateLoadedInDb = format(Sys.Date(), "%m/%d/%Y"))
 #' @export
-db_info <- function(path_foringest, DateLoadedInDb){
+db_info <- function(path_foringest, DateLoadedInDb, DBKey_date){
 
   # read in data
   header <- read.csv(paste0(path_foringest, "/dataHeader.csv"))
