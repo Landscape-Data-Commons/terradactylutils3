@@ -114,7 +114,7 @@ validate_height_data <- function(path_foringest, recursive) {
     if(stringr::str_detect(col_name, "Graminoid")) habits_found <- c(habits_found, "Graminoid")
 
     # check rows in geoIndicator where this column is NA
-    na_primary_keys <- geo_ind %>%
+    na_primary_keys <- geoind %>%
       dplyr::filter(is.na(!!sym(col_name))) %>%
       dplyr::pull(PrimaryKey)
 
