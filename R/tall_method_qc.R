@@ -599,7 +599,7 @@ tall_height_qc <- function(tblLPIDetail, cleaned_tall_height, path_qc){
 #'
 #' @examples tall_lpi_qc(cleaned_tall_lpi = cleaned_tall_lpi, speciescode = "UpdatedSpeciesCode", PINTERCEPT = PINTERCEPT, USDA_plants = read.csv("D:/modifying_data_prep_script_10032025/2004-2023_ceap_species_list.csv") , path_qc = file.path("D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/QC")))
 #' @export
-tall_lpi_qc <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path_qc){
+tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path_qc){
   # list two letter codes and compare to terradat
   tall_lpi <- tall_lpi
   #get two letter codes
@@ -766,7 +766,7 @@ tall_lpi_qc <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path_qc)
 #'
 #' @examples gap_qc(cleaned_tall_gap = cleaned_tall_gap, GINTERCEPT = GINTERCEPT, path_qc = file.path("D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/QC"))
 #' @export
-tall_gap_qc <- function(tall_gap, GINTERCEPT, path_qc){
+tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
   # function(GINTERCEPT, tall_gap)
   ### gap QC
   # checking that the tall and og GapStart data match
