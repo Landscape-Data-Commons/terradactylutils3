@@ -91,11 +91,19 @@ bare_soil_comparison_nri <- function(path_original_files, path_foringest, recurs
   }
 
   if (length(geo_list) > 0) {
-    # bind_rows handles different column counts across files by filling with na
     all_geoindicators <- bind_rows(geo_list)
 
-  } else {
-    return(NULL)
-  }
+    # JOIN the two datasets to see the comparison
+    final_comparison <- all_geoindicators %>%
+      # Ensure PrimaryKey is the same type for joining
+      mutate(PrimaryKey = as.character(PrimaryKey)) %>%
+      left_join(bare_soil_summary %>% mutate(PrimaryKey = as.character(PrimaryKey)),
+                by = "PrimaryKey")
 
+    return(final_comparison)
+
+  } else {
+    return(message("No bare soil differences found"))
+  }
 }
+
