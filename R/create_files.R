@@ -178,7 +178,7 @@ create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_ke
 #' @param path_schema File path with the latest LDC schema plan
 #' @param path_parent File path where the data are being saved including the For Ingest file
 #'
-#' @return
+#' @return a geoIndicators csv will indicator values NULL
 #'
 #' @export
 

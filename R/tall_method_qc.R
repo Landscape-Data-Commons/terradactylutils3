@@ -995,7 +995,7 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 #' @param SOILDISAG as a data.frame, SOILDISAG table
 #' @param path_qc path where the QC data will be saved
 #'
-#' @return a CSV file with QC information about the height data saved to the specified path_qc
+#' @return a CSV file with QC information about the soil stability data saved to the specified path_qc
 #'
 #' @export
 ######################

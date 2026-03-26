@@ -4,25 +4,36 @@
 \alias{tall_lpi_qc}
 \title{Tall LPI QC}
 \usage{
-tall_lpi_qc(cleaned_tall_lpi, speciescode, USDA_plants, tblLPIDetail, path_qc)
+tall_lpi_qc(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path_qc)
+
+tall_lpi_qc(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path_qc)
 }
 \arguments{
-\item{cleaned_tall_lpi}{as a data.frame, the tall lpi data that has been through terradactylutils2::clean_tall_lpi}
+\item{tall_lpi}{as a data.frame, the tall lpi data that has been gathered}
 
 \item{speciescode}{the column name in the USDA plant list file that contains the four letter codes}
 
 \item{USDA_plants}{a data.frame of the USDA plants with the 4 letter code, GrowthHabit and Duration}
 
-\item{tblLPIDetail}{as a data.frame, the tblLPIDetail from the DIMA tables}
+\item{PINTERCEPT}{as a data.frame, the PINTERCEPT from the DIMA tables}
 
 \item{path_qc}{path where the QC data will be saved}
+
+\item{cleaned_tall_lpi}{as a data.frame, the tall lpi data that has been through terradactylutils2::clean_tall_lpi}
+
+\item{tblLPIDetail}{as a data.frame, the tblLPIDetail from the DIMA tables}
 }
 \value{
+a CSV containing information about the QC of the tall lpi data saved to the designated QC file
+
 a CSV containing information about the QC of the tall lpi data saved to the designated QC file
 }
 \description{
 after the lpi tall table is prepared for terradactylutils2::geofiles() using terradactylutils2::clean_tall_lpi(), this function produces the tall_lpi file QC checks
+
+after the lpi tall table is prepared for terradactylutils2::geofiles() using terradactylutils2::clean_tall_lpi(), this function produces the tall_lpi file QC checks
 }
 \examples{
 tall_lpi_qc(cleaned_tall_lpi = cleaned_tall_lpi, speciescode = "UpdatedSpeciesCode", tblLPIDetail = tblLPIDetail, USDA_plants = read.csv("D:/modifying_data_prep_script_10032025/2004-2023_ceap_species_list.csv") , path_qc = file.path("D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/QC")))
+tall_lpi_qc(cleaned_tall_lpi = cleaned_tall_lpi, speciescode = "UpdatedSpeciesCode", PINTERCEPT = PINTERCEPT, USDA_plants = read.csv("D:/modifying_data_prep_script_10032025/2004-2023_ceap_species_list.csv") , path_qc = file.path("D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/QC")))
 }

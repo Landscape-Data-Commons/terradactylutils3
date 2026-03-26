@@ -11,6 +11,9 @@ create_geoind(path_schema, path_parent)
 
 \item{path_parent}{File path where the data are being saved including the For Ingest file}
 }
+\value{
+a geoIndicators csv will indicator values NULL
+}
 \description{
 creates the geoIndicators table when there is only BSNE data available
 }
