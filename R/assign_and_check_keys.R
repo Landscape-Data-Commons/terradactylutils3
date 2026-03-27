@@ -639,3 +639,72 @@ nri_table_qc <- function(nri, path_qc){
 ################################################
 
 
+###############################
+#' Assign and QC Keys depending on the source
+#'
+#'assing PrimaryKey and other relevant Keys depending on the source
+#'
+#' @param source as a character string, the data source such as "AIM", "NRI" or "DIMA"
+#' @param dsn only applicable if source is NRI
+#'
+#' @return if NRI, csvs and list of dataframes to the environment; if DIMA, data list and PrimaryKey QC
+#'
+#' @export
+assign_keys_all <- function(dsn_nri = NULL, source){
+
+  if(source == "NRI"){
+
+    # add field names to package
+    table_name <- terradactyl::table_name(nri_path = dsn_nri)
+
+
+    # Read  NRI tables in and apply names
+    df <- lapply(X = table_name, function(X) {
+      print(X)
+      # read all files for the table and merge
+      data <- read_nri_text(sensitive_data = sensitive_data, dsn = dsn, table_name = X, DBKey = "auto", GL_schema_path = "D:/LDC_data_10012025/NRI/og_data/Grazing_Land_Data_Guide.xlsx")
+      return(data)
+    })
+
+    # add names to list elements
+    names(df) <- toupper(table_name)
+
+    nri <- terradactyl::assign_pkey_nri(df = df)
+
+
+    # save original file as Rdata
+    saveRDS(nri, paste0(path_original_files, "/NRI_raw_2024.Rdata"))
+
+    # Write all tables to CSV
+    up_tab <- toupper(table_name)
+    sapply(
+      X = up_tab,
+      function(X) {
+        print(X)
+        dat <- as.data.frame(nri[[X]])
+        dat$DBKey <- basename(dsn)
+        dat <- dat %>% dplyr::distinct()
+        write.csv(dat, paste(path_original_files,"/", toupper(X), ".csv", sep = ""), row.names = FALSE)
+      })
+    output <- paste0(path_original_files, "/")
+    #QC
+    #nri_table_qc(path_tall = path_tall, path_qc = path_qc)
+
+
+  }else if(source == "BLM_AIM"){
+    message("PrimaryKey assigned by Survey123")
+  }else{
+    ## function to assign keys (project, PrimaryKey, dbname, RecKey, LineKey) to each data file
+    terradactylutils3::assign_keys(path_project = path_project, non_line_tables = non_line_table_list )
+
+    # using data produced from assign_keys function to produce QC files to review
+    dima_data_list <- readRDS(paste0(path_qc,"/all_dimas_pks.Rdata") )
+    primarykey_qc<-read.csv(paste0(path_qc,"/primarykey_resolve_", date_pkey_qc_run, ".csv"))
+    terradactylutils3::dima_table_qc(dima_data_list = dima_data_list, primarykey_qc = primarykey_qc, path_qc = path_qc)
+
+  }
+
+
+
+
+}
