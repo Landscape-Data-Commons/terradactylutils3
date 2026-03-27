@@ -217,3 +217,88 @@ create_geoind <- function(path_schema, path_parent){
     stop("Could not find 'ForIngest' folder.")
   }
 }
+
+
+
+
+###############################
+#' Create header ALL
+#'
+#'modifies the header post gather_header depending on the source type
+#'
+#' @param source as a character string, the data source such as "AIM", "NRI" or "DIMA"
+#' @param path_original_files path_original_files, for NRI data only
+#' @param path_tall where tall data will be saved
+#' @param dsn dsn for AIM data only
+
+#'
+#' @return a dataHeader that is in the expected LDC format to the tall file path
+#'
+#' @export
+create_header_all <- function(source, path_original_files = NULL, path_tall, dsn_aim = NULL){
+  if(source == "NRI"){
+    dataHeader <- terradactyl::gather_header_nri(dsn = path_original_files, point_path = "POINT.csv", speciesstate = "NRI")
+    dataHeader$LocationStatus <- "fuzzed" #?
+    dataHeader$State <- dataHeader$STATE
+    dataHeader$Latitude_NAD83 <- NA
+    dataHeader$Longitude_NAD83 <- NA
+    write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
+    saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
+
+
+  }else if (source == "BLM_AIM"){
+    header <- gather_header(dsn = dsn_aim,  source = "AIM")
+    #remove dups
+    header <- header[which(!duplicated(header)),]
+    header$DBKey <- gsub('.{15}$', '', header$DateVisited)
+    header$ProjectKey <- "BLM_AIM"
+    write.csv(header, file.path(path_tall, "header.csv"), row.names = F)
+    saveRDS(header, file.path(path_tall, "header.rdata"))
+
+  }else{
+    dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
+                                                   by_species_key = FALSE)
+  }
+}
+
+###############################
+#' Create directories used for LDC data preparation
+#'
+#'creates any relevant directories depending on the source
+#'
+#' @param source as a character string, the data source such as "AIM", "NRI" or "DIMA"
+#' @param path_parent main directory where all data will be saved
+#'
+#' @return folders for data preparation for the LDC, if not already created
+#'
+#' @export
+create_dirs <- function(path_parent, source){
+
+  #setting file path for directories that the user does not edit
+  path_cache <- file.path(path_parent, "Cache")
+  path_qc <- file.path(path_parent, "QC") # path where the QC data will be saved
+  path_tall <- file.path(path_parent, "Tall") # path where the tall data will be saved
+  path_original_files <- file.path(path_parent, "original_files")
+  path_qc <- file.path(path_parent, "QC")
+  DIMATables <- file.path(path_parent, "DIMATables")
+  sensitive_data <- file.path(path_parent, "sensitive_data")
+
+  # set up directories if not yet in parent folder
+  if(!dir.exists(path_parent)) dir.create(path_parent)
+  if(!dir.exists(path_cache)) dir.create(path_cache)
+  if(!dir.exists(path_qc)) dir.create(path_qc)
+
+  if(source == "NRI"){
+    if(!dir.exists(path_original_files)) dir.create(path_original_files)
+    if(!dir.exists(path_qc)) dir.create(path_qc)
+    if(!dir.exists(sensitive_data)) dir.create(sensitive_data)
+
+  }
+
+  path_tall <- file.path(path_parent, "Tall")
+  if(!dir.exists(path_tall)) dir.create(path_tall)
+  path_foringest <- file.path(path_parent, "For Ingest")
+  if(!dir.exists(path_foringest)) dir.create(path_foringest)
+  if(source == "DIMA"){
+    if(!dir.exists(DIMATables)) dir.create(DIMATables)}
+}
