@@ -376,3 +376,115 @@ create_soil_horizons_nri <- function(nri, path_tall){
 
 
 }
+
+
+
+
+
+###################################
+#' Create MWAC table
+#'
+#' create MWAC table in the LDC format from DIMA
+#'
+#' @param tblBSNE_BoxCollection BSNE data from DIMA
+#' @param path_foringest where final files for LDC ingest are saved
+#'
+#' @return processed BSNE MWAC data to the path_foringest
+#'
+#' @export
+create_mwac <- function(tblBSNE_BoxCollection, path_foringest){
+
+  # remove bad data
+  tblBSNE_BoxCollection <- subset(tblBSNE_BoxCollection, SampleCompromised == "FALSE")
+  #drop duplicates
+  dropcols_hf <- tblBSNE_BoxCollection  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
+  tblBSNE_BoxCollection <- tblBSNE_BoxCollection[which(!duplicated(dropcols_hf)),]
+  #assign project key
+  tblBSNE_BoxCollection$ProjectKey <- tblBSNE_BoxCollection$project
+  # add correct rid
+  tblBSNE_BoxCollection$rid <- seq(1:nrow(tblBSNE_BoxCollection))
+  #tblBSNE_BoxCollection$DateEstablished <- as_date(tblBSNE_BoxCollection$DateEstablished.x)
+  tblBSNE_BoxCollection$DBKey <- tblBSNE_BoxCollection$dbname
+  tblBSNE_BoxCollection$DateLoadedInDb <- todaysDate
+  # make sure date columns dont have TZ
+
+  tblBSNE_BoxCollection$collectDate <- lubridate::parse_date_time(tblBSNE_BoxCollection$collectDate,
+                                                                  orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM"))
+
+  attr(tblBSNE_BoxCollection$collectDate, "tzone") <- NULL
+
+  tblBSNE_BoxCollection$DateEstablished <- lubridate::parse_date_time(tblBSNE_BoxCollection$DateEstablished,
+                                                                      orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM"))
+
+  attr(tblBSNE_BoxCollection$DateEstablished, "tzone") <- NULL
+
+  # only keep data in schema, in the order of the schema
+  schema <- read.csv(path_schema)
+  schema <- schema %>% dplyr::filter(Table == "dataHorizontalFlux")
+  # schema column order
+  ordered_cols <- schema$Field
+
+  # reorder BSNE, keeping schema cols
+  tblBSNE_BoxCollection <- tblBSNE_BoxCollection %>%
+    dplyr::select(all_of(ordered_cols))
+
+
+  write.csv(tblBSNE_BoxCollection, paste0(path_foringest, "/dataHorizontalFlux.csv"), row.names = FALSE)
+
+}
+
+
+
+
+
+###################################
+#' Create DDT table
+#'
+#' create DDT table in the LDC format from DIMA
+#'
+#' @param tblBSNE_TrapCollection BSNE data from DIMA
+#' @param path_foringest where final files for LDC ingest are saved
+#'
+#' @return processed BSNE DDT data to the path_foringest
+#'
+#' @export
+create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
+
+  # remove bad data
+  tblBSNE_TrapCollection <- subset(tblBSNE_TrapCollection, SampleCompromised == "FALSE")
+  #drop duplicates
+  dropcols_ddt <- tblBSNE_TrapCollection  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
+  tblBSNE_TrapCollection <- tblBSNE_TrapCollection[which(!duplicated(dropcols_ddt)),]
+  #assign project key
+  tblBSNE_TrapCollection$ProjectKey <- tblBSNE_TrapCollection$project
+  #tblBSNE_BoxCollection$DateEstablished <- as_date(tblBSNE_BoxCollection$DateEstablished.x)
+  tblBSNE_TrapCollection$DBKey <- tblBSNE_TrapCollection$dbname
+  tblBSNE_TrapCollection$DateLoadedInDb <- todaysDate
+
+  tblBSNE_TrapCollection$collectDate <- lubridate::parse_date_time(tblBSNE_TrapCollection$collectDate,
+                                                                   orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM"))
+
+  attr(tblBSNE_TrapCollection$collectDate, "tzone") <- NULL
+
+  tblBSNE_TrapCollection$DateEstablished <- lubridate::parse_date_time(tblBSNE_TrapCollection$DateEstablished,
+                                                                       orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM"))
+
+  attr(tblBSNE_TrapCollection$DateEstablished, "tzone") <- NULL
+
+  # only keep data in schema, in the order of the schema - can't use schema until Kris updates
+  # schema <- read.csv(path_schema)
+  # schema <- schema %>% dplyr::filter(Table == "dataDustDeposition")
+  ddtschema <- read.csv("D:/Horizontal_flux_not_yet_uploaded/Horizontal_flux_not_yet_uploaded/DDT/DDT_schema.csv")
+  # # schema column order
+  ordered_cols <- ddtschema$Field
+
+  # reorder BSNE, keeping schema cols
+  tblBSNE_TrapCollection <- tblBSNE_TrapCollection %>%
+    dplyr::select(all_of(ordered_cols))
+
+  tblBSNE_TrapCollection <- tblBSNE_TrapCollection %>%
+    dplyr::rename(DustDepositionRate = sedimentGperDayByInlet)
+
+  write.csv(tblBSNE_TrapCollection, paste0(path_foringest, "/dataDustDeposition.csv"), row.names = FALSE)
+
+}
