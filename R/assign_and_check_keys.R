@@ -650,12 +650,12 @@ nri_table_qc <- function(nri, path_qc){
 #' @return if NRI, csvs and list of dataframes to the environment; if DIMA, data list and PrimaryKey QC
 #'
 #' @export
-assign_keys_all <- function(dsn_nri = NULL, source){
+assign_keys_all <- function(dsn = NULL, source){
 
   if(source == "NRI"){
 
     # add field names to package
-    table_name <- terradactyl::table_name(nri_path = dsn_nri)
+    table_name <- terradactyl::table_name(nri_path = dsn)
 
 
     # Read  NRI tables in and apply names

@@ -235,7 +235,7 @@ create_geoind <- function(path_schema, path_parent){
 #' @return a dataHeader that is in the expected LDC format to the tall file path
 #'
 #' @export
-create_header_all <- function(source, path_original_files = NULL, path_tall, dsn_aim = NULL){
+create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL){
   if(source == "NRI"){
     dataHeader <- terradactyl::gather_header_nri(dsn = path_original_files, point_path = "POINT.csv", speciesstate = "NRI")
     dataHeader$LocationStatus <- "fuzzed" #?
@@ -247,7 +247,7 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
 
 
   }else if (source == "BLM_AIM"){
-    header <- gather_header(dsn = dsn_aim,  source = "AIM")
+    header <- gather_header(dsn = dsn,  source = "AIM")
     #remove dups
     header <- header[which(!duplicated(header)),]
     header$DBKey <- gsub('.{15}$', '', header$DateVisited)
@@ -301,4 +301,78 @@ create_dirs <- function(path_parent, source){
   if(!dir.exists(path_foringest)) dir.create(path_foringest)
   if(source == "DIMA"){
     if(!dir.exists(DIMATables)) dir.create(DIMATables)}
+}
+
+
+
+
+###################################
+#' Gather soil horizons for NRI
+#'
+#' create soil horizon file from NRI tables
+#'
+#' @param nri list of nri data frames
+#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#'
+#' @return gathered soil horizon table to path_tall
+#'
+#' @export
+create_soil_horizons_nri <- function(nri, path_tall){
+
+  SH <- nri$SOILHORIZON
+  #drop duplicates
+  dropcols_hf <- SH  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
+  SH <- SH[which(!duplicated(dropcols_hf)),]
+  #assign project key
+  SH$ProjectKey <- "NRI"
+
+  SH$DateLoadedInDb <- todaysDate
+
+  #
+  SH$HorizonKey <- NA
+  SH$DateVisited <- SH$SURVEY
+  SH$HorizonDepthUpper <- SH$DEPTH * 2.54
+  SH$HorizonDepthLower <- SH$DEPTH * 2.54
+  SH$DepthUOM <- "cm"
+  SH$HorizonName <- NA
+  SH$Texture <- SH$HORIZON_TEXTURE
+  SH$TextureModifier <- SH$TEXTURE_MODIFIER
+  SH$pH <- NA
+  SH$EC <- NA
+  SH$Effervescence <- SH$EFFERVESCENCE_CLASS
+  SH$ClayPct <- NA
+  SH$SandPct <- NA
+  SH$StructureGrade <- NA
+  SH$StructureSize <- NA
+  SH$StructureType <- NA
+  SH$StructureQuality<- NA
+  SH$Hue<- NA
+  SH$Value<- NA
+  SH$Chroma<- NA
+  SH$ColorMoistDry<- NA #
+  SH$HorizonNotes<- SH$UNUSUAL_FEATURES
+  SH$SiltPct<- NA
+  SH$FragVolGravel<- NA
+  SH$FragVolCobble<- NA
+  SH$FragVolStone<- NA
+  SH$FragVolNodule<- NA
+  SH$FragVolDurinode<- NA
+  SH$HorizonNumber<- SH$SEQNUM
+  SH$source <- "NRI"
+
+  # only keep data in schema, in the order of the schema
+  schema <- read.csv(path_schema)
+  schema <- schema %>% dplyr::filter(Table == "dataSoilHorizons")
+  # schema column order
+  ordered_cols <- schema$Field
+
+  # reorder BSNE, keeping schema cols
+  SH <- SH %>%
+    dplyr::select(all_of(ordered_cols))
+
+
+  write.csv(SH, paste0(path_tall, "/soil_horizons_tall.csv"), row.names = FALSE)
+  write.csv(SH, paste0(path_tall, "/dataSoilHorizons.csv"), row.names = FALSE)
+
+
 }
