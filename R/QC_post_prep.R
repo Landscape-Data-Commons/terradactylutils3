@@ -854,6 +854,7 @@ bare_soil_comparison <- function(DIMATables, path_foringest, recursive) {
 #' @export
 #'
 
+QC_all_post_prep <- function(source, path_foringest, path_parent){
 # BG CHECK
 if(source == "DIMA" && exists("dima_data_list") && !is.null(dima_data_list$tblLPIDetail) | source == "BLM_AIM"){
   terradactylutils3::bare_soil_comparison(DIMATables = DIMATables, path_foringest = path_foringest, recursive = FALSE)
@@ -1078,3 +1079,4 @@ if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"
 
 }
 
+}
