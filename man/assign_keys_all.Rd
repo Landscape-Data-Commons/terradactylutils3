@@ -4,7 +4,7 @@
 \alias{assign_keys_all}
 \title{Assign and QC Keys depending on the source}
 \usage{
-assign_keys_all(dsn = NULL, source)
+assign_keys_all(dsn = NULL, source, path_sensitive_data)
 }
 \arguments{
 \item{dsn}{only applicable if source is NRI}
