@@ -329,3 +329,90 @@ gap$DBKey <- header$DBKey[match(gap$PrimaryKey, header$PrimaryKey)]}
 
 
 
+
+##############################################
+#' Separate by ProjectKey for LDC Ingester
+#'
+#' separates the Projects into their own For Ingest folder
+#'
+#' @param path_foringest path where data for ingest are saved
+#'
+#' @return For Ingest folders for each ProjectKey
+#'
+#' @export
+
+separate_foringest_by_projkey <- function(path_foringest){
+message("Multiple ProjectKeys detected; check For_Ingest_by_projkey folder for data separated by ProjectKeys")
+path_foringest_split <- file.path(path_foringest, "For_Ingest_by_projkey")
+if (!dir.exists(path_foringest_split)) dir.create(path_foringest_split)
+
+# bind those in the For Ingest folder
+#select for ingest folder
+all_csv_paths <- list.files(path = path_foringest, recursive = TRUE,
+                            pattern = "\\.csv$", full.names = TRUE)
+
+all_csv_paths <- all_csv_paths[grepl("For Ingest", all_csv_paths)]
+
+#get the groups of data (evident in csv name)
+dfs <- data.frame(all_csv_paths)
+dfs$name <- sub(".*\\/", "", dfs$all_csv_paths) #used to match any character sequence up to and including the last forward slash in a string
+
+
+# bind csvs of same group
+
+list_of_dfs <- list()
+
+names <- unique(dfs$name)
+
+for (current_name in names){
+
+  #get file names
+  files_to_read <- dfs %>%
+    dplyr::filter(name == !!current_name) %>% #!! unquoting
+    dplyr::pull(all_csv_paths) #pull converts col to vect
+
+
+  # Initialize data frame
+  combined_dat <- read.csv(files_to_read[1]) #get the first df in so we can do for loop
+
+  # join the rest of the files with another for loop
+  # using full join because it handles the diff cols in geo files
+  for(path in files_to_read[-1]){
+    df <- read.csv(path)
+    combined_dat <- bind_rows(combined_dat, df)
+  }
+
+
+  list_of_dfs[[current_name]] <- combined_dat
+}
+
+
+# combine and then update the DBKey column
+
+# Apply the function to each data frame in the list
+list_of_dfs <- lapply(X = list_of_dfs[names(list_of_dfs)],
+                      FUN = function(X) {
+                        X$DBKey <- paste0(X$ProjectKey,"_", date )
+                        X
+                      })
+
+for(proj in projectkey) {
+
+  # Create the project directory
+  path_foringest_proj <- file.path(path_foringest_split, proj)
+  if (!dir.exists(path_foringest_proj)) dir.create(path_foringest_proj, recursive = TRUE)
+
+  # Iterate over names of the list
+  lapply(names(list_of_dfs), function(name) {
+
+    #get df
+    df <- list_of_dfs[[name]]
+
+    # filter for proj
+    df <- df[df$ProjectKey == proj, ]
+
+    write.csv(df, file.path(path_foringest_proj, paste0(name, ".csv")), row.names = FALSE)
+  })
+}
+
+}
