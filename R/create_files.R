@@ -488,3 +488,94 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
   write.csv(tblBSNE_TrapCollection, paste0(path_foringest, "/dataDustDeposition.csv"), row.names = FALSE)
 
 }
+
+
+###################################
+#' Create OG AIM files
+#'
+#' save original AIM files
+#'
+#' @param DIMATables path to DIMATables folder
+#' @param path_foringest path to For Ingest folder
+#' @param path_parent path to parent folder where all data are being saved
+#' @param dsn path to gdb for AIM
+#'
+#' @return saves files to For Ingest and DIMATables folder to be used for QC
+#'
+#' @export
+
+create_aim_og_files <- function(path_foringest, DIMATables, path_parent){
+
+cleaned_tall_lpi <- read.csv(paste0(path_foringest, "/dataLPI.csv"))
+cleaned_tall_gap <- read.csv(paste0(path_foringest, "/dataGap.csv"))
+cleaned_tall_soil_stability <- read.csv(paste0(path_foringest, "/dataSoilStability.csv"))
+cleaned_tall_height <- read.csv(paste0(path_foringest, "/dataHeight.csv"))
+
+# write the DIMATables
+#st_layers(dsn)
+DIMATables <- file.path(path_parent, "DIMATables")
+if(!dir.exists(DIMATables)) dir.create(DIMATables)
+
+tblLPIDetail <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblLPIDetail")
+tblGapDetail <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblGapDetail")
+tblSoilStabDetail <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblSoilStabDetail")
+tblLPIHeader <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblLPIHeader")
+tblLines <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblLines")
+tblPlots <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblPlots")
+
+
+
+
+write.csv(tblLPIDetail, paste0(DIMATables, "/tblLPIDetail.csv"))
+write.csv(tblGapDetail, paste0(DIMATables, "/tblGapDetail.csv"))
+write.csv(tblSoilStabDetail, paste0(DIMATables, "/tblSoilStabDetail.csv"))
+write.csv(tblLPIHeader, paste0(DIMATables, "/tblLPIHeader.csv"))
+write.csv(tblLines, paste0(DIMATables, "/tblLines.csv"))
+write.csv(tblPlots, paste0(DIMATables, "/tblPlots.csv"))
+
+}
+
+
+
+
+###################################
+#' Create geoindicators ALL
+#'
+#' add missing PrimaryKeys to geoIndicators
+#'
+#' @param path_schema path to LDC schema plan
+#' @param path_foringest path to For Ingest folder
+#' @param path_parent path to parent folder where all data are being saved
+#' @param BSNE_only True or False, True if only BSNE data are being processed
+#'
+#' @return saves geoIndicators file to For Ingest having all PrimaryKeys
+#'
+#' @export
+
+create_geoind_ALL <- function(path_schema, path_foringest, path_parent, BSNE_only){
+#assign NA vals to geoind where indicators not calculated
+if(BSNE_only){
+  create_geoind(path_schema = path_schema, path_parent = path_parent)
+}else{
+  geoind <- read.csv(paste0(path_foringest, "/geoIndicators.csv"))
+  head <- read.csv(paste0(path_foringest, "/dataHeader.csv"))
+
+  all_pkeys <- head$PrimaryKey
+
+  # pkeys not in the geoind file
+  missing_pkey_values <- all_pkeys[!all_pkeys %in% geoind$PrimaryKey]
+
+  if(NROW(missing_pkey_values) > 0){
+    # create df of missing with NA for geoind cols
+    missing_rows <- data.frame(PrimaryKey = missing_pkey_values)
+    other_cols <- setdiff(names(geoind), "PrimaryKey")
+    missing_rows[other_cols] <- NA
+    # and recombine
+    geoind <- rbind(geoind, missing_rows)
+
+
+    write.csv(geoind, paste0(path_foringest,"/geoIndicators.csv"))
+  }
+}
+
+}

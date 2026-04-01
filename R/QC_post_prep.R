@@ -835,3 +835,246 @@ bare_soil_comparison <- function(DIMATables, path_foringest, recursive) {
   }
 }
 
+
+
+
+
+
+
+###############################
+#' Post preparation QC with checks
+#'
+#' provide dialogue and data frames that are helpful for quality control of data from all method types
+#'
+#' @param source data type ("NRI", "AIM" or "DIMA")
+#' @param path_foringest path to For Ingest folder
+#' @param path_parent path to folder containing all of the data folders for data preparation
+#'
+#' @return verbose about quality control of data and data frames where issues need to be investigated
+#' @export
+#'
+
+# BG CHECK
+if(source == "DIMA" && exists("dima_data_list") && !is.null(dima_data_list$tblLPIDetail) | source == "BLM_AIM"){
+  terradactylutils3::bare_soil_comparison(DIMATables = DIMATables, path_foringest = path_foringest, recursive = FALSE)
+}else if(source == "NRI" && exists("nri") && !is.null(nri$POINTCOORDINATES)){
+  terradactylutils3::bare_soil_comparison_nri(path_original_files = path_original_files, path_foringest = path_foringest, recursive = FALSE)
+}else{message("No LPI detected for QC")}
+
+# checking expected values only for metadata cols
+metadata_report <- terradactylutils3::summarize_table_metadata(path_foringest, recursive = F)
+
+print(metadata_report, n = Inf)
+
+# check only accepted GrowthHabit_measured
+if (source == "DIMA" && exists("dima_data_list") && !is.null(dima_data_list$tblLPIDetail) | source == "BLM_AIM") {
+  audit_height_growth_habits(path_foringest, recursive = FALSE)
+}
+
+#unique pkey, linekey and point number in lpi
+if(source == "DIMA" && exists("dima_data_list") && !is.null(dima_data_list$tblLPIDetail) | source == "BLM_AIM" | source == "NRI"){
+  lpi_uniqueness(path_foringest, recursive = FALSE)
+}
+
+# PrimaryKey format
+pk_integrity_report <- audit_primary_key_integrity(path_foringest, recursive = FALSE)
+
+
+if (!is.null(pk_integrity_report) && nrow(pk_integrity_report) > 0) {
+  print(pk_integrity_report)
+} else {
+  message("All PrimaryKeys are valid, alphanumeric, and non-dummy.")
+}
+
+# lat lon precision
+header <- read.csv(paste0(path_foringest, "/dataHeader.csv"))
+geoind <- read.csv(paste0(path_foringest, "/geoIndicators.csv"))
+
+precision_report1 <- coordinate_precision(header)
+precision_report2 <- coordinate_precision(geoind)
+
+
+if (!is.null(precision_report1) && nrow(precision_report1) > 0) {
+  print(precision_report1)
+} else {
+  message("All coordinates in header files have at least 4 decimal places.")
+}
+if (!is.null(precision_report2) && nrow(precision_report2) > 0) {
+  print(precision_report1)
+} else {
+  message("All coordinates in geoIndicators files have at least 4 decimal places.")
+}
+
+# NA or 0 for LPI, Gap, Hgt in geoIndicators
+# manually checked; the code isn't catching when there shouldn't be Gap data but is handling LPI correctly
+
+validation_results <- geoind_NA_check(path_foringest, recursive = FALSE)
+
+if(!is.null(validation_results) > 0) {
+  print(validation_results)
+} else {
+  message("All gap, LPI and height values in geoIndicators are correctly assigned NA or value.")
+}
+
+
+#ah fh > 100
+
+ah_fh_issues <- greater_than_100_geoind(path_foringest = path_foringest, recursive = FALSE)
+
+
+if (!is.null(ah_fh_issues) && nrow(ah_fh_issues) > 0) {
+  message(paste("Found", nrow(ah_fh_issues), "observations exceeding 100."))
+  print(ah_fh_issues)
+} else {
+  message("All AH/FH columns are within the valid range (<= 100).")
+}
+
+# gap cols < 100
+gap_100(path_foringest = path_foringest, recursive = FALSE)
+
+
+
+# geosp cover < total foliar
+if(source == "DIMA" && exists("dima_data_list") && !is.null(dima_data_list$tblLPIDetail)){
+  species_cover_audit <- validate_species_vs_indicators(path_foringest, recursive = F)
+}
+
+
+# NA hgt check
+
+height_validation_report <- validate_height_data(path_foringest, recursive = FALSE)
+
+if(NROW(height_validation_report) == 0){"No NA in Hgt detected or Height method not completed."}
+
+
+### BSNE QC
+
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0){
+  # compare og and LDC data
+  missing <- compare_flux_to_og_data(path_parent)
+  print(missing)
+}else{message("No BSNE data detected for QC")}
+
+#not null
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0){
+  df <- read_csv(paste0(path_foringest, "/dataHorizontalFlux.csv"))
+  terradactylutils3::empty_cols(df)
+}else{message("No BSNE data detected for QC")}
+
+#checking the sediment weight is correctly recorded
+if(exists("dima_data_list") &&  !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0){
+  df <- read_csv(paste0(path_foringest, "/dataHorizontalFlux.csv"))
+  sediment_weight_check(df)
+}else{message("No BSNE data detected for QC")}
+# warn if negative sediment records
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0){
+  df <- read_csv(paste0(path_foringest, "/dataHorizontalFlux.csv"))
+  neg_weight <- subset(df, df$recordedWeight < 0)
+
+  if(nrow(neg_weight) > 0){warning("Negative sediment recorded") & print(neg_weight)}
+
+}else{message("No BSNE data detected for QC")}
+
+# checking that BOXID and StackID do not have rounding error (repeated zeros)
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0){
+  # multiple zeros occur when there is a rounding error
+  error_box_id   <- df %>% filter(grepl("000", BoxID))
+  error_stack_id <- df %>% filter(grepl("000", StackID))
+
+  # ID rows with duplicates WITHIN the same PrimaryKey
+
+  dupes_in_group <- df %>%
+    group_by(PrimaryKey, Height, StackID) %>%
+    filter(duplicated(BoxID) | duplicated(BoxID, fromLast = TRUE)) %>%
+    ungroup()
+
+  #write.csv(dupes_in_group, paste0(path_parent, "duplicate_StackID_BoxID_height.csv"))
+
+  # BOXID check
+  if (exists("error_box_id") && !is.null(error_box_id) && nrow(error_box_id) > 0 || exists("dupes_in_group") && !is.null(dupes_in_group) && nrow(dupes_in_group) > 0) {
+    warning("Potential rounding issue or duplicate BoxID found within PrimaryKey groups")
+
+    if(nrow(error_box_id) > 0) {
+      print(error_box_id)
+    }
+
+    if(nrow(dupes_in_group) > 0) {
+      print(dupes_in_group)
+    }
+  }else{message("No potential BoxID issues found.")}
+
+  # stack ID
+
+  if (exists("error_stack_id") && nrow(error_stack_id) > 0) {
+    warning("Potential rounding issue or duplicate StackID found within PrimaryKey groups")
+    if(nrow(error_stack_id) > 0) {
+      print(error_stack_id)
+    }
+
+  }else{message("No potential StackID issues found or no BSNE data detected")}
+
+}
+
+
+##############################
+# DDT QC
+
+
+# compare og and LDC data
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0){
+  missing <- compare_ddt_to_og_data(path_parent)
+
+}else{message("No DDT data detected for QC")}
+
+#not null and in schema
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0){
+  df <- read_csv(paste0(path_foringest, "/dataDustDeposition.csv"))
+  empty_cols(df)
+}else{message("No DDT data detected for QC")}
+
+#checking the sediment weight is correctly recorded
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0){
+  df <- read_csv(paste0(path_foringest, "/dataDustDeposition.csv"))
+
+  sediment_weight_check_ddt(df)
+}else{message("No DDT data detected for QC")}
+# warn if negative sediment records
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0){
+  df <- read_csv(paste0(path_foringest, "/dataDustDeposition.csv"))
+
+  neg_weight <- subset(df, df$recordedWeight < 0)
+
+  if(nrow(neg_weight) > 0){warning("Negative sediment recorded") & print(neg_weight)}
+}else{message("No DDT data detected for QC")}
+
+# checking that BOXID and StackID do not have rounding error (repeated zeros)
+if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0){
+  df <- read_csv(paste0(path_foringest, "/dataDustDeposition.csv"))
+
+  # multiple zeros occur when there is a rounding error
+  error_stack_id <- df %>% filter(grepl("000", StackID))
+
+  # ID rows with duplicates WITHIN the same PrimaryKey
+
+  dupes_in_group <- df %>%
+    group_by(PrimaryKey, StackID) %>%
+    filter(duplicated(StackID) | duplicated(StackID, fromLast = TRUE)) %>%
+    ungroup()
+
+  #write.csv(dupes_in_group, paste0(path_parent, "duplicate_StackID_BoxID_height.csv"))
+
+  # stackid check
+  if (exists("error_stack_id") && !is.null(error_stack_id) && nrow(error_stack_id) > 0 || exists("dupes_in_group") && !is.null(dupes_in_group) && nrow(dupes_in_group) > 0) {
+    warning("Potential rounding issue or duplicate BoxID found within PrimaryKey groups")
+
+    if(nrow(error_stack_id) > 0) {
+      print(error_stack_id)
+    }
+
+    if(nrow(dupes_in_group) > 0) {
+      print(dupes_in_group)
+    }
+  }else{message("No potential StackID issues found or no BSNE data detected")}
+
+}
+

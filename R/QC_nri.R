@@ -107,3 +107,34 @@ bare_soil_comparison_nri <- function(path_original_files, path_foringest, recurs
   }
 }
 
+
+
+
+###############################
+#' Coordinate Check NRI
+#'
+#' check coordinates are false or present for NRI data depending on data sensitivity
+#'
+#' @param path_foringest File path to For Ingest folder
+#'
+#' @return corrdinate QC
+#' @export
+
+coord_check_nri <- function(path_foringest){
+# coord check NRI
+if(source == "NRI" && exists("nri") ){
+  head <- read.csv(paste0(path_foringest, "/dataHeader.csv"))
+  nalat <- head[is.na(head$Latitude_NAD83),]
+  nulllat <-head[is.null(head$Latitude_NAD83),]
+  if(nrow(nulllat)>0){
+    nalat <- rbind(nalat, nulllat)}
+  nalon <- head[is.na(head$Longitude_NAD83),]
+  nulllon <-head[is.null(head$Longitude_NAD83),]
+  if(nrow(nulllat)>0){
+    nalon <- rbind(nalon, nulllon)}
+
+  if(nrow(nalat > 0)){warning("NA or NULL Latitude")}
+  if(nrow(nalon > 0)){warning("NA or NULL Longitude")}
+
+}else{message("Check the QC folder for QC files including the coordinate check")}
+}
