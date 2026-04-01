@@ -650,7 +650,7 @@ nri_table_qc <- function(nri, path_qc){
 #' @return if NRI, csvs and list of dataframes to the environment; if DIMA, data list and PrimaryKey QC
 #'
 #' @export
-assign_keys_all <- function(dsn = NULL, source){
+assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
 
   if(source == "NRI"){
 
@@ -662,7 +662,7 @@ assign_keys_all <- function(dsn = NULL, source){
     df <- lapply(X = table_name, function(X) {
       print(X)
       # read all files for the table and merge
-      data <- read_nri_text(sensitive_data = sensitive_data, dsn = dsn, table_name = X, DBKey = "auto", GL_schema_path = "D:/LDC_data_10012025/NRI/og_data/Grazing_Land_Data_Guide.xlsx")
+      data <- read_nri_text(sensitive_data = path_sensitive_data, dsn = dsn, table_name = X, DBKey = "auto", GL_schema_path = "D:/LDC_data_10012025/NRI/og_data/Grazing_Land_Data_Guide.xlsx")
       return(data)
     })
 
