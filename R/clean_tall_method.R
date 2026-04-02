@@ -234,6 +234,7 @@ gather_clean_all <- function(source){
   # gather lpi, prepare tall lpi and qc
   if( exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0){
     message("Found NRI LPI data; processing")
+    output <<- paste0(path_original_files, "/")
     lpi_tall <- terradactyl::gather_lpi(dsn = paste0(output, "PINTERCEPT.csv"),
                                         file_type = "csv", source = "NRI")
     cleaned_lpi_tall <- terradactylutils3::clean_tall_lpi(lpi = lpi_tall, dataHeader = dataHeader, path_tall = path_tall)

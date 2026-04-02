@@ -687,7 +687,7 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
         dat <- dat %>% dplyr::distinct()
         write.csv(dat, paste(path_original_files,"/", toupper(X), ".csv", sep = ""), row.names = FALSE)
       })
-    output <- paste0(path_original_files, "/")
+    output <<- paste0(path_original_files, "/")
     #QC
     #nri_table_qc(path_tall = path_tall, path_qc = path_qc)
 
