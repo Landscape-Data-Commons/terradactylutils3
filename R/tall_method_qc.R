@@ -521,8 +521,8 @@ tall_height_qc <- function(tblLPIDetail, cleaned_tall_height, path_qc){
   heights_og <- heights_og[!is.na(heights_og$Height),]
   tall_height_max <- tall_height |> dplyr::select(PrimaryKey, LineKey, PointNbr, type, Height)
 
-  max_tall_Height <- slice_max(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-  max_og_Height <- slice_max(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
+  max_tall_Height <- slice_max(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr', "type"))
+  max_og_Height <- slice_max(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr', "type"))
 
 
   max_Height_error_tall <- dplyr::setdiff(max_og_Height, max_tall_Height)
@@ -549,8 +549,8 @@ tall_height_qc <- function(tblLPIDetail, cleaned_tall_height, path_qc){
 
 
 
-  min_tall_Height <- slice_min(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-  min_og_Height <- slice_min(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
+  min_tall_Height <- slice_min(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr', "type"))
+  min_og_Height <- slice_min(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr', "type"))
 
   min_Height_error_tall <- dplyr::setdiff(min_og_Height, min_tall_Height)
   if(nrow(min_Height_error_tall) > 0){
