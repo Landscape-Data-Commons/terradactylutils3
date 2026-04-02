@@ -275,13 +275,13 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
 create_dirs <- function(path_parent, source){
 
   #setting file path for directories that the user does not edit
-  path_cache <- file.path(path_parent, "Cache")
-  path_qc <- file.path(path_parent, "QC") # path where the QC data will be saved
-  path_tall <- file.path(path_parent, "Tall") # path where the tall data will be saved
-  path_original_files <- file.path(path_parent, "original_files")
-  path_qc <- file.path(path_parent, "QC")
-  DIMATables <- file.path(path_parent, "DIMATables")
-  sensitive_data <- file.path(path_parent, "sensitive_data")
+  path_cache <<- file.path(path_parent, "Cache")
+  path_qc <<- file.path(path_parent, "QC") # path where the QC data will be saved
+  path_tall <<- file.path(path_parent, "Tall") # path where the tall data will be saved
+  path_original_files <<- file.path(path_parent, "original_files")
+  path_qc <<- file.path(path_parent, "QC")
+  DIMATables <<- file.path(path_parent, "DIMATables")
+  sensitive_data <<- file.path(path_parent, "sensitive_data")
 
   # set up directories if not yet in parent folder
   if(!dir.exists(path_parent)) dir.create(path_parent)
