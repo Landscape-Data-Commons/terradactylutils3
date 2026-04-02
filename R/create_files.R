@@ -259,6 +259,9 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
                                                    by_species_key = FALSE)
   }
+
+  # assign to global environment
+  assign("dataHeader", dataHeader, envir = .GlobalEnv)
 }
 
 ###############################
