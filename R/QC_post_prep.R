@@ -888,6 +888,7 @@ if (!is.null(pk_integrity_report) && nrow(pk_integrity_report) > 0) {
 }
 
 # lat lon precision
+if(source != "NRI"){
 header <- read.csv(paste0(path_foringest, "/dataHeader.csv"))
 geoind <- read.csv(paste0(path_foringest, "/geoIndicators.csv"))
 
@@ -905,7 +906,7 @@ if (!is.null(precision_report2) && nrow(precision_report2) > 0) {
 } else {
   message("All coordinates in geoIndicators files have at least 4 decimal places.")
 }
-
+}
 # NA or 0 for LPI, Gap, Hgt in geoIndicators
 # manually checked; the code isn't catching when there shouldn't be Gap data but is handling LPI correctly
 
