@@ -548,16 +548,16 @@ dima_table_qc <- function(dima_data_list, primarykey_qc, path_qc){
 #' @export
 nri_table_qc <- function(nri, path_qc){
 
-  # check lat/longs
-  coord_qc <- nri[["POINTCOORDINATES"]] |> subset(is.na(TARGET_LATITUDE)|is.na(TARGET_LONGITUDE)|TARGET_LATITUDE==0|TARGET_LONGITUDE==0) |>
-    dplyr::mutate(TARGET_LATITUDE = as.numeric(TARGET_LATITUDE)) |> dplyr::mutate(TARGET_LONGITUDE = as.numeric(TARGET_LONGITUDE)) |>
-    dplyr::select(PrimaryKey, TARGET_LATITUDE, TARGET_LONGITUDE) |>
-    tidyr::pivot_longer(cols = -c(PrimaryKey,),
-                        names_to = "Field",
-                        values_to = "n_missing") |>
-    dplyr::mutate(n_missing = 1,
-                  Notes = "Coordinates missing 0 or missing",
-                  Action = "Populate or delete plot")
+  # # check lat/longs
+  # coord_qc <- nri[["POINTCOORDINATES"]] |> subset(is.na(TARGET_LATITUDE)|is.na(TARGET_LONGITUDE)|TARGET_LATITUDE==0|TARGET_LONGITUDE==0) |>
+  #   dplyr::mutate(TARGET_LATITUDE = as.numeric(TARGET_LATITUDE)) |> dplyr::mutate(TARGET_LONGITUDE = as.numeric(TARGET_LONGITUDE)) |>
+  #   dplyr::select(PrimaryKey, TARGET_LATITUDE, TARGET_LONGITUDE) |>
+  #   tidyr::pivot_longer(cols = -c(PrimaryKey,),
+  #                       names_to = "Field",
+  #                       values_to = "n_missing") |>
+  #   dplyr::mutate(n_missing = 1,
+  #                 Notes = "Coordinates missing 0 or missing",
+  #                 Action = "Populate or delete plot")
 
 
 
@@ -620,7 +620,7 @@ nri_table_qc <- function(nri, path_qc){
     # dplyr::left_join(read.csv("table_fields_importance.csv",
     #                           na.strings = c("", "NA"))) |>
     # # join in the coord_qc table for a comprehensive report
-    dplyr::bind_rows(coord_qc)|>
+    #dplyr::bind_rows(coord_qc)|>
     dplyr::arrange(Notes, Action) |>
 
     # rearrange for readability
