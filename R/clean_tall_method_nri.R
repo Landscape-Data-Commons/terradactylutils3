@@ -81,10 +81,10 @@ clean_tall_gap <- function(tall_gap, dataHeader, path_tall){
   # add back in cols that are currently being removed with the function
   tall_gap$DBKey <- dataHeader$DBKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
 
-  tall_gap$DateVisited <- tblGapHeader$DateVisited[match(tall_gap$PrimaryKey, tblGapHeader$PrimaryKey)]
+  tall_gap$DateVisited <- dataHeader$DateVisited[match(tall_gap$PrimaryKey,dataHeader$PrimaryKey)]
   #tall_gap$DateVisited <- as.character(tall_gap$DateVisited)
 
-  tall_gap$Direction <- tblGapHeader$Direction[match(tall_gap$PrimaryKey, tblGapHeader$PrimaryKey)]
+  tall_gap$Direction <- NA
   #match
   tall_gap$ProjectKey <- dataHeader$ProjectKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
 
