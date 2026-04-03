@@ -157,9 +157,10 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
 
   if(file.exists(file.path(path_tall, "height_tall.Rdata"))){
     print("Translating height data")
-    tall_ht  <- readRDS(file.path(path_tall, "height_tall.Rdata")) |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    tall_ht  <- readRDS(file.path(path_tall, "height_tall.Rdata"))
     tall_ht$DateVisited <- as.Date(tall_ht$DateVisited, format = "%Y-%m-%d")
+    tall_ht <- tall_ht |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
     dataHeight <- tall_ht |>
       translate_schema2(schema = schema,
                         # projectkey = projectkey,
@@ -204,6 +205,10 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
 
   if(file.exists(file.path(path_tall, "gap_tall.Rdata"))){
     print("Translating canopy gap data")
+    tall_gap  <- readRDS(file.path(path_tall, "gap_tall.Rdata"))
+    tall_gap$DateVisited <- as.Date(tall_gap$DateVisited, format = "%Y-%m-%d")
+    tall_gap <- tall_gap |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
     tall_gap <- readRDS(file.path(path_tall, "gap_tall.Rdata")) |>
       dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
     tall_gap$DateVisited <- as.Date(tall_gap$DateVisited, format = "%Y-%m-%d")
