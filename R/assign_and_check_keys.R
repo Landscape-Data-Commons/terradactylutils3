@@ -549,7 +549,7 @@ dima_table_qc <- function(dima_data_list, primarykey_qc, path_qc){
 nri_table_qc <- function(nri, path_qc){
 
   # check lat/longs
-  coord_qc <- nri[["pointcoordinates"]] |> subset(is.na(TARGET_LATITUDE)|is.na(TARGET_LONGITUDE)|TARGET_LATITUDE==0|TARGET_LONGITUDE==0) |>
+  coord_qc <- nri[["POINTCOORDINATES"]] |> subset(is.na(TARGET_LATITUDE)|is.na(TARGET_LONGITUDE)|TARGET_LATITUDE==0|TARGET_LONGITUDE==0) |>
     dplyr::mutate(TARGET_LATITUDE = as.numeric(TARGET_LATITUDE)) |> dplyr::mutate(TARGET_LONGITUDE = as.numeric(TARGET_LONGITUDE)) |>
     dplyr::select(PrimaryKey, TARGET_LATITUDE, TARGET_LONGITUDE) |>
     tidyr::pivot_longer(cols = -c(PrimaryKey,),
