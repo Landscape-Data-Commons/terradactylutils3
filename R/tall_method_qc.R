@@ -589,6 +589,7 @@ tall_height_qc <- function(tblLPIDetail, cleaned_tall_height, path_qc){
 #'
 #'after the lpi tall table is prepared for terradactylutils2::geofiles() using terradactylutils2::clean_tall_lpi(), this function produces the tall_lpi file QC checks
 #'
+#' @param PINTERCEPT as a data.frame, the PINTERCEPT NRI data
 #' @param tall_lpi as a data.frame, the tall lpi data that has been gathered
 #' @param speciescode the column name in the USDA plant list file that contains the four letter codes
 #' @param USDA_plants a data.frame of the USDA plants with the 4 letter code, GrowthHabit and Duration
@@ -599,7 +600,7 @@ tall_height_qc <- function(tblLPIDetail, cleaned_tall_height, path_qc){
 #'
 #' @examples tall_lpi_qc(cleaned_tall_lpi = cleaned_tall_lpi, speciescode = "UpdatedSpeciesCode", PINTERCEPT = PINTERCEPT, USDA_plants = read.csv("D:/modifying_data_prep_script_10032025/2004-2023_ceap_species_list.csv") , path_qc = file.path("D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/QC")))
 #' @export
-tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path_qc){
+tall_lpi_qc_nri <- function(PINTERCEPT, tall_lpi, speciescode, USDA_plants, PINTERCEPT, path_qc){
   # list two letter codes and compare to terradat
   tall_lpi <- tall_lpi
   #get two letter codes
