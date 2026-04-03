@@ -612,7 +612,7 @@ nri_table_qc <- function(nri, path_qc){
   # Add notes based on the importance of fields
   missingness_notes <- missingness |>
     # add in PlotID info
-    dplyr::left_join(nri[["pointcoordinates"]] |> dplyr::select(PrimaryKey)) |>
+    dplyr::left_join(nri[["POINTCOORDINATES"]] |> dplyr::select(PrimaryKey)) |>
     # subset where this is no anomaly
     subset(anomaly!=0) |>
     # subset where there are no missing values
