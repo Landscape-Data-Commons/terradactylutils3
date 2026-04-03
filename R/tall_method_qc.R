@@ -921,20 +921,23 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
 tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
   ### HGT QC
   # checking heights are the same in the original and tall data
-  heights_og <- PASTUREHEIGHTS |> dplyr::select(PrimaryKey, HEIGHT, HPLANT, TRANSECT, DISTANCE)
+  heights_og <- PASTUREHEIGHTS |> dplyr::select(PrimaryKey, HEIGHT,  TRANSECT, DISTANCE)
+  colnames(heights_og)[colnames(heights_og) == "HEIGHT"] <- "Height"
+  colnames(heights_og)[colnames(heights_og) == "TRANSECT"] <- "LineKey"
+  colnames(heights_og)[colnames(heights_og) == "DISTANCE"] <- "PointNbr"
 
   heights_og <- heights_og %>%
-    mutate(HEIGHT = HEIGHT %>%
+    mutate(Height = Height %>%
              # Remove anything that isn't a digit or a decimal point
              str_replace_all("[^0-9.]", "") %>%
              # Convert to numeric (this will now be clean)
              as.numeric() * 2.54)
 
-  heights_og <- heights_og[!is.na(heights_og$HEIGHT),]
-  tall_height_max <- tall_height |> dplyr::select(PrimaryKey, LineKey, PointNbr, type, Height)
+  heights_og <- heights_og[!is.na(heights_og$Height),]
+  tall_height_max <- tall_height |> dplyr::select(PrimaryKey, LineKey, PointNbr, Height)
 
   max_tall_Height <- slice_max(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-  max_og_Height <- slice_max(heights_og, HEIGHT, by = c('PrimaryKey', 'TRANSECT','DISTANCE'))
+  max_og_Height <- slice_max(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
 
 
   max_Height_error_tall <- dplyr::setdiff(max_og_Height, max_tall_Height)
@@ -962,7 +965,7 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 
 
   min_tall_Height <- slice_min(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-  min_og_Height <- slice_min(heights_og, HEIGHT, by = c('PrimaryKey', 'TRANSECT','DISTANCE'))
+  min_og_Height <- slice_min(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
 
   min_Height_error_tall <- dplyr::setdiff(min_og_Height, min_tall_Height)
   if(nrow(min_Height_error_tall) > 0){
