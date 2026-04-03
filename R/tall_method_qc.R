@@ -993,38 +993,174 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 #' produces QC information using the tall_height file produced from terradactylutils2::clean_tall_height()
 #'
 #' @param SOILDISAG as a data.frame, SOILDISAG table
+#' @param tall_soil_stability gathered soil stability file
 #' @param path_qc path where the QC data will be saved
 #'
 #' @return a CSV file with QC information about the soil stability data saved to the specified path_qc
 #'
 #' @export
 ######################
-tall_soil_stability_qc_nri <- function(SOIL_DISAG, path_qc){
-  issues_ss <- SOILDISAG %>%
-  # pivot only columns containing "STABILITY"
-  pivot_longer(
-    cols = contains("STABILITY"),
-    names_to = "ColumnName",
-    values_to = "Value"
-  ) %>%
-  # 0-6 vals expected
-  filter(Value > 6 | Value < 0) %>%
-  select(PrimaryKey, ColumnName)
+tall_soil_stability_qc_nri <- function(SOIL_DISAG, tall_soil_stability, path_qc){
 
-write.csv(issues_ss, paste0(path_qc, "/ss_rating_check_raw_data.csv"))
+  tall_soil_stability <- cleaned_tall_soil_stability
+  # SS rating errors
+  ss_og_rating <- SOILDISAG |> dplyr::select(contains("STABILITY"),  PrimaryKey) |>
+    gather("Position", "Rating"  , -PrimaryKey)
+  ss_og_rating$Position <- gsub("^.{0,9}", "", ss_og_rating$Position)
 
-valid_veg <- c("NC", "C", "G", "F", "Sh", "T", "M")
 
-ss_veg_issues <- SOILDISAG %>%
-  # pivot columns containing "VEG"
-  pivot_longer(
-    cols = contains("VEG"),
-    names_to = "ColumnName",
-    values_to = "Value"
-  ) %>%
-  filter(!(Value %in% valid_veg) & !is.na(Value)) %>%
-  select(PrimaryKey, ColumnName)
+  ss_og_rating <- ss_og_rating[!is.na(ss_og_rating$Rating),]
 
-write.csv(ss_veg_issues, paste0(path_qc, "/ss_veg_check_raw_data.csv"))
+  ss_tall_rating <- tall_soil_stability |> dplyr::select(PrimaryKey, Rating, Position)
+
+  # checking max and min
+
+
+
+  max_tall_rating <- slice_max(ss_tall_rating, Rating, by = c('Position', 'PrimaryKey'))
+  max_og_rating <- slice_max(ss_og_rating, Rating, by = c('Position','PrimaryKey'))
+
+  max_tall_rating$Position <- as.character(max_tall_rating$Position)
+  max_og_rating$Position <- as.character(max_og_rating$Position)
+
+  max_rating_error_tall <- dplyr::setdiff(max_og_rating, max_tall_rating)
+  if(nrow(max_rating_error_tall) > 0){
+    max_rating_error_tall$Notes <- "There is a rating in the tall data that differs from the original data"
+    max_rating_error_tall$Action <- "Determine why gather or clean functions are altering the original rating"
+
+  }
+
+  max_rating_error_og <- dplyr::setdiff(max_tall_rating, max_og_rating)
+  if(nrow(max_rating_error_og) > 0){
+    max_rating_error_og$Notes <- "There is a rating in the original data that differs from the tall tables"
+    max_rating_error_og$Action <- "Determine why gather or clean functions are altering the tall rating"
+
+  }
+
+
+  max_rating_errors <- rbind(max_rating_error_tall, max_rating_error_og)
+
+  if(nrow(max_rating_errors) > 0){
+    max_rating_errors <- max_rating_errors |> filter_all(any_vars(duplicated(.)))
+  }
+
+
+
+
+  min_tall_rating <- slice_min(ss_tall_rating, Rating, by = c('Position', 'PrimaryKey'))
+  min_og_rating <- slice_min(ss_og_rating, Rating, by = c('Position', 'PrimaryKey'))
+
+  min_tall_rating$Position <- as.character(min_tall_rating$Position)
+  min_og_rating$Position <- as.character(min_og_rating$Position)
+
+  min_rating_error_tall <- dplyr::setdiff(min_og_rating, min_tall_rating)
+  if(nrow(min_rating_error_tall) > 0){
+    min_rating_error_tall$Notes <- "There is a rating in the tall data that differs from the original data"
+    min_rating_error_tall$Action <- "Determine why gather or clean functions are altering the original rating"
+
+  }
+
+  min_rating_error_og <- dplyr::setdiff(min_tall_rating, min_og_rating)
+  if(nrow(min_rating_error_og) > 0){
+    min_rating_error_og$Notes <- "There is a rating in the original data that differs from the tall tables"
+    min_rating_error_og$Action <- "Determine why gather or clean functions are altering the tall rating"
+
+  }
+
+
+  min_rating_errors <- rbind(min_rating_error_tall, min_rating_error_og)
+
+  if(nrow(min_rating_errors) > 0){
+    min_rating_errors <- min_rating_errors |> filter_all(any_vars(duplicated(.)))
+  }
+
+
+  rating_errors <- rbind(max_rating_errors, min_rating_errors)
+
+
+
+
+  # SS shouldn't be more than 6 in raw and calcd
+
+  ss_raw_six <- ss_og_rating |> filter(Rating >6)
+  if(nrow(ss_raw_six) > 0){
+    ss_raw_six$Notes <- "There is a rating in the original soil stability data that is greater than 6"
+    ss_raw_six$Action <- "Work with the project manager to determine if the rating should be removed"
+
+  }
+
+
+  ss_calcd_six <- ss_tall_rating |> filter(Rating > 6)
+  if(nrow(ss_calcd_six) > 0){
+    ss_calcd_six$Notes <- "There is a rating in the tall soil stability data that is greater than 6"
+    ss_calcd_six$Action <- "Work with the project manager to determine if the rating should be removed"
+
+  }
+
+  ss_six <- rbind(ss_raw_six, ss_calcd_six)
+
+  if(nrow(ss_six) > 0){
+    ss_six <- ss_six |> filter_all(any_vars(duplicated(.)))
+  }
+
+
+
+  ss_rating_errors <- rbind(rating_errors, ss_six)
+
+  # write CSV
+  write.csv(ss_rating_errors,   file.path(path_qc, "soil_stability_rating_check.csv"), row.names = F)
+
+
+  # veg cover classes
+  ss_og_veg <- SOILDISAG |> dplyr::select(contains("VEG"),  PrimaryKey) |>
+    gather("Position", "Veg"  , -PrimaryKey)
+  ss_og_veg$Position <- gsub("^.{0,3}", "", ss_og_veg$Position)
+
+
+  ss_og_veg <- ss_og_veg[!is.na(ss_og_veg$Veg),]
+
+  ss_tall_veg <- tall_soil_stability |> dplyr::select(PrimaryKey, Veg, Position)
+
+
+  ss_og_veg$Position <- as.character(ss_og_veg$Position)
+  ss_tall_veg$Position <- as.character(ss_tall_veg$Position)
+
+  veg_error_tall <- dplyr::setdiff(ss_og_veg, ss_tall_veg)
+  if(nrow(veg_error_tall) > 0){
+    veg_error_tall$Notes <- "There is a Veg record in the tall data that differs from the original data"
+    veg_error_tall$Action <- "Determine why gather or clean functions are altering the original Veg"
+
+  }
+
+  veg_error_og <- dplyr::setdiff(ss_tall_veg, ss_og_veg)
+  if(nrow(veg_error_og) > 0){
+    veg_error_og$Notes <- "There is a Veg record in the original data that differs from the tall tables"
+    veg_error_og$Action <- "Determine why gather or clean functions are altering the tall Veg"
+
+  }
+
+
+  veg_errors <- rbind(veg_error_tall, veg_error_og)
+
+  if(nrow(veg_errors) > 0){
+    veg_errors <-veg_errors |> filter_all(any_vars(duplicated(.)))
+  }
+
+  write.csv(veg_errors, file.path(path_qc, "soil_stability_Veg_check.csv"), row.names = F)
+
+
+  valid_veg <- c("NC", "C", "G", "F", "Sh", "T", "M")
+
+  ss_veg_issues <- SOILDISAG %>%
+    # pivot columns containing "VEG"
+    pivot_longer(
+      cols = contains("VEG"),
+      names_to = "ColumnName",
+      values_to = "Value"
+    ) %>%
+    filter(!(Value %in% valid_veg) & !is.na(Value)) %>%
+    select(PrimaryKey, ColumnName)
+
+  write.csv(ss_veg_issues, paste0(path_qc, "/soil_stability_veg_type_check_raw_data.csv"))
 }
 
