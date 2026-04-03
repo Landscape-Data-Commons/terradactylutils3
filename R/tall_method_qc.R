@@ -1009,7 +1009,7 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 #'
 #' @export
 ######################
-tall_soil_stability_qc_nri <- function(SOIL_DISAG, tall_soil_stability, path_qc){
+tall_soil_stability_qc_nri <- function(SOILDISAG, tall_soil_stability, path_qc){
 
   tall_soil_stability <- cleaned_tall_soil_stability
   # SS rating errors
