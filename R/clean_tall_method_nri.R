@@ -81,10 +81,10 @@ clean_tall_gap <- function(tall_gap, dataHeader, path_tall){
   # add back in cols that are currently being removed with the function
   tall_gap$DBKey <- dataHeader$DBKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
 
-  tall_gap$DateVisited <- dataHeader$DateVisited[match(tall_gap$PrimaryKey,dataHeader$PrimaryKey)]
+  tall_gap$DateVisited <- tblGapHeader$DateVisited[match(tall_gap$PrimaryKey, tblGapHeader$PrimaryKey)]
   #tall_gap$DateVisited <- as.character(tall_gap$DateVisited)
 
-  tall_gap$Direction <- NA
+  tall_gap$Direction <- tblGapHeader$Direction[match(tall_gap$PrimaryKey, tblGapHeader$PrimaryKey)]
   #match
   tall_gap$ProjectKey <- dataHeader$ProjectKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
 
@@ -121,8 +121,10 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
   tall_soil_stability$Hydro <- rep(FALSE)
   #tall_soil_stability$DateVisited <- as.character(tall_soil_stability$DateVisited)
   #rename
-  tall_soil_stability$ProjectKey <- dataHeader$ProjectKey[match(tall_soil_stability$PrimaryKey, dataHeader$PrimaryKey)]
-
+  tall_soil_stability <- tall_soil_stability |>
+    rename(
+      ProjectKey = project
+    )
   saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
   write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
   tall_soil_stability
@@ -206,4 +208,113 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,  source,tod
   tall_height
 }
 ##################################
+
+
+
+
+
+
+
+############################################
+#' Clean Tall Gap NRI
+#'
+#'removes and adds columns to the tall_gap file produced using terradactyl::gather_gap that are (not) necessary to produce geofiles
+#'
+#' @param tall_gap as a data.frame, tall gap file produced from terradactyl::gather_gap()
+#' @param dataHeader as a data.frame, the dataHeader file produced from terradactylutils2::create_header()
+#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#'
+#' @return an updated tall_gap file saved to path_tall and tall_gap in the console (unless saved to an object)
+#'
+#' @examples clean_tall_gap(tall_gap = terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
+#' @export
+clean_tall_gap_nri <- function(tall_gap, dataHeader, path_tall){
+
+  dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+  pkeys <- dataHeader$PrimaryKey
+  tall_gap <- tall_gap[which(!duplicated(dropcols_gap)),] |>
+    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
+  # add back in cols that are currently being removed with the function
+  tall_gap$DBKey <- dataHeader$DBKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
+
+  tall_gap$DateVisited <- dataHeader$DateVisited[match(tall_gap$PrimaryKey,dataHeader$PrimaryKey)]
+  #tall_gap$DateVisited <- as.character(tall_gap$DateVisited)
+
+  tall_gap$Direction <- NA
+  #match
+  tall_gap$ProjectKey <- dataHeader$ProjectKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
+
+  saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
+  write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
+  tall_gap
+}
+#####################################
+
+
+
+#####################################
+#' Clean Tall Soil Stability NRI
+#'
+#'adds and removes columns to the data produced from terradactyl::gather_soil_stability that are (not) necessary to run terradactylutils2::geofiles()
+#'
+#' @param tall_soil_stability file produced from terradactyl::gather_soil_stability
+#' @param dataHeader dataHeader produced from terradactylutils2::create_header()
+#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#'
+#' @return a CSV saved to the specified path_tall and a tall_soil_stability data frame in the console (unless saved to an object)
+#'
+#' @examples clean_tall_soil_stability(tall_soil_stability = terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = tblSoilStabDetail, tblSoilStabHeader = tblSoilStabHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
+#' @export
+clean_tall_soil_stability_nri <- function(tall_soil_stability, dataHeader, path_tall){
+
+  dropcols_soil_stability <- tall_soil_stability  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+
+  pkeys <- dataHeader$PrimaryKey
+  tall_soil_stability <- tall_soil_stability[which(!duplicated(dropcols_soil_stability)),] |>
+    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
+  # add back in cols that are currently being removed with the function
+  tall_soil_stability$DBKey <- dataHeader$DBKey[match(tall_soil_stability$PrimaryKey, dataHeader$PrimaryKey)]
+  tall_soil_stability$Hydro <- rep(FALSE)
+  #tall_soil_stability$DateVisited <- as.character(tall_soil_stability$DateVisited)
+  #rename
+  tall_soil_stability$ProjectKey <- dataHeader$ProjectKey[match(tall_soil_stability$PrimaryKey, dataHeader$PrimaryKey)]
+
+  saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
+  write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
+  tall_soil_stability
+}
+##################################
+
+
+########################################
+#' Clean Tall Species Richness NRI
+#'
+#'adds or removes columns from the  tall_species_richness file produced with terradactyl::gather_species_richness() that are (not) necessary to run terradactylutils2::geofiles()
+#'
+#' @param tall_species tall_species file produced from terradactyl::gather_species_richness()
+#' @param dataHeader dataHeader file produced from create_header()
+#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#'
+#' @return a CSV saved to the speficied path_tall and the updated tall_species_richness saved to the R enviornment
+#'
+#' @examples clean_tall_species(tall_species = gather_species_inventory(source = "DIMA", tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
+#' @export
+clean_tall_species_nri <- function(tall_species, dataHeader, path_tall){
+
+  dropcols_species <- tall_species  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+  pkeys <- dataHeader$PrimaryKey
+  tall_species <- tall_species[which(!duplicated(dropcols_species)),] |>
+    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
+  # add back in cols that are currently being removed with the function
+  tall_species$DBKey <- dataHeader$DBKey[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
+  tall_species$Direction <- NA
+  #tall_species$DateVisited <- as.character(tall_species$DateVisited)
+  tall_species$ProjectKey <- dataHeader$ProjectKey[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
+
+  saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
+  write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
+
+  tall_species
+}
+########################################
 
