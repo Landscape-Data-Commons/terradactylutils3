@@ -311,7 +311,7 @@ gather_clean_all <- function(source){
 
     message("Found NRI soil stability data; processing")
     soilstab_tall <- terradactyl::gather_soil_stability(source = "NRI", SOILDISAG = read.csv(paste0(output, "/SOILDISAG.csv")))
-    cleaned_tall_soil_stability <- terradactylutils3::clean_tall_soil_stability(tall_soil_stability = tall_soil_stability, dataHeader = dataHeader, path_tall = path_tall)
+    cleaned_tall_soil_stability <- terradactylutils3::clean_tall_soil_stability(tall_soil_stability = soilstab_tall, dataHeader = dataHeader, path_tall = path_tall)
     terradactylutils3::tall_soil_stability_qc_nri(tall_soilstability = cleaned_tall_soil_stability, SOILDISAG = nri$SOILDISAG, path_qc = path_qc)
 
   } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblSoilStabHeader"]]) && nrow(dima_data_list[["tblSoilStabHeader"]]) > 0){

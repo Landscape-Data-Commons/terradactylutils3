@@ -121,10 +121,8 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
   tall_soil_stability$Hydro <- rep(FALSE)
   #tall_soil_stability$DateVisited <- as.character(tall_soil_stability$DateVisited)
   #rename
-  tall_soil_stability <- tall_soil_stability |>
-    rename(
-      ProjectKey = project
-    )
+  tall_soil_stability$ProjectKey <- dataHeader$ProjectKey[match(tall_soil_stability$PrimaryKey, dataHeader$PrimaryKey)]
+
   saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
   write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
   tall_soil_stability
