@@ -670,7 +670,7 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
     # add names to list elements
     names(df) <- toupper(table_name)
 
-    nri <- terradactyl::assign_pkey_nri(df = df)
+    nri <<- terradactyl::assign_pkey_nri(df = df)
 
 
     # save original file as Rdata
@@ -689,7 +689,7 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
       })
     output <<- paste0(path_original_files, "/")
     #QC
-    #nri_table_qc(path_tall = path_tall, path_qc = path_qc)
+    nri_table_qc(path_tall = path_tall, path_qc = path_qc)
 
 
   }else if(source == "BLM_AIM"){

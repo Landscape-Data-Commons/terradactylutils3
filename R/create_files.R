@@ -298,9 +298,9 @@ create_dirs <- function(path_parent, source){
 
   }
 
-  path_tall <- file.path(path_parent, "Tall")
+  path_tall <<- file.path(path_parent, "Tall")
   if(!dir.exists(path_tall)) dir.create(path_tall)
-  path_foringest <- file.path(path_parent, "For Ingest")
+  path_foringest <<- file.path(path_parent, "For Ingest")
   if(!dir.exists(path_foringest)) dir.create(path_foringest)
   if(source == "DIMA"){
     if(!dir.exists(DIMATables)) dir.create(DIMATables)}
