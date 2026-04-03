@@ -706,13 +706,21 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
   # exporting to the QC folder
   write.csv(tall_lpi_code_check, file.path(path_qc, "tall_lpi_code_check.csv"), row.names = FALSE)
 
-  select_me <- c("PrimaryKey", "LineKey","TopCanopy", "SoilSurface")
+  select_me <- c("PrimaryKey", "BASAL")
   og_layers <- PINTERCEPT |> dplyr:: select( all_of(select_me), contains("HIT") & !contains("Chk")& !contains("Height")& !contains("Species"))
-  og_layers <- gather(og_layers, layer, code, -PrimaryKey, -LineKey)
+  colnames(og_layers)[colnames(og_layers) == "HIT1"] <- "TopCanopy"
+  colnames(og_layers)[colnames(og_layers) == "HIT2"] <- "Lower1"
+  colnames(og_layers)[colnames(og_layers) == "HIT3"] <- "Lower2"
+  colnames(og_layers)[colnames(og_layers) == "HIT4"] <- "Lower3"
+  colnames(og_layers)[colnames(og_layers) == "HIT5"] <- "Lower4"
+  colnames(og_layers)[colnames(og_layers) == "HIT6"] <- "Lower5"
+  colnames(og_layers)[colnames(og_layers) == "BASAL"] <- "SoilSurface"
+
+  og_layers <- gather(og_layers, layer, code, -PrimaryKey)
   og_layers <- og_layers |> dplyr::filter(code != "None", !is.na(code))
 
-  tall_lpi_layer_codes <- tall_lpi |> dplyr::select(PrimaryKey, LineKey, layer, code)
-  tall_lpi_layer_codes$LineKey <- as.numeric(tall_lpi_layer_codes$LineKey)
+  select_me <- c("PrimaryKey","TopCanopy", "SoilSurface")
+  tall_lpi_layer_codes <- tall_lpi |> dplyr::select(PrimaryKey, layer, code)
   missing_in_tall_lpi <- dplyr::setdiff(og_layers, tall_lpi_layer_codes)
   missing_in_tall_lpi <- as.data.frame(missing_in_tall_lpi)
   if(nrow(missing_in_tall_lpi) > 0){
@@ -723,6 +731,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
 
   missing_in_og <- dplyr::setdiff(tall_lpi_layer_codes, og_layers)
   missing_in_og <- as.data.frame(missing_in_og)
+  missing_in_og <- missing_in_og[!is.na(missing_in_og$code),]
   if(nrow(missing_in_og) > 0){
     missing_in_og$Notes <- "The specific hit (layer and code) in original data does not match or is missing from the tall lpi data"
     missing_in_og$Action <- "Determine why gather or cleaning is changing the tall data"
