@@ -235,27 +235,27 @@ gather_clean_all <- function(source){
   if( exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0){
     message("Found NRI LPI data; processing")
     output <<- paste0(path_original_files, "/")
-    lpi_tall <- terradactyl::gather_lpi(dsn = paste0(output, "PINTERCEPT.csv"),
+    lpi_tall <<- terradactyl::gather_lpi(dsn = paste0(output, "PINTERCEPT.csv"),
                                         file_type = "csv", source = "NRI")
-    cleaned_lpi_tall <- terradactylutils3::clean_tall_lpi(lpi = lpi_tall, dataHeader = dataHeader, path_tall = path_tall)
+    cleaned_lpi_tall <<- terradactylutils3::clean_tall_lpi(lpi = lpi_tall, dataHeader = dataHeader, path_tall = path_tall)
 
     terradactylutils3::tall_lpi_qc_nri(tall_lpi = cleaned_lpi_tall, speciescode = speciescode, USDA_plants = USDA_plants, PINTERCEPT = nri$PINTERCEPT, path_qc = path_qc)
 
   } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && nrow(dima_data_list[["tblLPIHeader"]]) > 0){
     message("Found DIMA LPI data; processing")
 
-    lpi <- terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
+    lpi <<- terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
 
     #get the tall file into a format that can be used to produce the prepared data
-    cleaned_tall_lpi <- terradactylutils3::clean_tall_lpi(lpi = lpi, dataHeader = dataHeader, path_tall = path_tall)
+    cleaned_tall_lpi <<- terradactylutils3::clean_tall_lpi(lpi = lpi, dataHeader = dataHeader, path_tall = path_tall)
 
     #produce QC files available in QC directory
     terradactylutils3::tall_lpi_qc(cleaned_tall_lpi = cleaned_tall_lpi, speciescode = speciescode, tblLPIDetail = tblLPIDetail, USDA_plants = USDA_plants , path_qc = path_qc)
   }else if (source == "BLM_AIM"){
     message("Found BLM gap data; processing")
 
-    tall_lpi <- gather_lpi_terradat(dsn = dsn)
-    cleaned_tall_lpi <- terradactylutils3::clean_tall_lpi_aim(tall_lpi = tall_lpi, dataHeader, path_tall)
+    tall_lpi <<- gather_lpi_terradat(dsn = dsn)
+    cleaned_tall_lpi <<- terradactylutils3::clean_tall_lpi_aim(tall_lpi = tall_lpi, dataHeader, path_tall)
     terradactylutils3::tall_lpi_qc_AIM(tall_lpi = tall_lpi, path_tall = path_tall)
 
   }else{message("No LPI data found")}
@@ -272,27 +272,27 @@ gather_clean_all <- function(source){
   if(exists("nri") && !is.null(nri$GINTERCEPT) && nrow(nri$GINTERCEPT) > 0 ) {
 
     message("Found NRI gap data; processing")
-    gap_tall <- terradactyl::gather_gap(source = "NRI", GINTERCEPT = read.csv(paste0(output, "GINTERCEPT.csv")), POINT = read.csv(paste0(output, "POINT.csv")))
-    cleaned_tall_gap <- terradactylutils3::clean_tall_gap_nri(tall_gap = gap_tall, dataHeader = dataHeader, path_tall = path_tall)
+    gap_tall <<- terradactyl::gather_gap(source = "NRI", GINTERCEPT = read.csv(paste0(output, "GINTERCEPT.csv")), POINT = read.csv(paste0(output, "POINT.csv")))
+    cleaned_tall_gap <<- terradactylutils3::clean_tall_gap_nri(tall_gap = gap_tall, dataHeader = dataHeader, path_tall = path_tall)
 
     terradactylutils3::tall_gap_qc_nri(tall_gap = gap_tall, GINTERCEPT = nri$GINTERCEPT, path_qc = path_qc)
 
   } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblGapHeader"]]) && nrow(dima_data_list[["tblGapHeader"]]) > 0){
     message("Found DIMA gap data; processing")
     #having LineKey and FormDate in both tblGapDetail and tblGapHeader prevents gather_gap from running - removing
-    tblGapDetail2 <- tblGapDetail %>% mutate(LineKey = NULL)
-    tblGapDetail2 <- tblGapDetail2 %>% mutate(FormDate = NULL)
+    tblGapDetail2 <<- tblGapDetail %>% mutate(LineKey = NULL)
+    tblGapDetail2 <<- tblGapDetail2 %>% mutate(FormDate = NULL)
 
     #gather
-    tall_gap <- terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2) %>% dplyr::filter(PrimaryKey %in% pkeys)
+    tall_gap <<- terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2) %>% dplyr::filter(PrimaryKey %in% pkeys)
 
     #get the tall file into a format that can be used to produce the prepared data
-    cleaned_tall_gap <- terradactylutils3::clean_tall_gap(tall_gap = tall_gap, dataHeader = dataHeader, path_tall = path_tall)
+    cleaned_tall_gap <<- terradactylutils3::clean_tall_gap(tall_gap = tall_gap, dataHeader = dataHeader, path_tall = path_tall)
 
     #produce QC files available in QC directory
     terradactylutils3::tall_gap_qc(cleaned_tall_gap = cleaned_tall_gap, tblGapDetail = tblGapDetail, path_qc = path_qc)
   }else if(source == "BLM_AIM"){
-    tall_gap <- gather_gap_terradat(dsn = dsn)
+    tall_gap <<- gather_gap_terradat(dsn = dsn)
     terradactylutils3::clean_tall_gap_aim(path_tall = path_tall, tall_gap = tall_gap)
   }else{message("No Gap data found")}
 
@@ -310,22 +310,22 @@ gather_clean_all <- function(source){
   if(exists("nri") && !is.null(nri$SOILDISAG) && nrow(nri$SOILDISAG) > 0) {
 
     message("Found NRI soil stability data; processing")
-    soilstab_tall <- terradactyl::gather_soil_stability(source = "NRI", SOILDISAG = read.csv(paste0(output, "/SOILDISAG.csv")))
-    cleaned_tall_soil_stability <- terradactylutils3::clean_tall_soil_stability_nri(tall_soil_stability = soilstab_tall, dataHeader = dataHeader, path_tall = path_tall)
+    soilstab_tall <<- terradactyl::gather_soil_stability(source = "NRI", SOILDISAG = read.csv(paste0(output, "/SOILDISAG.csv")))
+    cleaned_tall_soil_stability <<- terradactylutils3::clean_tall_soil_stability_nri(tall_soil_stability = soilstab_tall, dataHeader = dataHeader, path_tall = path_tall)
     terradactylutils3::tall_soil_stability_qc_nri(tall_soil_stability = cleaned_tall_soil_stability, SOILDISAG = nri$SOILDISAG, path_qc = path_qc)
 
   } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblSoilStabHeader"]]) && nrow(dima_data_list[["tblSoilStabHeader"]]) > 0){
     message("Found DIMA soil stability data; processing")
     #gather
-    tall_soil_stability <- terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = tblSoilStabDetail, tblSoilStabHeader = tblSoilStabHeader)
+    tall_soil_stability <<- terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = tblSoilStabDetail, tblSoilStabHeader = tblSoilStabHeader)
 
     #get the tall file into a format that can be used to produce the prepared data
-    cleaned_tall_soil_stability <- terradactylutils3::clean_tall_soil_stability(tall_soil_stability = tall_soil_stability, dataHeader = dataHeader, path_tall = path_tall)
+    cleaned_tall_soil_stability <<- terradactylutils3::clean_tall_soil_stability(tall_soil_stability = tall_soil_stability, dataHeader = dataHeader, path_tall = path_tall)
 
     #produce QC files available in QC directory
     terradactylutils3::tall_soil_stability_qc(tblSoilStabDetail = tblSoilStabDetail, cleaned_tall_soil_stability = cleaned_tall_soil_stability, path_qc = path_qc)
   }else if (source == "BLM_AIM"){
-    tall_soilstability <- gather_soil_stability_terradat(dsn = dsn)
+    tall_soilstability <<- gather_soil_stability_terradat(dsn = dsn)
     terradactylutils3::clean_tall_soil_stability_aim(tall_soil_stability = tall_soilstability, path_tall = path_tall)
 
 
@@ -344,22 +344,22 @@ gather_clean_all <- function(source){
   # gather species richness, prepare tall species richness and qc
   if(exists("nri") && !is.null(nri$PLANTCENSUS) && nrow(nri$PLANTCENSUS) > 0) {
     message("Found NRI species richness data; processing")
-    species_inventory_tall <- terradactyl::gather_species_inventory(source = "NRI", PLANTCENSUS = read.csv(paste0(output, "/PLANTCENSUS.csv")))
+    species_inventory_tall <<- terradactyl::gather_species_inventory(source = "NRI", PLANTCENSUS = read.csv(paste0(output, "/PLANTCENSUS.csv")))
 
-    cleaned_tall_species <- terradactylutils3::clean_tall_species_nri(tall_species = species_inventory_tall, dataHeader = dataHeader, path_tall = path_tall)
+    cleaned_tall_species <<- terradactylutils3::clean_tall_species_nri(tall_species = species_inventory_tall, dataHeader = dataHeader, path_tall = path_tall)
 
 
   }else if(exists("dima_data_list") && !is.null(dima_data_list[["tblSpecRichHeader"]]) && nrow(dima_data_list[["tblSpecRichHeader"]]) > 0){
     message("Found DIMA species richness data; processing")
     #gather
-    tblSpecRichHeader$RecKey <- as.character(tblSpecRichHeader$RecKey)
+    tblSpecRichHeader$RecKey <<- as.character(tblSpecRichHeader$RecKey)
 
-    tall_species <- terradactyl::gather_species_inventory(source = source, tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader)
+    tall_species <<- terradactyl::gather_species_inventory(source = source, tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader)
 
     #get the tall file into a format that can be used to produce the prepared data
-    cleaned_tall_species <- terradactylutils3::clean_tall_species(tall_species = tall_species, dataHeader = dataHeader, path_tall = path_tall)
+    cleaned_tall_species <<- terradactylutils3::clean_tall_species(tall_species = tall_species, dataHeader = dataHeader, path_tall = path_tall)
   }else if (source == "BLM_AIM"){
-    tall_sr <- gather_species_inventory_terradat(dsn = dsn)
+    tall_sr <<- gather_species_inventory_terradat(dsn = dsn)
     terradactylutils3::clean_tall_species_richness_aim(tall_species_richness = tall_sr, path_tall = path_tall)
   }else{message("No species richness data found")}
 
@@ -373,27 +373,27 @@ gather_clean_all <- function(source){
   # which means height with the changes below needs to be run after gather LPI
   if(exists("nri") && !is.null(nri$PASTUREHEIGHTS) && nrow(nri$PASTUREHEIGHTS) > 0) {
     message("Found NRI height data; processing")
-    height_tall <- terradactyl::gather_height(source = "NRI", PASTUREHEIGHTS = read.csv(paste0(output, "PASTUREHEIGHTS.csv")))
-    cleaned_tall_height <- terradactylutils3::clean_tall_height_nri(tall_height = height_tall, dataHeader = dataHeader, tblLPIHeader = tblLPIHeader, source = source, todaysDate = todaysDate, path_tall = path_tall)
+    height_tall <<- terradactyl::gather_height(source = "NRI", PASTUREHEIGHTS = read.csv(paste0(output, "PASTUREHEIGHTS.csv")))
+    cleaned_tall_height <<- terradactylutils3::clean_tall_height_nri(tall_height = height_tall, dataHeader = dataHeader, tblLPIHeader = tblLPIHeader, source = source, todaysDate = todaysDate, path_tall = path_tall)
     terradactylutils3::tall_height_qc_nri(PASTUREHEIGHTS = nri$PASTUREHEIGHTS, tall_height = height_tall, path_qc = path_qc)
   } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && sum(dima_data_list[["tblLPIDetail"]][["HeightHerbaceous"]], na.rm = T) > 0){
-    tblLPIHeader$RecKey <- as.character(tblLPIHeader$RecKey)
-    tblLPIDetail$RecKey <- as.character(tblLPIDetail$RecKey)
-    tblLPIDetail$SpeciesLowerHerb <- as.character(tblLPIDetail$SpeciesLowerHerb)
+    tblLPIHeader$RecKey <<- as.character(tblLPIHeader$RecKey)
+    tblLPIDetail$RecKey <<- as.character(tblLPIDetail$RecKey)
+    tblLPIDetail$SpeciesLowerHerb <<- as.character(tblLPIDetail$SpeciesLowerHerb)
 
     # gather height, prepare tall height data and qc
 
 
     #gather
-    tall_height <- terradactyl::gather_height(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
+    tall_height <<- terradactyl::gather_height(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
 
     #get the tall file into a format that can be used to produce the prepared data
-    cleaned_tall_height <- terradactylutils3::clean_tall_height(tall_height = tall_height, dataHeader = dataHeader, tblLPIHeader = tblLPIHeader, source = source, todaysDate = todaysDate, path_tall = path_tall)
+    cleaned_tall_height <<- terradactylutils3::clean_tall_height(tall_height = tall_height, dataHeader = dataHeader, tblLPIHeader = tblLPIHeader, source = source, todaysDate = todaysDate, path_tall = path_tall)
 
     #produce QC files available in QC directory
     terradactylutils3::tall_height_qc(tblLPIDetail = tblLPIDetail, cleaned_tall_height = cleaned_tall_height, path_qc = path_qc)
   }else if (source == "BLM_AIM"){
-    tall_height <- gather_height_terradat(dsn = dsn)
+    tall_height <<- gather_height_terradat(dsn = dsn)
 
 
 
@@ -404,8 +404,8 @@ gather_clean_all <- function(source){
 
   # 8.6 RANGEHEALTH
   if(exists("nri") && !is.null(nri$RANGEHEALTH) && nrow(nri$RANGEHEALTH) > 0){
-    header <- read.csv(paste0(path_tall, "/header.csv"))
-    rangehealth_tall <- gather_rangeland_health(source = "NRI", RANGEHEALTH = read.csv(paste0(output, "/RANGEHEALTH.csv")))
+    header <<- read.csv(paste0(path_tall, "/header.csv"))
+    rangehealth_tall <<- gather_rangeland_health(source = "NRI", RANGEHEALTH = read.csv(paste0(output, "/RANGEHEALTH.csv")))
     saveRDS(rangehealth_tall,paste0(path_tall,"/rangehealth_tall.Rdata"))
     write.csv(rangehealth_tall,paste0(path_tall,"/rangehealth_tall.csv"))
 
