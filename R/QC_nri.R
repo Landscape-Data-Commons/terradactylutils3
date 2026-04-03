@@ -115,12 +115,13 @@ bare_soil_comparison_nri <- function(path_original_files, path_foringest, recurs
 #'
 #' check coordinates are false or present for NRI data depending on data sensitivity
 #'
+#' @param source data type
 #' @param path_foringest File path to For Ingest folder
 #'
 #' @return corrdinate QC
 #' @export
 
-coord_check_nri <- function(path_foringest){
+coord_check_nri <- function(path_foringest, source){
 # coord check NRI
 if(source == "NRI" && exists("nri") ){
   head <- read.csv(paste0(path_foringest, "/dataHeader.csv"))
