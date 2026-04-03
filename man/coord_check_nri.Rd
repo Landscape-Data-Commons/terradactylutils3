@@ -4,10 +4,12 @@
 \alias{coord_check_nri}
 \title{Coordinate Check NRI}
 \usage{
-coord_check_nri(path_foringest)
+coord_check_nri(path_foringest, source)
 }
 \arguments{
 \item{path_foringest}{File path to For Ingest folder}
+
+\item{source}{data type}
 }
 \value{
 corrdinate QC

@@ -4,14 +4,14 @@
 \alias{tall_soil_stability_qc_nri}
 \title{Tall Soil Stability QC NRI}
 \usage{
-tall_soil_stability_qc_nri(SOIL_DISAG, tall_soil_stability, path_qc)
+tall_soil_stability_qc_nri(SOILDISAG, tall_soil_stability, path_qc)
 }
 \arguments{
+\item{SOILDISAG}{as a data.frame, SOILDISAG table}
+
 \item{tall_soil_stability}{gathered soil stability file}
 
 \item{path_qc}{path where the QC data will be saved}
-
-\item{SOILDISAG}{as a data.frame, SOILDISAG table}
 }
 \value{
 a CSV file with QC information about the soil stability data saved to the specified path_qc
