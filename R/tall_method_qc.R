@@ -784,8 +784,8 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
   GINTERCEPT$Gap <- abs(GINTERCEPT$START_GAP - GINTERCEPT$END_GAP)
 
 
-  tall_gap_start <- tall_gap |> dplyr::select(PrimaryKey, LineKey, GapStart)
-  og_gap_start <- GINTERCEPT |> dplyr::select(PrimaryKey, LineKey, GapStart)
+  tall_gap_start <- tall_gap |> dplyr::select(PrimaryKey,  GapStart)
+  og_gap_start <- GINTERCEPT |> dplyr::select(PrimaryKey,  GapStart)
 
   tall_gap_start_differ <- dplyr::setdiff(og_gap_start, tall_gap_start)
   if(nrow(tall_gap_start_differ) > 0){
@@ -820,11 +820,11 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
   write.csv(gap_start_errors, file.path(path_qc, "GapStart_check.csv"), row.names = F)
 
   # checking max and min
-  tall_gap_gaps <- tall_gap |> dplyr::select(PrimaryKey, LineKey, Gap)
-  og_gap_gaps <- GINTERCEPT |> dplyr::select(PrimaryKey, LineKey, Gap)
+  tall_gap_gaps <- tall_gap |> dplyr::select(PrimaryKey,  Gap)
+  og_gap_gaps <- GINTERCEPT |> dplyr::select(PrimaryKey,  Gap)
 
-  max_tall_gap <- slice_max(tall_gap_gaps, Gap, by = c('PrimaryKey', 'LineKey'))
-  max_og_gap <- slice_max(og_gap_gaps, Gap, by = c('PrimaryKey', 'LineKey'))
+  max_tall_gap <- slice_max(tall_gap_gaps, Gap, by = c('PrimaryKey'))
+  max_og_gap <- slice_max(og_gap_gaps, Gap, by = c('PrimaryKey'))
 
 
   max_gap_error_tall <- dplyr::setdiff(max_og_gap, max_tall_gap)
@@ -851,8 +851,8 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
 
 
 
-  min_tall_gap <- slice_min(tall_gap_gaps, Gap, by = c('PrimaryKey', 'LineKey'))
-  min_og_gap <- slice_min(og_gap_gaps, Gap, by = c('PrimaryKey', 'LineKey'))
+  min_tall_gap <- slice_min(tall_gap_gaps, Gap, by = c('PrimaryKey'))
+  min_og_gap <- slice_min(og_gap_gaps, Gap, by = c('PrimaryKey'))
 
 
   min_gap_error_tall <- dplyr::setdiff(min_og_gap, min_tall_gap)
@@ -890,7 +890,7 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
   write.csv(gap_errors, file.path(path_qc, "Gap_check.csv"), row.names = F)
 
   # GapEnd errors
-  tall_gap_end <- tall_gap |> dplyr::select(PrimaryKey, LineKey, GapEnd)
+  tall_gap_end <- tall_gap |> dplyr::select(PrimaryKey, GapEnd)
 
   no_end <- tall_gap_end[is.na(tall_gap_end$GapEnd),]
 

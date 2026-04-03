@@ -275,7 +275,7 @@ gather_clean_all <- function(source){
     gap_tall <- terradactyl::gather_gap(source = "NRI", GINTERCEPT = read.csv(paste0(output, "GINTERCEPT.csv")), POINT = read.csv(paste0(output, "POINT.csv")))
     cleaned_tall_gap <- terradactylutils3::clean_tall_gap_nri(tall_gap = gap_tall, dataHeader = dataHeader, path_tall = path_tall)
 
-    terradactylutils3::tall_gap_qc_NRI(tall_gap = gap_tall, GINTERCEPT = nri$GINTERCEPT, path_qc = path_qc)
+    terradactylutils3::tall_gap_qc_nri(tall_gap = gap_tall, GINTERCEPT = nri$GINTERCEPT, path_qc = path_qc)
 
   } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblGapHeader"]]) && nrow(dima_data_list[["tblGapHeader"]]) > 0){
     message("Found DIMA gap data; processing")
