@@ -689,7 +689,7 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
       })
     output <<- paste0(path_original_files, "/")
     #QC
-    nri_table_qc(nri = nri, path_qc = path_qc)
+    terradactylutils3::nri_table_qc(nri = nri, path_qc = path_qc)
 
 
   }else if(source == "BLM_AIM"){
