@@ -621,7 +621,7 @@ nri_table_qc <- function(nri, path_qc){
     #                           na.strings = c("", "NA"))) |>
     # # join in the coord_qc table for a comprehensive report
     #dplyr::bind_rows(coord_qc)|>
-    dplyr::arrange(Notes, Action) |>
+    #dplyr::arrange(Notes, Action) |>
 
     # rearrange for readability
     dplyr::relocate( PrimaryKey) |> # removed table, as third obs until get importance csv
