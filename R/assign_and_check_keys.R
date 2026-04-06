@@ -548,19 +548,6 @@ dima_table_qc <- function(dima_data_list, primarykey_qc, path_qc){
 #' @export
 nri_table_qc <- function(nri, path_qc){
 
-  # # check lat/longs
-  # coord_qc <- nri[["POINTCOORDINATES"]] |> subset(is.na(TARGET_LATITUDE)|is.na(TARGET_LONGITUDE)|TARGET_LATITUDE==0|TARGET_LONGITUDE==0) |>
-  #   dplyr::mutate(TARGET_LATITUDE = as.numeric(TARGET_LATITUDE)) |> dplyr::mutate(TARGET_LONGITUDE = as.numeric(TARGET_LONGITUDE)) |>
-  #   dplyr::select(PrimaryKey, TARGET_LATITUDE, TARGET_LONGITUDE) |>
-  #   tidyr::pivot_longer(cols = -c(PrimaryKey,),
-  #                       names_to = "Field",
-  #                       values_to = "n_missing") |>
-  #   dplyr::mutate(n_missing = 1,
-  #                 Notes = "Coordinates missing 0 or missing",
-  #                 Action = "Populate or delete plot")
-
-
-
 
 
   # check for missingness of observations
@@ -633,7 +620,7 @@ nri_table_qc <- function(nri, path_qc){
   SWBC_check <- missingness_notes
 
   write.csv(SWBC_check, file.path(path_qc, "SWBC_DIMA_check_all.csv"), row.names = F)
-  write.csv(SWBC_check |> subset(!is.na(Action)), file.path(path_qc, "SWBC_DIMA_check_resolve.csv"), row.names = F)
+  #write.csv(SWBC_check |> subset(!is.na(Action)), file.path(path_qc, "SWBC_DIMA_check_resolve.csv"), row.names = F)
 
 }
 ################################################
@@ -689,7 +676,7 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
       })
     output <<- paste0(path_original_files, "/")
     #QC
-    #terradactylutils3::nri_table_qc(nri = nri, path_qc = path_qc)
+    terradactylutils3::nri_table_qc(nri = nri, path_qc = path_qc)
 
 
   }else if(source == "BLM_AIM"){
