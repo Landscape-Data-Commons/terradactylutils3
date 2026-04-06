@@ -783,13 +783,16 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
   # function(GINTERCEPT, tall_gap)
   ### gap QC
   # checking that the tall and og GapStart data match
-  GINTERCEPT$GapStart <- GINTERCEPT$START_GAP
-  GINTERCEPT$GapEnd <- GINTERCEPT$END_GAP
+  GINTERCEPT$GapStart <- GINTERCEPT$START_GAP * 2.54
+  GINTERCEPT$GapEnd <- GINTERCEPT$END_GAP * 2.54
   GINTERCEPT$Gap <- abs(GINTERCEPT$START_GAP - GINTERCEPT$END_GAP)
+GINTERCEPT <- GINTERCEPT[GINTERCEPT$MARK != 75,]
+GINTERCEPT$SeqNo <- GINTERCEPT$MARK
+GINTERCEPT$RecType <- ifelse(GINTERCEPT = "basal", "B",
+                             ifelse(GINTERCEPT == "canopy", "C", "P"))
 
-
-  tall_gap_start <- tall_gap |> dplyr::select(PrimaryKey,  GapStart)
-  og_gap_start <- GINTERCEPT |> dplyr::select(PrimaryKey,  GapStart)
+  tall_gap_start <- tall_gap |> dplyr::select(PrimaryKey,  GapStart, RecType)
+  og_gap_start <- GINTERCEPT |> dplyr::select(PrimaryKey,  GapStart, RecType)
 
   tall_gap_start_differ <- dplyr::setdiff(og_gap_start, tall_gap_start)
   if(nrow(tall_gap_start_differ) > 0){
@@ -824,11 +827,11 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
   write.csv(gap_start_errors, file.path(path_qc, "GapStart_check.csv"), row.names = F)
 
   # checking max and min
-  tall_gap_gaps <- tall_gap |> dplyr::select(PrimaryKey,  Gap)
-  og_gap_gaps <- GINTERCEPT |> dplyr::select(PrimaryKey,  Gap)
+  tall_gap_gaps <- tall_gap |> dplyr::select(PrimaryKey,  Gap, RecType)
+  og_gap_gaps <- GINTERCEPT |> dplyr::select(PrimaryKey,  Gap, RecType)
 
-  max_tall_gap <- slice_max(tall_gap_gaps, Gap, by = c('PrimaryKey'))
-  max_og_gap <- slice_max(og_gap_gaps, Gap, by = c('PrimaryKey'))
+  max_tall_gap <- slice_max(tall_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
+  max_og_gap <- slice_max(og_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
 
 
   max_gap_error_tall <- dplyr::setdiff(max_og_gap, max_tall_gap)
@@ -855,8 +858,8 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
 
 
 
-  min_tall_gap <- slice_min(tall_gap_gaps, Gap, by = c('PrimaryKey'))
-  min_og_gap <- slice_min(og_gap_gaps, Gap, by = c('PrimaryKey'))
+  min_tall_gap <- slice_min(tall_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
+  min_og_gap <- slice_min(og_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
 
 
   min_gap_error_tall <- dplyr::setdiff(min_og_gap, min_tall_gap)
