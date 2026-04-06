@@ -211,7 +211,6 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
       dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
     tall_gap <- readRDS(file.path(path_tall, "gap_tall.Rdata")) |>
       dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
-    tall_gap$DateVisited <- as.Date(tall_gap$DateVisited, format = "%Y-%m-%d")
 
     dataGap <- tall_gap |>
       translate_schema2(schema = schema,
