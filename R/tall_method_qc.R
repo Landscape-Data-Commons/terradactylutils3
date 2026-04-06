@@ -601,9 +601,9 @@ tall_height_qc <- function(tblLPIDetail, cleaned_tall_height, path_qc){
 #' @export
 tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path_qc){
   # list two letter codes and compare to terradat
-  tall_lpi <- tall_lpi
+  tall_lpi_2l <- tall_lpi[!is.na(tall_lpi$code),]
   #get two letter codes
-  two_letter <- tall_lpi[nchar(tall_lpi$code) <= 2, ]
+  two_letter <- tall_lpi_2l[nchar(tall_lpi_2l$code) <= 2, ]
 
   # only keep the unique codes
   #two_letter <- two_letter[!duplicated(two_letter$code),]
@@ -651,7 +651,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
 
   # looking for soil surface codes that are not terradactyl accepted soil surface codes
   # get the unique two letter soil surface codes from the tall lpi
-  ss <- tall_lpi |> filter(layer == "SoilSurface")
+  ss <- tall_lpi_2l |> filter(layer == "SoilSurface")
   ss <- ss[nchar(ss$code) <= 2, ]
   #ss <- ss[!duplicated(ss$code),]
   # these are the two letter surface codes used in terradactyl
@@ -706,7 +706,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
   # exporting to the QC folder
   write.csv(tall_lpi_code_check, file.path(path_qc, "tall_lpi_code_check.csv"), row.names = FALSE)
 
-  select_me <- c("PrimaryKey", "BASAL")
+  select_me <- c("PrimaryKey", "BASAL", "MARK")
   og_layers <- PINTERCEPT |> dplyr:: select( all_of(select_me), contains("HIT") & !contains("Chk")& !contains("Height")& !contains("Species"))
   colnames(og_layers)[colnames(og_layers) == "HIT1"] <- "TopCanopy"
   colnames(og_layers)[colnames(og_layers) == "HIT2"] <- "Lower1"
@@ -716,11 +716,15 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
   colnames(og_layers)[colnames(og_layers) == "HIT6"] <- "Lower5"
   colnames(og_layers)[colnames(og_layers) == "BASAL"] <- "SoilSurface"
 
-  og_layers <- gather(og_layers, layer, code, -PrimaryKey)
+  og_layers <- og_layers[og_layers$MARK != 75, ]
+
+  colnames(og_layers)[colnames(og_layers) == "MARK"] <- "PointNbr"
+
+  og_layers <- gather(og_layers, layer, code, -PrimaryKey, -PointNbr)
   og_layers <- og_layers |> dplyr::filter(code != "None", !is.na(code))
 
   select_me <- c("PrimaryKey","TopCanopy", "SoilSurface")
-  tall_lpi_layer_codes <- tall_lpi |> dplyr::select(PrimaryKey, layer, code)
+  tall_lpi_layer_codes <- tall_lpi |> dplyr::select(PrimaryKey, layer, code, PointNbr)
   missing_in_tall_lpi <- dplyr::setdiff(og_layers, tall_lpi_layer_codes)
   missing_in_tall_lpi <- as.data.frame(missing_in_tall_lpi)
   if(nrow(missing_in_tall_lpi) > 0){
