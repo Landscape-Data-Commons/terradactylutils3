@@ -933,6 +933,13 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
   colnames(heights_og)[colnames(heights_og) == "TRANSECT"] <- "LineKey"
   colnames(heights_og)[colnames(heights_og) == "DISTANCE"] <- "PointNbr"
 
+  heights_og <- heights_og[heights_og$PointNbr != 75,]
+
+  heights_og$Type <- gsub(".*(.{2})$", "\\1", heights_og$Height)
+
+  heights_og$Height <- ifelse(heights_og$Type == "ft", heights_og$Height * 12, heights_og$Height)
+
+
   heights_og <- heights_og %>%
     mutate(Height = Height %>%
              # Remove anything that isn't a digit or a decimal point
