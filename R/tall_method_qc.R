@@ -679,32 +679,32 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
 
 
 
-  ## identifying where the tall lpi codes are not a USDA plant code
-  #get the accepted USDA plant codes
-  USDA_plant_codes <- USDA_plants[,paste0(speciescode)]
-
-
-  # checking that the tall_lpi codes are in the USDA database
-  tall_lpi_plant_codes <- tall_lpi[nchar(tall_lpi$code) > 2, ]
-
-
-  tall_lpi_plant_codes$usda_code <- ifelse(tall_lpi_plant_codes$code %in% USDA_plant_codes, 0, 1)
-
-  # providing feedback for the tall lpi codes that are not in the USDA plant code list
-  tall_lpi_plant_codes$Notes <- ifelse( tall_lpi_plant_codes$usda_code == 1,
-                                        "Codes present that are not an accepted USDA plant code", NA)
-  tall_lpi_plant_codes$Action <- ifelse(tall_lpi_plant_codes$usda_code ==1,
-                                        "If not unknown code, confirm with project manager the correct USDA plant code or species attributes", NA)
-  tall_lpi_plant_codes <- tall_lpi_plant_codes |> dplyr::select(PrimaryKey, LineKey, layer, code, PointNbr, Notes, Action)
-
-  # joining multiple tall lpi tables was machine space expensive - only keeping the plots with feedback for later joining
-  tall_lpi_plant_codes <- tall_lpi_plant_codes[!is.na(tall_lpi_plant_codes$Notes),]
-
+  # ## identifying where the tall lpi codes are not a USDA plant code
+  # #get the accepted USDA plant codes
+  # USDA_plant_codes <- USDA_plants[,paste0(speciescode)]
+  #
+  #
+  # # checking that the tall_lpi codes are in the USDA database
+  # tall_lpi_plant_codes <- tall_lpi[nchar(tall_lpi$code) > 2, ]
+  #
+  #
+  # tall_lpi_plant_codes$usda_code <- ifelse(tall_lpi_plant_codes$code %in% USDA_plant_codes, 0, 1)
+  #
+  # # providing feedback for the tall lpi codes that are not in the USDA plant code list
+  # tall_lpi_plant_codes$Notes <- ifelse( tall_lpi_plant_codes$usda_code == 1,
+  #                                       "Codes present that are not an accepted USDA plant code", NA)
+  # tall_lpi_plant_codes$Action <- ifelse(tall_lpi_plant_codes$usda_code ==1,
+  #                                       "If not unknown code, confirm with project manager the correct USDA plant code or species attributes", NA)
+  # tall_lpi_plant_codes <- tall_lpi_plant_codes |> dplyr::select(PrimaryKey, LineKey, layer, code, PointNbr, Notes, Action)
+  #
+  # # joining multiple tall lpi tables was machine space expensive - only keeping the plots with feedback for later joining
+  # tall_lpi_plant_codes <- tall_lpi_plant_codes[!is.na(tall_lpi_plant_codes$Notes),]
+  #
 
   # joining the errors for the tall lpi data
 
   tall_lpi_code_check <-  rbind(two_letter, tall_lpi_codes) %>%
-    rbind(., ss) %>% rbind(., tall_lpi_plant_codes)
+    rbind(., ss) #%>% rbind(., tall_lpi_plant_codes)
 
   # exporting to the QC folder
   write.csv(tall_lpi_code_check, file.path(path_qc, "tall_lpi_code_check.csv"), row.names = FALSE)
