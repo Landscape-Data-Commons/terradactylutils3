@@ -617,7 +617,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
   two_letter$Notes <- ifelse(two_letter$tl_error == 1,
                              "Two letter codes present that are not associated with terradactyl codes", NA)
   two_letter$Action = ifelse(two_letter$tl_error == 1, "Check with project manager to determine what code represents", NA)
-  two_letter <- two_letter |> dplyr::select(PrimaryKey, LineKey, layer, code, Notes, Action)
+  two_letter <- two_letter |> dplyr::select(PrimaryKey, LineKey, layer, code, PointNbr, Notes, Action)
 
   # joining multiple tall lpi tables was machine space expensive - only keeping the plots with feedback for later joining
   two_letter <- two_letter[!is.na(two_letter$Notes),]
@@ -626,6 +626,9 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
 
   # check same number of unique codes as og data
   # get the unique codes from the original data table
+  PINTERCEPT$BASAL <- ifelse(PINTERCEPT$BASAL == "None" & !is.na(PINTERCEPT$NONSOIL), PINTERCEPT$NONSOIL,
+                             ifelse(PINTERCEPT$BASAL == "None", "S", PINTERCEPT$BASAL))
+
   og_codes <- c(PINTERCEPT$HIT1, PINTERCEPT$HIT2, PINTERCEPT$HIT3, PINTERCEPT$HIT4,
                 PINTERCEPT$HIT5,PINTERCEPT$HIT6, PINTERCEPT$BASAL)
   og_codes <- unique(og_codes)
@@ -641,7 +644,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
 
   tall_lpi_codes$Action <- ifelse(tall_lpi_codes$add_codes == 1,
                                   "Determine whether code addition was intentional", NA)
-  tall_lpi_codes <- tall_lpi_codes |> dplyr::select(PrimaryKey, LineKey, layer, code, Notes, Action)
+  tall_lpi_codes <- tall_lpi_codes |> dplyr::select(PrimaryKey, LineKey, layer, code, PointNbr, Notes, Action)
 
   # joining multiple tall lpi tables was machine space expensive - only keeping the plots with feedback for later joining
   tall_lpi_codes <- tall_lpi_codes[!is.na(tall_lpi_codes$Notes),]
@@ -669,7 +672,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
 
   ss$Action <- ifelse(ss$add_codes == 1,
                       "Check with the project manager to determine what the code represents", NA)
-  ss <- ss |> dplyr::select(PrimaryKey, LineKey, layer, code, Notes, Action)
+  ss <- ss |> dplyr::select(PrimaryKey, LineKey, layer, code, PointNbr, Notes, Action)
 
   # joining multiple tall lpi tables was machine space expensive - only keeping the plots with feedback for later joining
   ss <- ss[!is.na(ss$Notes),]
@@ -692,7 +695,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
                                         "Codes present that are not an accepted USDA plant code", NA)
   tall_lpi_plant_codes$Action <- ifelse(tall_lpi_plant_codes$usda_code ==1,
                                         "If not unknown code, confirm with project manager the correct USDA plant code or species attributes", NA)
-  tall_lpi_plant_codes <- tall_lpi_plant_codes |> dplyr::select(PrimaryKey, LineKey, layer, code, Notes, Action)
+  tall_lpi_plant_codes <- tall_lpi_plant_codes |> dplyr::select(PrimaryKey, LineKey, layer, code, PointNbr, Notes, Action)
 
   # joining multiple tall lpi tables was machine space expensive - only keeping the plots with feedback for later joining
   tall_lpi_plant_codes <- tall_lpi_plant_codes[!is.na(tall_lpi_plant_codes$Notes),]
