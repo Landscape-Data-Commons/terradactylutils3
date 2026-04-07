@@ -940,21 +940,64 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 
   heights_og$Type <- gsub(".*(.{2})$", "\\1", heights_og$Height)
 
-  heights_og$Height <- ifelse(heights_og$Type == "ft", heights_og$Height * 12, heights_og$Height)
 
 
   heights_og <- heights_og %>%
     mutate(Height = Height %>%
-             # Remove anything that isn't a digit or a decimal point
-             str_replace_all("[^0-9.]", "") %>%
-             # Convert to numeric (this will now be clean)
+             # 1. Extract the first sequence of digits and decimals
+             str_extract("^[0-9.]+") %>%
+             # 2. Convert to numeric
              as.numeric() * 2.54)
 
-  heights_og <- heights_og[!is.na(heights_og$Height),]
-  tall_height_max <- tall_height |> dplyr::select(PrimaryKey, LineKey, PointNbr, Height)
+  heights_og$Height <- ifelse(heights_og$Type == "ft", heights_og$Height * 12, heights_og$Height)
 
-  max_tall_Height <- slice_max(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-  max_og_Height <- slice_max(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
+
+  heights_og <- heights_og[!is.na(heights_og$Height),]
+  heights_og$Type <- NULL
+
+
+  heights_og_W <- PASTUREHEIGHTS |> dplyr::select(PrimaryKey, WHEIGHT,  TRANSECT, DISTANCE)
+  colnames(heights_og_W)[colnames(heights_og_W) == "WHEIGHT"] <- "Height"
+  colnames(heights_og_W)[colnames(heights_og_W) == "TRANSECT"] <- "LineKey"
+  colnames(heights_og_W)[colnames(heights_og_W) == "DISTANCE"] <- "PointNbr"
+
+  heights_og_W <- heights_og_W[heights_og_W$PointNbr != 75,]
+
+  heights_og_W$Type <- gsub(".*(.{2})$", "\\1", heights_og_W$Height)
+
+
+
+  heights_og_W <- heights_og_W %>%
+    mutate(Height = Height %>%
+             # 1. Extract the first sequence of digits and decimals
+             str_extract("^[0-9.]+") %>%
+             # 2. Convert to numeric
+             as.numeric() * 2.54)
+
+  heights_og_W$Height <- ifelse(heights_og_W$Type == "ft", heights_og_W$Height * 12, heights_og_W$Height)
+
+
+  heights_og_W <- heights_og_W[!is.na(heights_og_W$Height),]
+  heights_og_W$Type <- NULL
+
+  heights_og <- rbind(heights_og, heights_og_W)
+
+
+
+  tall_height_max <- tall_height |> dplyr::select(PrimaryKey, LineKey, PointNbr, Height)
+  tall_height_max <- tall_height_max[tall_height_max$PointNbr != 75,]
+
+  max_tall_Height <- slice_max(tall_height_max, Height, by = c('PrimaryKey', 'LineKey'))
+  max_og_Height <- slice_max(heights_og, Height, by = c('PrimaryKey', 'LineKey'))
+
+  max_og_Height$Height <- round(max_og_Height$Height, 2)
+  max_tall_Height$Height <- round(max_tall_Height$Height, 2)
+
+  max_og_Height$PrimaryKey <- trimws(max_og_Height$PrimaryKey)
+  max_tall_Height$PrimaryKey <- trimws(max_tall_Height$PrimaryKey)
+
+  max_og_Height$LineKey <- trimws(max_og_Height$LineKey)
+  max_tall_Height$LineKey <- trimws(max_tall_Height$LineKey)
 
 
   max_Height_error_tall <- dplyr::setdiff(max_og_Height, max_tall_Height)
@@ -981,8 +1024,8 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 
 
 
-  min_tall_Height <- slice_min(tall_height_max, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
-  min_og_Height <- slice_min(heights_og, Height, by = c('PrimaryKey', 'LineKey','PointNbr'))
+  min_tall_Height <- slice_min(tall_height_max, Height, by = c('PrimaryKey', 'LineKey'))
+  min_og_Height <- slice_min(heights_og, Height, by = c('PrimaryKey', 'LineKey'))
 
   min_Height_error_tall <- dplyr::setdiff(min_og_Height, min_tall_Height)
   if(nrow(min_Height_error_tall) > 0){
