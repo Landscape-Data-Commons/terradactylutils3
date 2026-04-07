@@ -43,7 +43,7 @@ clean_tall_lpi_nri <- function(lpi, dataHeader, path_tall){
 
   tall_lpi <- lpi
 tall_lpi <- tall_lpi[!is.na(tall_lpi$code),]
-tall_lpi <- tall_lpi[tall_lpi$code != "None"]
+tall_lpi <- tall_lpi[tall_lpi$code != "None",]
   pkeys <- dataHeader$PrimaryKey
   dropcols_lpi <- tall_lpi  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] |>
