@@ -1222,17 +1222,11 @@ tall_soil_stability_qc_nri <- function(SOILDISAG, tall_soil_stability, path_qc){
 
 
   valid_veg <- c("NC", "C", "G", "F", "Sh", "T", "M")
+  `%notin%` <- Negate(`%in%`)
 
-  ss_veg_issues <- SOILDISAG %>%
-    # pivot columns containing "VEG"
-    pivot_longer(
-      cols = contains("VEG"),
-      names_to = "ColumnName",
-      values_to = "Value"
-    ) %>%
-    filter(!(Value %in% valid_veg) & !is.na(Value)) %>%
-    select(PrimaryKey, ColumnName)
+ss_veg_issues <- tall_soil_stability[tall_soil_stability$Veg %notin% valid_veg,]
+  ss_veg_issues$Notes <- "Not an expected Veg class"
 
-  write.csv(ss_veg_issues, paste0(path_qc, "/soil_stability_veg_type_check_raw_data.csv"))
+  write.csv(ss_veg_issues, paste0(path_qc, "/soil_stability_veg_type_check_tall_data.csv"))
 }
 
