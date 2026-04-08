@@ -406,8 +406,8 @@ gather_clean_all <- function(source){
   if(exists("nri") && !is.null(nri$RANGEHEALTH) && nrow(nri$RANGEHEALTH) > 0){
     header <<- read.csv(paste0(path_tall, "/header.csv"))
     rangehealth_tall <<- gather_rangeland_health(source = "NRI", RANGEHEALTH = read.csv(paste0(output, "/RANGEHEALTH.csv")))
-    saveRDS(rangehealth_tall,paste0(path_tall,"/rangehealth_tall.Rdata"))
-    write.csv(rangehealth_tall,paste0(path_tall,"/rangehealth_tall.csv"))
+    saveRDS(rangehealth_tall,paste0(path_tall,"/rangelandhealth_tall.Rdata"))
+    write.csv(rangehealth_tall,paste0(path_tall,"/rangelandhealth_tall.csv"))
 
   }else{message("No RH NRI data found")}
   ############################
