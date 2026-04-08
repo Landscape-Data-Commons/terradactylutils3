@@ -679,32 +679,32 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
 
 
 
-  # ## identifying where the tall lpi codes are not a USDA plant code
-  # #get the accepted USDA plant codes
-  # USDA_plant_codes <- USDA_plants[,paste0(speciescode)]
-  #
-  #
-  # # checking that the tall_lpi codes are in the USDA database
-  # tall_lpi_plant_codes <- tall_lpi[nchar(tall_lpi$code) > 2, ]
-  #
-  #
-  # tall_lpi_plant_codes$usda_code <- ifelse(tall_lpi_plant_codes$code %in% USDA_plant_codes, 0, 1)
-  #
-  # # providing feedback for the tall lpi codes that are not in the USDA plant code list
-  # tall_lpi_plant_codes$Notes <- ifelse( tall_lpi_plant_codes$usda_code == 1,
-  #                                       "Codes present that are not an accepted USDA plant code", NA)
-  # tall_lpi_plant_codes$Action <- ifelse(tall_lpi_plant_codes$usda_code ==1,
-  #                                       "If not unknown code, confirm with project manager the correct USDA plant code or species attributes", NA)
-  # tall_lpi_plant_codes <- tall_lpi_plant_codes |> dplyr::select(PrimaryKey, LineKey, layer, code, PointNbr, Notes, Action)
-  #
-  # # joining multiple tall lpi tables was machine space expensive - only keeping the plots with feedback for later joining
-  # tall_lpi_plant_codes <- tall_lpi_plant_codes[!is.na(tall_lpi_plant_codes$Notes),]
-  #
+  ## identifying where the tall lpi codes are not a USDA plant code
+  #get the accepted USDA plant codes
+  USDA_plant_codes <- USDA_plants[,paste0(speciescode)]
+
+
+  # checking that the tall_lpi codes are in the USDA database
+  tall_lpi_plant_codes <- tall_lpi[nchar(tall_lpi$code) > 2, ]
+
+
+  tall_lpi_plant_codes$usda_code <- ifelse(tall_lpi_plant_codes$code %in% USDA_plant_codes, 0, 1)
+
+  # providing feedback for the tall lpi codes that are not in the USDA plant code list
+  tall_lpi_plant_codes$Notes <- ifelse( tall_lpi_plant_codes$usda_code == 1,
+                                        "Codes present that are not an accepted USDA plant code", NA)
+  tall_lpi_plant_codes$Action <- ifelse(tall_lpi_plant_codes$usda_code ==1,
+                                        "If not unknown code, confirm with project manager the correct USDA plant code or species attributes", NA)
+  tall_lpi_plant_codes <- tall_lpi_plant_codes |> dplyr::select(PrimaryKey, LineKey, layer, code, PointNbr, Notes, Action)
+
+  # joining multiple tall lpi tables was machine space expensive - only keeping the plots with feedback for later joining
+  tall_lpi_plant_codes <- tall_lpi_plant_codes[!is.na(tall_lpi_plant_codes$Notes),]
+
 
   # joining the errors for the tall lpi data
 
   tall_lpi_code_check <-  rbind(two_letter, tall_lpi_codes) %>%
-    rbind(., ss) #%>% rbind(., tall_lpi_plant_codes)
+    rbind(., ss) %>% rbind(., tall_lpi_plant_codes)
 
   # exporting to the QC folder
   write.csv(tall_lpi_code_check, file.path(path_qc, "tall_lpi_code_check.csv"), row.names = FALSE)
@@ -788,7 +788,8 @@ tall_gap_qc_nri <- function(tall_gap, GINTERCEPT, path_qc){
   # checking that the tall and og GapStart data match
   GINTERCEPT$GapStart <- GINTERCEPT$START_GAP * 2.54 * 12
   GINTERCEPT$GapEnd <- GINTERCEPT$END_GAP * 2.54 * 12
-  GINTERCEPT$Gap <- abs(GINTERCEPT$START_GAP - GINTERCEPT$END_GAP)
+  GINTERCEPT$Gap <- abs(GINTERCEPT$GapStart - GINTERCEPT$GapEnd)
+
 GINTERCEPT <- GINTERCEPT[GINTERCEPT$SEQNUM != 75,]
 GINTERCEPT$SeqNo <- GINTERCEPT$SEQNUM
 GINTERCEPT$RecType <- ifelse(GINTERCEPT$GAP_TYPE == "basal", "B",
@@ -797,26 +798,26 @@ GINTERCEPT$RecType <- ifelse(GINTERCEPT$GAP_TYPE == "basal", "B",
   tall_gap_start <- tall_gap |> dplyr::select(PrimaryKey,  GapStart, RecType)
   og_gap_start <- GINTERCEPT |> dplyr::select(PrimaryKey,  GapStart, RecType)
 
-  # tall_gap_start_differ <- dplyr::setdiff(og_gap_start, tall_gap_start)
-  # if(nrow(tall_gap_start_differ) > 0){
-  #   tall_gap_start_differ$Notes <- "There is a GapStart in the tall data that differs from the original data"
-  #   tall_gap_start_differ$Action <- "Determine why gather or clean functions are altering the original GapStart"
-  #
-  # }
-  #
-  # og_gap_start_differ <- dplyr::setdiff(tall_gap_start, og_gap_start)
-  # if(nrow(og_gap_start_differ) > 0){
-  #   og_gap_start_differ$Notes <- "There is a GapStart in the original data that differs from the tall tables"
-  #   og_gap_start_differ$Action <- "Determine why gather or clean functions are altering the tall GapStart"
-  #
-  # }
-  #
-  #
-  # gap_start_errors <- rbind(tall_gap_start_differ, og_gap_start_differ)
-  #
-  # if(nrow(gap_start_errors) > 0){
-  #   gap_start_errors <- gap_start_errors |> filter_all(any_vars(duplicated(.)))
-  # }
+  tall_gap_start_differ <- dplyr::setdiff(og_gap_start, tall_gap_start)
+  if(nrow(tall_gap_start_differ) > 0){
+    tall_gap_start_differ$Notes <- "There is a GapStart in the tall data that differs from the original data"
+    tall_gap_start_differ$Action <- "Determine why gather or clean functions are altering the original GapStart"
+
+  }
+
+  og_gap_start_differ <- dplyr::setdiff(tall_gap_start, og_gap_start)
+  if(nrow(og_gap_start_differ) > 0){
+    og_gap_start_differ$Notes <- "There is a GapStart in the original data that differs from the tall tables"
+    og_gap_start_differ$Action <- "Determine why gather or clean functions are altering the tall GapStart"
+
+  }
+
+
+  gap_start_errors <- rbind(tall_gap_start_differ, og_gap_start_differ)
+
+  if(nrow(gap_start_errors) > 0){
+    gap_start_errors <- gap_start_errors |> filter_all(any_vars(duplicated(.)))
+  }
 
 
   # checking the GapStart is not NA
@@ -825,69 +826,76 @@ GINTERCEPT$RecType <- ifelse(GINTERCEPT$GAP_TYPE == "basal", "B",
     no_start$Notes <- "The GapStart for the line is NA"
     no_start$Action <- "Work with project manager to determine whether line needs removed"
   }
-  gap_start_errors <- no_start
+  gap_start_errors <- rbind(gap_start_errors, no_start)
 
   write.csv(gap_start_errors, file.path(path_qc, "GapStart_check.csv"), row.names = F)
 
   # checking max and min
-  tall_gap_gaps <- tall_gap |> dplyr::select(PrimaryKey,  Gap, RecType)
-  og_gap_gaps <- GINTERCEPT |> dplyr::select(PrimaryKey,  Gap, RecType)
+  tall_gap_gaps <- tall_gap |> dplyr::select(PrimaryKey,  Gap, RecType, SeqNo)
+  og_gap_gaps <- GINTERCEPT |> dplyr::select(PrimaryKey,  Gap, RecType, SeqNo)
 
-  # max_tall_gap <- slice_max(tall_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
-  # max_og_gap <- slice_max(og_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
+  tall_gap_gaps$Gap <- round(tall_gap_gaps$Gap, 2)
+  og_gap_gaps$Gap <- round(og_gap_gaps$Gap, 2)
+
+  max_tall_gap <- slice_max(tall_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'), n = 1)
+  max_og_gap <- slice_max(og_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'), n = 1)
+
+
+  max_gap_error_tall <- dplyr::setdiff(max_og_gap, max_tall_gap)
+  if(nrow(max_gap_error_tall) > 0){
+    max_gap_error_tall$Notes <- "There is a Gap in the tall data that differs from the original data"
+    max_gap_error_tall$Action <- "Determine why gather or clean functions are altering the original Gap"
+
+  }
+
+  max_gap_error_og <- dplyr::setdiff(max_tall_gap, max_og_gap)
+  if(nrow(max_gap_error_og) > 0){
+    max_gap_error_og$Notes <- "There is a Gap in the original data that differs from the tall tables"
+    max_gap_error_og$Action <- "Determine why gather or clean functions are altering the tall Gap"
+
+  }
+
+
+  max_gap_errors <- rbind(max_gap_error_tall, max_gap_error_og)
+
+  if(nrow(max_gap_errors) > 0){
+    max_gap_errors <- max_gap_errors |> filter_all(any_vars(duplicated(.)))
+  }
+
+
+
+  # lines are autofilled with 0 when not collected, we don't want these in the comparison
+  tall_gap_gaps <- tall_gap_gaps[tall_gap_gaps$Gap != 0,]
+
+
+
+  min_tall_gap <- slice_min(tall_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
+  min_og_gap <- slice_min(og_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
+
+
+  min_gap_error_tall <- dplyr::setdiff(min_og_gap, min_tall_gap)
+  if(nrow(min_gap_error_tall) > 0){
+    min_gap_error_tall$Notes <- "There is a Gap in the tall data that differs from the original data"
+    min_gap_error_tall$Action <- "Determine why gather or clean functions are altering the original Gap"
+
+  }
+
+  min_gap_error_og <- dplyr::setdiff(min_tall_gap, min_og_gap)
+  if(nrow(min_gap_error_og) > 0){
+    min_gap_error_og$Notes <- "There is a Gap in the original data that differs from the tall tables"
+    min_gap_error_og$Action <- "Determine why gather or clean functions are altering the tall Gap"
+
+  }
+
+
+  min_gap_errors <- rbind(min_gap_error_tall, min_gap_error_og)
+
+  if(nrow(min_gap_errors) > 0){
+    min_gap_errors <- min_gap_errors |> filter_all(any_vars(duplicated(.)))
+  }
+
   #
-  #
-  # max_gap_error_tall <- dplyr::setdiff(max_og_gap, max_tall_gap)
-  # if(nrow(max_gap_error_tall) > 0){
-  #   max_gap_error_tall$Notes <- "There is a Gap in the tall data that differs from the original data"
-  #   max_gap_error_tall$Action <- "Determine why gather or clean functions are altering the original Gap"
-  #
-  # }
-  #
-  # max_gap_error_og <- dplyr::setdiff(max_tall_gap, max_og_gap)
-  # if(nrow(max_gap_error_og) > 0){
-  #   max_gap_error_og$Notes <- "There is a Gap in the original data that differs from the tall tables"
-  #   max_gap_error_og$Action <- "Determine why gather or clean functions are altering the tall Gap"
-  #
-  # }
-  #
-  #
-  # max_gap_errors <- rbind(max_gap_error_tall, max_gap_error_og)
-  #
-  # if(nrow(max_gap_errors) > 0){
-  #   max_gap_errors <- max_gap_errors |> filter_all(any_vars(duplicated(.)))
-  # }
-  #
-  #
-  #
-  #
-  # min_tall_gap <- slice_min(tall_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
-  # min_og_gap <- slice_min(og_gap_gaps, Gap, by = c('PrimaryKey', 'RecType'))
-  #
-  #
-  # min_gap_error_tall <- dplyr::setdiff(min_og_gap, min_tall_gap)
-  # if(nrow(min_gap_error_tall) > 0){
-  #   min_gap_error_tall$Notes <- "There is a Gap in the tall data that differs from the original data"
-  #   min_gap_error_tall$Action <- "Determine why gather or clean functions are altering the original Gap"
-  #
-  # }
-  #
-  # min_gap_error_og <- dplyr::setdiff(min_tall_gap, min_og_gap)
-  # if(nrow(min_gap_error_og) > 0){
-  #   min_gap_error_og$Notes <- "There is a Gap in the original data that differs from the tall tables"
-  #   min_gap_error_og$Action <- "Determine why gather or clean functions are altering the tall Gap"
-  #
-  # }
-  #
-  #
-  # min_gap_errors <- rbind(min_gap_error_tall, min_gap_error_og)
-  #
-  # if(nrow(min_gap_errors) > 0){
-  #   min_gap_errors <- min_gap_errors |> filter_all(any_vars(duplicated(.)))
-  # }
-  #
-  #
-  # gap_errors <- rbind(max_gap_errors, min_gap_errors)
+  gap_errors <- rbind(max_gap_errors, min_gap_errors)
 
   ## checking for negatives or NAs
   neg_gap <- tall_gap_gaps |> filter(Gap < 0)
@@ -895,7 +903,7 @@ GINTERCEPT$RecType <- ifelse(GINTERCEPT$GAP_TYPE == "basal", "B",
     neg_gap$Notes <- "There are negative gaps present"
     neg_gap$Action <- "Determine if the gap should be positive or work with project manager to determine whether line needs removed"
   }
-  gap_errors <- neg_gap
+  gap_errors <- rbind(gap_errors, neg_gap)
 
   write.csv(gap_errors, file.path(path_qc, "Gap_check.csv"), row.names = F)
 
