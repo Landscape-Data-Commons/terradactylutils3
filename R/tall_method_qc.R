@@ -795,8 +795,16 @@ GINTERCEPT$SeqNo <- GINTERCEPT$SEQNUM
 GINTERCEPT$RecType <- ifelse(GINTERCEPT$GAP_TYPE == "basal", "B",
                              ifelse(GINTERCEPT$GAP_TYPE == "canopy", "C", "P"))
 
-  tall_gap_start <- tall_gap |> dplyr::select(PrimaryKey,  GapStart, RecType)
-  og_gap_start <- GINTERCEPT |> dplyr::select(PrimaryKey,  GapStart, RecType)
+GINTERCEPT$LineKey <- GINTERCEPT$TRANSECT
+
+tall_gap_start <- tall_gap |> dplyr::select(PrimaryKey,  GapStart, LineKey, RecType, SeqNo)
+og_gap_start <- GINTERCEPT |> dplyr::select(PrimaryKey,  GapStart, LineKey, RecType, SeqNo)
+
+og_gap_clean <- og_gap_start |> dplyr::mutate(across(where(is.character), trimws))
+tall_gap_clean <- tall_gap_start |> dplyr::mutate(across(where(is.character), trimws))
+
+og_gap_start$GapStart <- round(og_gap_start$GapStart, 2)
+tall_gap_start$GapStart <- round(tall_gap_start$GapStart, 2)
 
   tall_gap_start_differ <- dplyr::setdiff(og_gap_start, tall_gap_start)
   if(nrow(tall_gap_start_differ) > 0){
@@ -950,11 +958,9 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 
 
 
-  heights_og <- heights_og %>%
-    mutate(Height = Height %>%
-             # 1. Extract the first sequence of digits and decimals
-             str_extract("^[0-9.]+") %>%
-             # 2. Convert to numeric
+  heights_og <- heights_og |>
+    mutate(Height = Height |>
+             stringr::str_extract("^[0-9.]+") |>
              as.numeric() * 2.54)
 
   heights_og$Height <- ifelse(heights_og$Type == "ft", heights_og$Height * 12, heights_og$Height)
@@ -975,10 +981,10 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 
 
 
-  heights_og_W <- heights_og_W %>%
-    mutate(Height = Height %>%
+  heights_og_W <- heights_og_W |>
+    mutate(Height = Height |>
              # 1. Extract the first sequence of digits and decimals
-             str_extract("^[0-9.]+") %>%
+             str_extract("^[0-9.]+") |>
              # 2. Convert to numeric
              as.numeric() * 2.54)
 
@@ -1031,19 +1037,79 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 
 
 
-
   min_tall_Height <- slice_min(tall_height_max, Height, by = c('PrimaryKey', 'LineKey'))
   min_og_Height <- slice_min(heights_og, Height, by = c('PrimaryKey', 'LineKey'))
 
+
   min_Height_error_tall <- dplyr::setdiff(min_og_Height, min_tall_Height)
+
   if(nrow(min_Height_error_tall) > 0){
+    #removing where the issue is from height tall adding in 0
+    comparison_heights <- min_Height_error_tall |>
+      dplyr::select(PrimaryKey, LineKey, PointNbr) |>
+      dplyr::distinct() |>
+      #join og and tall with clarifying names
+      dplyr::left_join(min_og_Height,
+                       by = c("PrimaryKey", "LineKey", "PointNbr")) |>
+
+      dplyr::left_join(min_tall_Height,
+                       by = c("PrimaryKey", "LineKey", "PointNbr"),
+                       suffix = c("_original", ""))
+
+    comparison_heights <- comparison_heights |> dplyr::filter(Height != 0)
+
+    min_Height_error_tall <- comparison_heights
+
+    min_Height_error_tall$diff <- min_Height_error_tall$Height_original - min_Height_error_tall$Height
+
+    min_Height_error_tall <- min_Height_error_tall |> dplyr::filter(diff > 1)
+
+  }
+
+
+
+  if(nrow(min_Height_error_tall) > 0){
+
+    min_height_error_tall$diff <- NULL
+    min_Height_error_tall$Height_original <- NULL
+
     min_Height_error_tall$Notes <- "There is a min Height in the tall data that differs from the original data"
     min_Height_error_tall$Action <- "Determine why gather or clean functions are altering the original Height"
 
   }
 
   min_Height_error_og <- dplyr::setdiff(min_tall_Height, min_og_Height)
+
   if(nrow(min_Height_error_og) > 0){
+    # comparing and if diff > 1 displaying
+    comparison_heights <- min_Height_error_og |>
+      dplyr::select(PrimaryKey, LineKey, PointNbr) |>
+      dplyr::distinct() |>
+      dplyr::left_join(min_og_Height,
+                       by = c("PrimaryKey", "LineKey", "PointNbr")) |>
+
+      dplyr::left_join(min_tall_Height,
+                       by = c("PrimaryKey", "LineKey", "PointNbr"),
+                       suffix = c("", "_tall"))
+
+    comparison_heights <- comparison_heights[comparison_heights$Height_tall != 0,]
+
+    min_Height_error_og <- comparison_heights
+
+
+    min_Height_error_og$diff <- min_Height_error_og$Height - min_Height_error_og$Height_tall
+
+    min_Height_error_og <- min_Height_error_og |> dplyr::filter(diff > 1)
+
+
+  }
+
+
+  if(nrow(min_Height_error_og) > 0){
+
+    min_Height_error_og$Height_tall <- NULL
+    min_height_error_og$diff <- NULL
+
     min_Height_error_og$Notes <- "There is a min Height in the original data that differs from the tall tables"
     min_Height_error_og$Action <- "Determine why gather or clean functions are altering the tall Height"
 
