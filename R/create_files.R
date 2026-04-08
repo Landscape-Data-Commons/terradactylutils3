@@ -238,7 +238,7 @@ create_geoind <- function(path_schema, path_parent){
 create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL){
   if(source == "NRI"){
     dataHeader <- terradactyl::gather_header_nri(dsn = path_original_files, point_path = "POINT.csv", speciesstate = "NRI")
-    dataHeader$LocationStatus <- "fuzzed" #?
+    dataHeader$LocationStatus <- "Obscured"
     dataHeader$State <- dataHeader$STATE
     dataHeader$Latitude_NAD83 <- NA
     dataHeader$Longitude_NAD83 <- NA
