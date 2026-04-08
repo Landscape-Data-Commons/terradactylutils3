@@ -27,7 +27,7 @@ tall_lpi_qc <- function(cleaned_tall_lpi, speciescode, USDA_plants, tblLPIDetail
   # this is the list currently used in terradactyl for two letter codes
   terra_two_letter <- c("L","HL", "AM", "DN", "ER", "HT", "NL","AL","DS","D","LC","M","WL", "CY","EL",
                         "W","WA","RF","R","GR","ST","CB","BY","VL","AG","CM","LM","FG","PC",
-                        "BR","S")
+                        "BR","S", "OM")
   # determine whether the tall lpi code is associated with the terradactyl two letter codes, if not provide feedback
   two_letter$tl_error <- ifelse(two_letter$code %in% terra_two_letter, 0, 1)
   two_letter$Notes <- ifelse(two_letter$tl_error == 1,
@@ -611,7 +611,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
   # this is the list currently used in terradactyl for two letter codes
   terra_two_letter <- c("L","HL", "AM", "DN", "ER", "HT", "NL","AL","DS","D","LC","M","WL", "CY","EL",
                         "W","WA","RF","R","GR","ST","CB","BY","VL","AG","CM","LM","FG","PC",
-                        "BR","S")
+                        "BR","S", "OM")
   # determine whether the tall lpi code is associated with the terradactyl two letter codes, if not provide feedback
   two_letter$tl_error <- ifelse(two_letter$code %in% terra_two_letter, 0, 1)
   two_letter$Notes <- ifelse(two_letter$tl_error == 1,
