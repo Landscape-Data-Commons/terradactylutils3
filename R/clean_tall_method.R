@@ -237,7 +237,7 @@ gather_clean_all <- function(source){
     output <<- paste0(path_original_files, "/")
     lpi_tall <<- terradactyl::gather_lpi(dsn = paste0(output, "PINTERCEPT.csv"),
                                         file_type = "csv", source = "NRI")
-    cleaned_lpi_tall <<- terradactylutils3::clean_tall_lpi(lpi = lpi_tall, dataHeader = dataHeader, path_tall = path_tall)
+    cleaned_lpi_tall <<- terradactylutils3::clean_tall_lpi_nri(lpi = lpi_tall, dataHeader = dataHeader, path_tall = path_tall)
 
     terradactylutils3::tall_lpi_qc_nri(tall_lpi = cleaned_lpi_tall, speciescode = speciescode, USDA_plants = USDA_plants, PINTERCEPT = nri$PINTERCEPT, path_qc = path_qc)
 
