@@ -205,10 +205,10 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = 
 
   if(file.exists(file.path(path_tall, "gap_tall.Rdata"))){
     print("Translating canopy gap data")
-    tall_gap  <- readRDS(file.path(path_tall, "gap_tall.Rdata"))
-    tall_gap$DateVisited <- as.Date(tall_gap$DateVisited, format = "%Y-%m-%d")
-    tall_gap <- tall_gap |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    # tall_gap  <- readRDS(file.path(path_tall, "gap_tall.Rdata"))
+    # tall_gap$DateVisited <- as.Date(tall_gap$DateVisited, format = "%Y-%m-%d")
+    # tall_gap <- tall_gap |>
+    #   dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
     tall_gap <- readRDS(file.path(path_tall, "gap_tall.Rdata")) |>
       dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
 
