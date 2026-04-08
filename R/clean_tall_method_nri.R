@@ -156,10 +156,19 @@ clean_tall_species <- function(tall_species, dataHeader, path_tall){
   tall_species$DBKey <- dataHeader$DBKey[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
   tall_species$Direction <- tblSpecRichHeader$Direction[match(tall_species$PrimaryKey, tblSpecRichHeader$PrimaryKey)]
   #tall_species$DateVisited <- as.character(tall_species$DateVisited)
-  tall_species <- tall_species |>
-    rename(
-      ProjectKey = project
-    )
+
+  # tall_species <- tall_species |>
+  #   rename(
+  #     ProjectKey = project
+  #   )
+  tall_species$ProjectKey <- dataHeader$ProjectKey[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
+  tall_species$FormDate <- dataHeader$FormDate[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
+  tall_species$DateVisited <- dataHeader$DateVisited[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
+
+  tall_species$SURVEY <- NULL
+  tall_species$STATE <- NULL
+  tall_species$COUNTY <- NULL
+
 
   saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
   write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
