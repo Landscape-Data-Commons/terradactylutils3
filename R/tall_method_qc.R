@@ -626,7 +626,8 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
 
   # check same number of unique codes as og data
   # get the unique codes from the original data table
-  PINTERCEPT$BASAL <- ifelse(PINTERCEPT$BASAL == "None" & !is.na(PINTERCEPT$NONSOIL), PINTERCEPT$NONSOIL,
+  PINTERCEPT$BASAL <- ifelse(!is.na(PINTERCEPT$NONSOIL)  ,
+                             PINTERCEPT$NONSOIL,
                              ifelse(PINTERCEPT$BASAL == "None", "S", PINTERCEPT$BASAL))
 
   og_codes <- c(PINTERCEPT$HIT1, PINTERCEPT$HIT2, PINTERCEPT$HIT3, PINTERCEPT$HIT4,
@@ -761,7 +762,6 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
   if(nrow(missing_layer_codes) > 0){
     missing_layer_codes <- missing_layer_codes |> filter_all(any_vars(duplicated(.)))
   }
-
   write.csv(missing_layer_codes, file.path(path_qc, "differing_layer_codes_check.csv"), row.names = F)
 
 }
