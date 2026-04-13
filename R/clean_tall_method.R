@@ -354,7 +354,7 @@ gather_clean_all <- function(source){
     #gather
     tblSpecRichHeader$RecKey <<- as.character(tblSpecRichHeader$RecKey)
 
-    tall_species <<- terradactyl::gather_species_inventory(source = source, tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader)
+    tall_species <- terradactyl::gather_species_inventory(source = source, tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader)
 
     #get the tall file into a format that can be used to produce the prepared data
     cleaned_tall_species <<- terradactylutils3::clean_tall_species(tall_species = tall_species, dataHeader = dataHeader, path_tall = path_tall)
