@@ -686,8 +686,8 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
     terradactylutils3::assign_keys(path_project = path_project, non_line_tables = non_line_table_list )
 
     # using data produced from assign_keys function to produce QC files to review
-    dima_data_list <- readRDS(paste0(path_qc,"/all_dimas_pks.Rdata") )
-    primarykey_qc<-read.csv(paste0(path_qc,"/primarykey_resolve_", date_pkey_qc_run, ".csv"))
+    dima_data_list <<- readRDS(paste0(path_qc,"/all_dimas_pks.Rdata") )
+    primarykey_qc<<-read.csv(paste0(path_qc,"/primarykey_resolve_", date_pkey_qc_run, ".csv"))
     terradactylutils3::dima_table_qc(dima_data_list = dima_data_list, primarykey_qc = primarykey_qc, path_qc = path_qc)
 
   }
