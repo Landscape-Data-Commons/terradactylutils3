@@ -288,7 +288,10 @@ geofiles <- function(path_foringest,
                                                   datatype = "geoSpecies",
                                                   dropcols = TRUE,
                                                   verbose = verbose)
-
+    accumulated_species_data <- subset(accumulated_species_data,
+                                      !is.na(Species) &
+                                        AH_SpeciesCover != 0 &
+                                        Hgt_Species_Avg != 0)
     write.csv(x = accumulated_species_data,
               file.path(path_foringest,
                         "geoSpecies.csv"),
