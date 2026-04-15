@@ -242,6 +242,7 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader$State <- dataHeader$STATE
     dataHeader$Latitude_NAD83 <- NA
     dataHeader$Longitude_NAD83 <- NA
+    dataHeader <- dataHeader[!is.na(dataHeader$DateVisited),]
     write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
     saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
 
@@ -362,6 +363,7 @@ create_soil_horizons_nri <- function(nri, path_tall){
   SH$FragVolDurinode<- NA
   SH$HorizonNumber<- SH$SEQNUM
   SH$source <- "NRI"
+  SH$DateVisited <- dataHeader$DateVisited[match(SH$PrimaryKey, dataHeader$PrimaryKey)]
 
   # only keep data in schema, in the order of the schema
   schema <- read.csv(path_schema)
