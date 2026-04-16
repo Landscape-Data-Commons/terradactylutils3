@@ -126,6 +126,15 @@ clean_tall_gap_nri <- function(tall_gap, dataHeader, path_tall){
   #match
   tall_gap$ProjectKey <- dataHeader$ProjectKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
 
+  # remove GapEnd NAs when there is already a good entry
+  tall_gap <- tall_gap %>%
+    group_by(PrimaryKey, LineKey, SeqNo) %>%
+    # keep the row if:
+    # 1. it is the only row in the group (n() == 1)
+    # 2. OR if it is part of a group but the GapEnd is NOT NA
+    filter(n() == 1 | !is.na(GapEnd)) %>%
+    ungroup()
+
   saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
   write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
   tall_gap
