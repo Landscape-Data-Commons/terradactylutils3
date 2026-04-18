@@ -659,7 +659,7 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
 
     nri <<- terradactyl::assign_pkey_nri(df = df)
 
-    return(nri)
+
     # save original file as Rdata
     saveRDS(nri, paste0(path_original_files, "/NRI_raw_2024.Rdata"))
 
