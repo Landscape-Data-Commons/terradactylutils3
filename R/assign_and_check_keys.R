@@ -657,7 +657,7 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
     # add names to list elements
     names(df) <- toupper(table_name)
 
-    nri <- terradactyl::assign_pkey_nri(df = df)
+    nri <<- terradactyl::assign_pkey_nri(df = df)
 
     return(nri)
     # save original file as Rdata
