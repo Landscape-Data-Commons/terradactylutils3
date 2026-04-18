@@ -334,7 +334,6 @@ create_soil_horizons_nri <- function(nri, path_tall){
 
   #
   SH$HorizonKey <- NA
-  SH$DateVisited <- SH$SURVEY
   SH$HorizonDepthUpper <- SH$DEPTH * 2.54
   SH$HorizonDepthLower <- SH$DEPTH * 2.54
   SH$DepthUOM <- "cm"
@@ -363,7 +362,14 @@ create_soil_horizons_nri <- function(nri, path_tall){
   SH$FragVolDurinode<- NA
   SH$HorizonNumber<- SH$SEQNUM
   SH$source <- "NRI"
-  SH$DateVisited <- dataHeader$DateVisited[match(SH$PrimaryKey, dataHeader$PrimaryKey)]
+  #match is failing - retrieving DateVisited
+  dates <- dataHeader %>%
+    select(PrimaryKey, DateVisited) %>%
+    distinct(PrimaryKey, .keep_all = TRUE) # Ensures one date per Key
+
+  #join to SH
+  SH <- SH %>%
+    left_join(dates, by = "PrimaryKey")
 
   # only keep data in schema, in the order of the schema
   schema <- read.csv(path_schema)
