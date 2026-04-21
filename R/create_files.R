@@ -248,13 +248,13 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
 
 
   }else if (source == "BLM_AIM"){
-    header <- gather_header(dsn = dsn,  source = "AIM")
+    dataHeader <- gather_header(dsn = dsn,  source = "AIM")
     #remove dups
-    header <- header[which(!duplicated(header)),]
-    header$DBKey <- gsub('.{15}$', '', header$DateVisited)
-    header$ProjectKey <- "BLM_AIM"
-    write.csv(header, file.path(path_tall, "header.csv"), row.names = F)
-    saveRDS(header, file.path(path_tall, "header.rdata"))
+    dataHeader <- dataHeader[which(!duplicated(dataHeader)),]
+    dataHeader$DBKey <- gsub('.{15}$', '', dataHeader$DateVisited)
+    dataHeader$ProjectKey <- "BLM_AIM"
+    write.csv(dataHeader, file.path(path_tall, "header.csv"), row.names = F)
+    saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
 
   }else{
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
