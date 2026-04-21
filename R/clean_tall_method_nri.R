@@ -86,7 +86,7 @@ tall_lpi <- tall_lpi[tall_lpi$code != "None",]
   # we don't need to move 2MOSS if already in lower layer
 
   # now just make 2MOSS "M"
-  tall_lpi$code <- ifelse(tall_lpi$code == "2MOSS", "M", tall_lpi$code)
+  #tall_lpi$code <- ifelse(tall_lpi$code == "2MOSS", "M", tall_lpi$code)
 
   saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
   write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
