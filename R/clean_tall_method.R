@@ -255,7 +255,7 @@ gather_clean_all <- function(source){
     message("Found BLM gap data; processing")
 
     tall_lpi <<- gather_lpi_terradat(dsn = dsn)
-    cleaned_tall_lpi <<- terradactylutils3::clean_tall_lpi_aim(tall_lpi = tall_lpi, dataHeader, path_tall)
+    cleaned_tall_lpi <<- terradactylutils3::clean_tall_lpi_aim(tall_lpi = tall_lpi, dataHeader,  source = "AIM", todaysDate = todaysDate, path_tall)
     terradactylutils3::tall_lpi_qc_AIM(tall_lpi = tall_lpi, path_tall = path_tall)
 
   }else{message("No LPI data found")}
@@ -293,7 +293,7 @@ gather_clean_all <- function(source){
     terradactylutils3::tall_gap_qc(cleaned_tall_gap = cleaned_tall_gap, tblGapDetail = tblGapDetail, path_qc = path_qc)
   }else if(source == "BLM_AIM"){
     tall_gap <<- gather_gap_terradat(dsn = dsn)
-    terradactylutils3::clean_tall_gap_aim(path_tall = path_tall, tall_gap = tall_gap)
+    terradactylutils3::clean_tall_gap_aim(path_tall = path_tall, tall_gap = tall_gap, dataHeader = dataHeader, source = "AIM", todaysDate = todaysDate)
   }else{message("No Gap data found")}
 
   #### STOP AND CHECK QC/ GapStart_check, Gap_check, GapEnd_check #########
@@ -326,7 +326,7 @@ gather_clean_all <- function(source){
     terradactylutils3::tall_soil_stability_qc(tblSoilStabDetail = tblSoilStabDetail, cleaned_tall_soil_stability = cleaned_tall_soil_stability, path_qc = path_qc)
   }else if (source == "BLM_AIM"){
     tall_soilstability <<- gather_soil_stability_terradat(dsn = dsn)
-    terradactylutils3::clean_tall_soil_stability_aim(tall_soil_stability = tall_soilstability, path_tall = path_tall)
+    terradactylutils3::clean_tall_soil_stability_aim(tall_soil_stability = tall_soilstability, path_tall = path_tall, dataHeader = dataHeader, source = "AIM", todaysDate = todaysDate)
 
 
   }else{message("No soil stability data found")}
@@ -360,7 +360,7 @@ gather_clean_all <- function(source){
     cleaned_tall_species <<- terradactylutils3::clean_tall_species(tall_species = tall_species, dataHeader = dataHeader, path_tall = path_tall)
   }else if (source == "BLM_AIM"){
     tall_sr <<- gather_species_inventory_terradat(dsn = dsn)
-    terradactylutils3::clean_tall_species_richness_aim(tall_species_richness = tall_sr, path_tall = path_tall)
+    terradactylutils3::clean_tall_species_richness_aim(tall_species_richness = tall_sr, path_tall = path_tall, dataHeader = dataHeader, source = "AIM", todaysDate = todaysDate)
   }else{message("No species richness data found")}
 
   ############################
@@ -394,6 +394,7 @@ gather_clean_all <- function(source){
     terradactylutils3::tall_height_qc(tblLPIDetail = tblLPIDetail, cleaned_tall_height = cleaned_tall_height, path_qc = path_qc)
   }else if (source == "BLM_AIM"){
     tall_height <<- gather_height_terradat(dsn = dsn)
+    cleaned_tall_height <<- terradactylutils3::clean_tall_height_aim(tall_height = tall_height, dataHeader = dataHeader, source = "AIM", todaysDate = todaysDate, path_tall = path_tall)
 
 
 

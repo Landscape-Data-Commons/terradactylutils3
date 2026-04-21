@@ -4,12 +4,18 @@
 \alias{clean_tall_lpi_aim}
 \title{Clean Tall LPI AIM}
 \usage{
-clean_tall_lpi_aim(tall_lpi, path_tall)
+clean_tall_lpi_aim(tall_lpi, path_tall, dataHeader, source, todaysDate)
 }
 \arguments{
 \item{tall_lpi}{as a data.frame, the tall_lpi file}
 
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
+
+\item{dataHeader}{dataHeader as dataframe}
+
+\item{source}{data source (e.g., "DIMA")}
+
+\item{todaysDate}{today's date in format Y-m-d}
 }
 \value{
 cleaned, in LDC format, tall lpi to the path_tall
