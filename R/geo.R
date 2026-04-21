@@ -299,3 +299,302 @@ geofiles <- function(path_foringest,
   }
 }
 
+
+
+
+
+
+
+
+
+##################################
+#' Geofiles NRI
+#'
+#' creates the geoIndicators and geoSpecies files and writes them to the path_foringest using the path_tall data that was produced using translate_coremethods2. Updated from translate_coremethods from terradactyl_Utils to not require projkey.
+#'
+#' @param path_foringest path where data for ingest will be exported
+#' @param path_tall path to the tall files produced from terradactylutils2::clean_tall_"method"()
+#' @param header as a data.frame, the tall header file in path_tall
+#' @param path_specieslist path to species lists including the ProjectKey
+#' @param template path to an indicator list using graminoid identifiers, currently used while certain agencies use GRASS
+#' @param doGSP TRUE unless user does not want a geoSpecies file produced
+#' @param calculate_dead Logical. If \code{TRUE} and \code{doGSP} is \code{TRUE} then the accumulated species calculations will differentiate between "live" and "dead" records. Defaults to \code{FALSE}.
+#' @param date Optional character string. The date value for the DateLoadedInDb variable. Must be in the format mm/dd/YYYY, e.g. "6/19/2026". Defaults to the date returned by \code{Sys.date()}.
+#' @param digits Number of digits user wants observations rounded to
+#' @return geoSpecies and geoIndicators file written to the path_foringest
+#'
+#'
+#' @examples geofiles(path_foringest = path_foringest,path_tall = file.path(path_parent, "Tall"),header = tall_header, path_specieslist =  paste0(path_species,  projkey, ".csv"),path_template = template, digits = 2)
+#' @export
+geofiles_nri <- function(path_foringest,
+                     path_tall,
+                     header,
+                     path_specieslist,
+                     path_schema,
+                     template,
+                     doGSP = TRUE,
+                     calculate_dead = FALSE,
+                     ingestion_date = NULL,
+                     verbose = FALSE,
+                     digits = 6){
+
+  if (is.null(ingestion_date)){
+    ingestion_date <- format(x = Sys.time(),
+                             "%m/%d/%Y")
+  }
+
+  if (verbose) {
+    message("Reading in headers.")
+  }
+  # Read in the headers because these will be used to filter the incoming data
+  # by PrimaryKey before indicators are calculated.
+  header <- readRDS(file = file.path(path_tall, "header.Rdata"))
+
+  # These are the assumed base filenames (with the extension .Rdata) that
+  # correspond to the data types.
+  tall_filenames <- c("lpi_tall",
+                      "gap_tall",
+                      "height_tall",
+                      "species_inventory_tall",
+                      "soil_stability_tall",
+                      "rangelandhealth_tall")
+
+  if (verbose) {
+    message("Reading in tall data.")
+  }
+  # Try to read in the data if the file exists.
+  # If the file doesn't exist or if the file contains no data corresponding to
+  # PrimaryKey values in header this'll return NULL.
+  data <- lapply(X = tall_filenames,
+                 path_tall = path_tall,
+                 header = header,
+                 FUN = function(X, path_tall, header){
+                   # Create the assumed filepath.
+                   current_filepath <- file.path(path_tall,
+                                                 paste0(X, ".Rdata"))
+
+                   if (file.exists(current_filepath)) {
+                     # Read in and filter data
+                     current_data <- readRDS(file = current_filepath) |>
+                       # Remove invalid records which may happen depending on
+                       # how the Rdata was exported.
+                       dplyr::filter(.data = _,
+                                     PrimaryKey %in% header$PrimaryKey)
+                     # Solving the issue of empty data frames not being handled
+                     # by lpi_calc()
+                     if (nrow(current_data) > 0) {
+                       current_data
+                     } else {
+                       NULL
+                     }
+                   } else {
+                     NULL
+                   }
+                 }) |>
+    # Setting the names of the data in the list for ease of reference later.
+    setNames(object = _,
+             nm = tall_filenames)
+
+  # Keep only data, removing the NULLs.
+  data <- data[!sapply(X = data,
+                       FUN = is.null)]
+
+  if (verbose) {
+    message(paste0("The following data were successfully read in: ",
+                   paste(names(data),
+                         collapse = ", ")))
+  }
+
+  # An empty list to store indicators in as they're calculated.
+  # This way, there's a list to make it super easy to combine the indicators
+  # using purrr::reduce(dplyr::full_join()) later.
+  indicators <- list()
+
+  # For each data type, calculate indicators if there's relevant data available.
+  if ("lpi_tall" %in% names(data)) {
+    if (verbose) {
+      message("Calculating cover indicators")
+    }
+    indicators[["lpi"]] <- terradactyl::lpi_calc(lpi_tall = data[["lpi_tall"]],
+                                                 header = header,
+                                                 species_file = path_specieslist,
+                                                 verbose = verbose,
+                                                 digits = digits) |>
+      dplyr::rename(.data = _,
+                    # Because lpi_calc() calls it BareSoilCover and the LDC
+                    # (rightfully) does not include "Cover"
+                    tidyselect::any_of(x = c("BareSoil" = "BareSoilCover")))
+  }
+
+  if ("gap_tall" %in% names(data)) {
+    if (verbose) {
+      message("Calculating gap indicators")
+    }
+    indicators[["gap"]] <- terradactyl::gap_calc(gap_tall = data[["gap_tall"]],
+                                                 header = header,
+                                                 verbose = verbose,
+                                                 digits = digits)
+  }
+
+  if ("height_tall" %in% names(data)) {
+    if (verbose) {
+      message("Calculating height indicators")
+    }
+    indicators[["height"]] <- terradactyl::height_calc(height_tall = data[["height_tall"]],
+                                                       header = header,
+                                                       source = "DIMA",
+                                                       species_file = path_specieslist,
+                                                       verbose = verbose,
+                                                       digits = digits)
+  }
+
+  if ("species_inventory_tall" %in% names(data)) {
+    if (verbose) {
+      message("Calculating species inventory indicators")
+    }
+    indicators[["species_inventory"]] <- terradactyl::spp_inventory_calc(header = header,
+                                                                         spp_inventory_tall = data[["species_inventory_tall"]],
+                                                                         species_file = path_specieslist,
+                                                                         source = "DIMA",
+                                                                         verbose = verbose)
+  }
+
+  if ("soil_stability_tall" %in% names(data)) {
+    if (verbose) {
+      message("Calculating soil stability indicators")
+    }
+    indicators[["soil_stability"]] <- terradactyl::soil_stability_calc(soil_stability_tall = data[["soil_stability_tall"]],
+                                                                       verbose = verbose,
+                                                                       digits = digits)
+  }
+
+  if ("rangelandhealth_tall" %in% names(data)) {
+    if (verbose) {
+      message("Calculating rangeland health indicators")
+    }
+    # No calculations to do with Rangeland Health!
+    indicators[["rangeland_health"]] <- data[["rangelandhealth_tall"]]
+  }
+
+  # Combine all the calculated indicators then join them to the header.
+  all_indicators <- purrr::reduce(.x = indicators,
+                                  .f = dplyr::full_join,
+                                  by = "PrimaryKey") |>
+    dplyr::left_join(x = header,
+                     y = _,
+                     by = "PrimaryKey")
+
+
+  # These are used for data management and we're going to drop them.
+  internal_use_vars <- c("GlobalID",
+                         "created_user",
+                         "created_date",
+                         "last_edited_user",
+                         "last_edited_date",
+                         "DateLoadedInDb",
+                         "DateLoadedinDB",
+                         "rid",
+                         "DataErrorChecking",
+                         "DataEntry",
+                         "DateModified",
+                         "FormType",
+                         "SpeciesList")
+
+  # Chuck the internal use variables and make sure that only unique records are
+  # kept.
+  all_indicators <- dplyr::select(.data = all_indicators,
+                                  -tidyselect::any_of(internal_use_vars)) |>
+    dplyr::distinct(.data = _)
+
+  # We want to replace NA with 0 only for methods that were actually collected
+  # and indicators were calculated for.
+  prefixes_to_zero <- c()
+  if ("lpi_tall" %in% names(data)) {
+    prefixes_to_zero <- c(prefixes_to_zero,
+                          "AH",
+                          "FH")
+  }
+  if ("species_inventory_tall" %in% names(data)) {
+    prefixes_to_zero <- c(prefixes_to_zero,
+                          "NumSpp")
+  }
+
+  geoInd <- terradactylutils3::add_indicator_columns(template = template,
+                                                             source = "DIMA",
+                                                             all_indicators = all_indicators,
+                                                             prefixes_to_zero = prefixes_to_zero)
+
+
+
+
+
+  # add missing gap col
+
+  cols_to_sum <- c("GapCover_25_50", "GapCover_51_100", "GapCover_101_200", "GapCover_200_plus")
+
+  geoInd$GapCover_25_plus <- NA
+
+  # getting incorrect value with sum function, having to do a for loop
+  for (i in 1:nrow(geoInd)) {
+
+    row_data <- geoInd[i, cols_to_sum]
+
+    # need to keep the col NA if all gap vals are NA
+    if (all(is.na(row_data))) {
+      geoInd$GapCover_25_plus[i] <- NA
+    } else {
+      # sum the cols, removing NA
+      geoInd$GapCover_25_plus[i] <- sum(row_data, na.rm = TRUE)
+    }
+  }
+
+
+  write.csv(x = geoInd,
+            file = file.path(path_foringest,
+                             "geoIndicators.csv"),
+            row.names = FALSE)
+
+  #### Accumulated species stuff -----------------------------------------------
+  if (doGSP) {
+    species_list <- read.csv(path_specieslist)
+
+    accumulated_species_data <- accumulated_species(lpi_tall = data[["lpi_tall"]],
+                                                    height_tall = data[["height_tall"]],
+                                                    spp_inventory_tall = data[["species_inventory_tall"]],
+                                                    header = header,
+                                                    species_file = species_list,
+                                                    dead = calculate_dead,
+                                                    source = "DIMA",
+                                                    digits = digits,
+                                                    verbose = verbose) |>
+      dplyr::left_join(x = _,
+                       y = dplyr::select(.data = header,
+                                         tidyselect::any_of(x = c("PrimaryKey",
+                                                                  "DateVisited",
+                                                                  "DBKey",
+                                                                  "ProjectKey"))) |>
+                         dplyr::distinct(),
+                       by = "PrimaryKey",
+                       relationship = "many-to-one") |>
+      dplyr::filter(.data = _,
+                    !(is.na(AH_SpeciesCover) &
+                        is.na(AH_SpeciesCover_n) &
+                        is.na(Hgt_Species_Avg) &
+                        is.na(Hgt_Species_Avg_n))) |>
+      dplyr::mutate(.data = _,
+                    DateLoadedInDb = ingestion_date)
+    accumulated_species_data <- translate_schema2(data = accumulated_species_data,
+                                                  schema = schema,
+                                                  datatype = "geoSpecies",
+                                                  dropcols = TRUE,
+                                                  verbose = verbose)
+    accumulated_species_data <- subset(accumulated_species_data,
+                                       !is.na(Species) &
+                                         AH_SpeciesCover != 0 &
+                                         Hgt_Species_Avg != 0)
+    write.csv(x = accumulated_species_data,
+              file.path(path_foringest,
+                        "geoSpecies.csv"),
+              row.names = FALSE)
+  }
+}
