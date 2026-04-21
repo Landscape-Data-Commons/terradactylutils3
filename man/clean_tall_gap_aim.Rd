@@ -4,12 +4,18 @@
 \alias{clean_tall_gap_aim}
 \title{Clean Tall gap AIM}
 \usage{
-clean_tall_gap_aim(tall_gap, path_tall)
+clean_tall_gap_aim(tall_gap, path_tall, dataHeader, source, todaysDate)
 }
 \arguments{
 \item{tall_gap}{as a data.frame, the tall_gap file}
 
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
+
+\item{dataHeader}{dataframe dataHeader}
+
+\item{source}{data source (e.g., "DIMA")}
+
+\item{todaysDate}{today's date in format Y-m-d}
 }
 \value{
 cleaned, in LDC format, tall gap file to path_tall

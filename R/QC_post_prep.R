@@ -953,7 +953,7 @@ if(NROW(height_validation_report) == 0){"No NA in Hgt detected or Height method 
 
 if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0){
   # compare og and LDC data
-  missing <- compare_flux_to_og_data(path_parent)
+  missing <- compare_flux_to_og_data(path_parent, recursive = FALSE)
   print(missing)
 }else{message("No BSNE data detected for QC")}
 

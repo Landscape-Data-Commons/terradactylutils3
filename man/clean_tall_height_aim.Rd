@@ -4,12 +4,18 @@
 \alias{clean_tall_height_aim}
 \title{Clean Tall height AIM}
 \usage{
-clean_tall_height_aim(tall_height, path_tall)
+clean_tall_height_aim(tall_height, path_tall, dataHeader, source, todaysDate)
 }
 \arguments{
 \item{tall_height}{as a data.frame, the tall_height file}
 
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
+
+\item{dataHeader}{as data frame dataHeader}
+
+\item{source}{data source (e.g., "DIMA")}
+
+\item{todaysDate}{today's date in format Y-m-d}
 }
 \value{
 cleaned, in LDC format, file to path_tall

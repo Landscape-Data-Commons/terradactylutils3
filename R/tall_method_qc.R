@@ -720,7 +720,7 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
   colnames(og_layers)[colnames(og_layers) == "HIT6"] <- "Lower5"
   colnames(og_layers)[colnames(og_layers) == "BASAL"] <- "SoilSurface"
 
-  og_layers <- og_layers[og_layers$MARK != 75, ]
+  #og_layers <- og_layers[og_layers$MARK != 75, ]
 
   colnames(og_layers)[colnames(og_layers) == "MARK"] <- "PointNbr"
   colnames(og_layers)[colnames(og_layers) == "TRANSECT"] <- "LineKey"
@@ -729,6 +729,14 @@ tall_lpi_qc_nri <- function(tall_lpi, speciescode, USDA_plants, PINTERCEPT, path
   og_layers <- og_layers |> dplyr::filter(code != "None", !is.na(code))
 
   tall_lpi_layer_codes <- tall_lpi |> dplyr::select(PrimaryKey, layer, code, PointNbr, LineKey)
+  og_layers$layer <- as.character(og_layers$layer)
+  tall_lpi_layer_codes$layer <- as.character(tall_lpi_layer_codes$layer)
+  og_layers <- og_layers |>
+    mutate(across(where(is.character), trimws))
+
+  tall_lpi_layer_codes <- tall_lpi_layer_codes |>
+    mutate(across(where(is.character), trimws))
+
   missing_in_tall_lpi <- dplyr::setdiff(og_layers, tall_lpi_layer_codes)
   missing_in_tall_lpi <- as.data.frame(missing_in_tall_lpi)
   if(nrow(missing_in_tall_lpi) > 0){

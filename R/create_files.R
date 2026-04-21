@@ -242,18 +242,39 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader$State <- dataHeader$STATE
     dataHeader$Latitude_NAD83 <- NA
     dataHeader$Longitude_NAD83 <- NA
+    # if is NA  DateVisited or Year is less than 1900, get SURVEY from POINTCOORDINATES for date
+    PC <- read.csv(paste0(path_original_files,"POINTCOORDINATES.csv"))
+    dataHeader <- dataHeader %>%
+      # SURVEY based on pkey
+      left_join(select(PC, PlotID, SURVEY), by = "PrimaryKey") %>%
+      mutate(
+        # create a year column to find the incorrect dates
+        yr = year(as.Date(DateVisited)),
+
+        # 0001-01-01 is a known issue
+        DateVisited = if_else(
+          is.na(DateVisited) | DateVisited == "0001-01-01" | yr < 1900,
+          as.character(SURVEY),
+          as.character(DateVisited)
+        )
+      ) %>%
+      # remove yr and SURVEY to keep dataHeader structure
+      select(-yr, -SURVEY)
+    #remove NAs
+    dataHeader <- dataHeader[!is.na(dataHeader$DateVisited),]
+    #save
     write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
     saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
 
 
   }else if (source == "BLM_AIM"){
-    header <- gather_header(dsn = dsn,  source = "AIM")
+    dataHeader <- gather_header(dsn = dsn,  source = "AIM")
     #remove dups
-    header <- header[which(!duplicated(header)),]
-    header$DBKey <- gsub('.{15}$', '', header$DateVisited)
-    header$ProjectKey <- "BLM_AIM"
-    write.csv(header, file.path(path_tall, "header.csv"), row.names = F)
-    saveRDS(header, file.path(path_tall, "header.rdata"))
+    dataHeader <- dataHeader[which(!duplicated(dataHeader)),]
+    dataHeader$DBKey <- gsub('.{15}$', '', dataHeader$DateVisited)
+    dataHeader$ProjectKey <- "BLM_AIM"
+    write.csv(dataHeader, file.path(path_tall, "header.csv"), row.names = F)
+    saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
 
   }else{
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
@@ -316,60 +337,56 @@ create_dirs <- function(path_parent, source){
 #'
 #' @param nri list of nri data frames
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param dataHeader as dataframe dataHeader
+#' @param path_schema file path to LDC schema plan
 #'
 #' @return gathered soil horizon table to path_tall
 #'
 #' @export
-create_soil_horizons_nri <- function(nri, path_tall){
+create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
 
-  SH <- nri$SOILHORIZON
-  #drop duplicates
-  dropcols_hf <- SH  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
-  SH <- SH[which(!duplicated(dropcols_hf)),]
-  #assign project key
-  SH$ProjectKey <- "NRI"
+  na_cols <- c("HorizonKey", "HorizonName", "pH", "EC", "ClayPct", "SandPct",
+               "SiltPct", "StructureGrade", "StructureSize", "StructureType",
+               "StructureQuality", "Hue", "Value", "Chroma", "ColorMoistDry",
+               "FragVolGravel", "FragVolCobble", "FragVolStone",
+               "FragVolNodule", "FragVolDurinode")
 
-  SH$DateLoadedInDb <- todaysDate
+  # match columns to expected naming in LDC
+  SH <- nri$SOILHORIZON %>%
+    # remove duplicates
+    distinct(across(-c(rid, DateModified, SpeciesList)), .keep_all = TRUE) %>%
+    # many cols are NA, assigning
+    mutate(across(all_of(na_cols), ~NA)) %>%
+    # match the remaining cols
+    mutate(
+      ProjectKey        = "NRI",
+      DateLoadedInDb    = todaysDate,
+      HorizonDepthUpper = DEPTH * 2.54,
+      HorizonDepthLower = DEPTH * 2.54,
+      DepthUOM          = "cm",
+      Texture           = HORIZON_TEXTURE,
+      TextureModifier   = TEXTURE_MODIFIER,
+      Effervescence     = EFFERVESCENCE_CLASS,
+      HorizonNotes      = UNUSUAL_FEATURES,
+      HorizonNumber     = SEQNUM,
+      source            = "NRI"
+    )
+  #match is failing - retrieving DateVisited
+  dates <- dataHeader %>%
+    select(PrimaryKey, DateVisited) %>%
+    distinct(PrimaryKey, .keep_all = TRUE) # Ensures one date per Key
 
-  #
-  SH$HorizonKey <- NA
-  SH$DateVisited <- SH$SURVEY
-  SH$HorizonDepthUpper <- SH$DEPTH * 2.54
-  SH$HorizonDepthLower <- SH$DEPTH * 2.54
-  SH$DepthUOM <- "cm"
-  SH$HorizonName <- NA
-  SH$Texture <- SH$HORIZON_TEXTURE
-  SH$TextureModifier <- SH$TEXTURE_MODIFIER
-  SH$pH <- NA
-  SH$EC <- NA
-  SH$Effervescence <- SH$EFFERVESCENCE_CLASS
-  SH$ClayPct <- NA
-  SH$SandPct <- NA
-  SH$StructureGrade <- NA
-  SH$StructureSize <- NA
-  SH$StructureType <- NA
-  SH$StructureQuality<- NA
-  SH$Hue<- NA
-  SH$Value<- NA
-  SH$Chroma<- NA
-  SH$ColorMoistDry<- NA #
-  SH$HorizonNotes<- SH$UNUSUAL_FEATURES
-  SH$SiltPct<- NA
-  SH$FragVolGravel<- NA
-  SH$FragVolCobble<- NA
-  SH$FragVolStone<- NA
-  SH$FragVolNodule<- NA
-  SH$FragVolDurinode<- NA
-  SH$HorizonNumber<- SH$SEQNUM
-  SH$source <- "NRI"
+  #join to SH
+  SH <- SH %>%
+    left_join(dates, by = "PrimaryKey")
 
-  # only keep data in schema, in the order of the schema
+  # only keep data in schema
   schema <- read.csv(path_schema)
   schema <- schema %>% dplyr::filter(Table == "dataSoilHorizons")
   # schema column order
   ordered_cols <- schema$Field
 
-  # reorder BSNE, keeping schema cols
+  # reorder, keeping schema cols
   SH <- SH %>%
     dplyr::select(all_of(ordered_cols))
 

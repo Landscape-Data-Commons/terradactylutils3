@@ -6,13 +6,16 @@
 #'
 #' @param tall_lpi as a data.frame, the tall_lpi file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param dataHeader dataHeader as dataframe
+#' @param source data source (e.g., "DIMA")
+#' @param todaysDate today's date in format Y-m-d
 #'
 #' @return cleaned, in LDC format, tall lpi to the path_tall
 #'
 #' @export
-clean_tall_lpi_aim <- function(tall_lpi, path_tall){
+clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader, source, todaysDate){
 
-
+header <- dataHeader
 dropcols_lpi <- tall_lpi %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
 tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] %>%
   dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
@@ -78,11 +81,15 @@ write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
 #'
 #' @param tall_gap as a data.frame, the tall_gap file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param dataHeader dataframe dataHeader
+#' @param source data source (e.g., "DIMA")
+#' @param todaysDate today's date in format Y-m-d
 #'
 #' @return cleaned, in LDC format, tall gap file to path_tall
 #'
 #' @export
-clean_tall_gap_aim <- function(tall_gap, path_tall){
+clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,source, todaysDate){
+  header <- dataHeader
   dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   #dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "rid", "DateModified", "SpeciesList")))
 
@@ -113,12 +120,15 @@ clean_tall_gap_aim <- function(tall_gap, path_tall){
 #'
 #' @param tall_soil_stability as a data.frame, the tall_gap file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param dataHeader dataframe dataHeader
+#' @param source data source (e.g., "DIMA")
+#' @param todaysDate today's date in format Y-m-d
 #'
 #' @return updated tall file written to path_tall
 #'
 #' @export
-clean_tall_soil_stability_aim <- function(tall_soil_stability, path_tall){
-
+clean_tall_soil_stability_aim <- function(tall_soil_stability, path_tall, dataHeader,source, todaysDate){
+header <- dataHeader
   #dropcols_soilstability <- tall_soilstability  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
 
   dropcols_soilstability <- tall_soilstability  %>% dplyr::select_if(!(names(.) %in% c( "rid", "DateModified", "SpeciesList")))
@@ -167,12 +177,15 @@ clean_tall_soil_stability_aim <- function(tall_soil_stability, path_tall){
 #'
 #' @param tall_species_richness as a data.frame, the tall_gap file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param dataHeader as data frame dataHeader
+#' @param source data source (e.g., "DIMA")
+#' @param todaysDate today's date in format Y-m-d
 #'
 #' @return updated tall file written to path_tall
 #'
 #' @export
-clean_tall_species_richness_aim <- function(tall_species_richness, path_tall){
-
+clean_tall_species_richness_aim <- function(tall_species_richness, path_tall, dataHeader,source, todaysDate){
+header <- dataHeader
   #stop rempving DateLoadedInDb and DBKey if add on terra ?
   dropcols_speciesinventory <- tall_sr  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   tall_speciesinventory <- tall_sr[which(!duplicated(dropcols_speciesinventory)),] %>%
@@ -217,12 +230,15 @@ clean_tall_species_richness_aim <- function(tall_species_richness, path_tall){
 #'
 #' @param tall_height as a data.frame, the tall_height file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param dataHeader as data frame dataHeader
+#' @param source data source (e.g., "DIMA")
+#' @param todaysDate today's date in format Y-m-d
 #'
 #' @return cleaned, in LDC format, file to path_tall
 #'
 #' @export
-clean_tall_height_aim <- function(tall_height, path_tall){
-
+clean_tall_height_aim <- function(tall_height, path_tall, dataHeader, source, todaysDate){
+header <- dataHeader
   #dropcols_height <- tall_height  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   # keep DBKey and DateLoadedInDb if change on terra ?
   dropcols_height <- tall_height  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
