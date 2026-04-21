@@ -242,7 +242,27 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader$State <- dataHeader$STATE
     dataHeader$Latitude_NAD83 <- NA
     dataHeader$Longitude_NAD83 <- NA
+    # if is NA  DateVisited or Year is less than 1900, get SURVEY from POINTCOORDINATES for date
+    PC <- read.csv(paste0(path_original_files,"POINTCOORDINATES.csv"))
+    dataHeader <- dataHeader %>%
+      # SURVEY based on pkey
+      left_join(select(PC, PlotID, SURVEY), by = "PrimaryKey") %>%
+      mutate(
+        # create a year column to find the incorrect dates
+        yr = year(as.Date(DateVisited)),
+
+        # 0001-01-01 is a known issue
+        DateVisited = if_else(
+          is.na(DateVisited) | DateVisited == "0001-01-01" | yr < 1900,
+          as.character(SURVEY),
+          as.character(DateVisited)
+        )
+      ) %>%
+      # remove yr and SURVEY to keep dataHeader structure
+      select(-yr, -SURVEY)
+    #remove NAs
     dataHeader <- dataHeader[!is.na(dataHeader$DateVisited),]
+    #save
     write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
     saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
 
