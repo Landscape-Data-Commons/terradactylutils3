@@ -88,6 +88,69 @@ tall_lpi <- tall_lpi[tall_lpi$code != "None",]
   # now just make 2MOSS "M"
   #tall_lpi$code <- ifelse(tall_lpi$code == "2MOSS", "M", tall_lpi$code)
 
+  # same for 2LICHN(1)
+
+  tall_lpi <- tall_lpi %>%
+    group_by(PrimaryKey, LineKey, PointNbr) %>%
+    # TopCanopy moss needs to be handled differently - move to lower code and drop TopCanopy
+    # make sure we don't touch SoilSurface
+    mutate(has_2lich_top = any(layer == "TopCanopy" & code == "2LICHN")) %>%
+
+    # only mutating the moss top groups
+    mutate(
+      layer = case_when(
+        !has_2lich_top ~ layer,               # Do nothing if no 2MOSS on top
+        layer == "SoilSurface" ~ layer,        # Do nothing to SoilSurface
+        layer == "TopCanopy" ~ "Lower1",       # 2MOSS (TopCanopy) becomes Lower1
+
+        # For any LowerX, extract the number, add 1, and paste it back - that way if Lower5 becomes Lower6 and we keep SoilSurface
+        str_detect(layer, "Lower") ~ {
+          old_num <- as.numeric(str_extract(layer, "\\d+"))
+          paste0("Lower", old_num + 1)
+        },
+
+        TRUE ~ layer
+      )
+    ) %>%
+    #
+    # since 2MOSS is now Lower1, we just filter out any remaining TopCanopy rows
+    # (which only exist in the non-moss groups now).
+    filter(!(has_2lich_top & layer == "TopCanopy")) %>%
+    # drop the new column
+    select(-has_2lich_top) %>%
+    ungroup()
+
+
+  tall_lpi <- tall_lpi %>%
+    group_by(PrimaryKey, LineKey, PointNbr) %>%
+    # TopCanopy moss needs to be handled differently - move to lower code and drop TopCanopy
+    # make sure we don't touch SoilSurface
+    mutate(has_2lich_top = any(layer == "TopCanopy" & code == "2LICHN1")) %>%
+
+    # only mutating the moss top groups
+    mutate(
+      layer = case_when(
+        !has_2lich_top ~ layer,               # Do nothing if no 2MOSS on top
+        layer == "SoilSurface" ~ layer,        # Do nothing to SoilSurface
+        layer == "TopCanopy" ~ "Lower1",       # 2MOSS (TopCanopy) becomes Lower1
+
+        # For any LowerX, extract the number, add 1, and paste it back - that way if Lower5 becomes Lower6 and we keep SoilSurface
+        str_detect(layer, "Lower") ~ {
+          old_num <- as.numeric(str_extract(layer, "\\d+"))
+          paste0("Lower", old_num + 1)
+        },
+
+        TRUE ~ layer
+      )
+    ) %>%
+    #
+    # since 2MOSS is now Lower1, we just filter out any remaining TopCanopy rows
+    # (which only exist in the non-moss groups now).
+    filter(!(has_2lich_top & layer == "TopCanopy")) %>%
+    # drop the new column
+    select(-has_2lich_top) %>%
+    ungroup()
+
   saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
   write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
 
