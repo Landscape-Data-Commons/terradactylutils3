@@ -337,51 +337,40 @@ create_dirs <- function(path_parent, source){
 #'
 #' @param nri list of nri data frames
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param dataHeader as dataframe dataHeader
+#' @param path_schema file path to LDC schema plan
 #'
 #' @return gathered soil horizon table to path_tall
 #'
 #' @export
-create_soil_horizons_nri <- function(nri, path_tall){
+create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
 
-  SH <- nri$SOILHORIZON
-  #drop duplicates
-  dropcols_hf <- SH  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
-  SH <- SH[which(!duplicated(dropcols_hf)),]
-  #assign project key
-  SH$ProjectKey <- "NRI"
+  na_cols <- c("HorizonKey", "HorizonName", "pH", "EC", "ClayPct", "SandPct",
+               "SiltPct", "StructureGrade", "StructureSize", "StructureType",
+               "StructureQuality", "Hue", "Value", "Chroma", "ColorMoistDry",
+               "FragVolGravel", "FragVolCobble", "FragVolStone",
+               "FragVolNodule", "FragVolDurinode")
 
-  SH$DateLoadedInDb <- todaysDate
-
-  #
-  SH$HorizonKey <- NA
-  SH$HorizonDepthUpper <- SH$DEPTH * 2.54
-  SH$HorizonDepthLower <- SH$DEPTH * 2.54
-  SH$DepthUOM <- "cm"
-  SH$HorizonName <- NA
-  SH$Texture <- SH$HORIZON_TEXTURE
-  SH$TextureModifier <- SH$TEXTURE_MODIFIER
-  SH$pH <- NA
-  SH$EC <- NA
-  SH$Effervescence <- SH$EFFERVESCENCE_CLASS
-  SH$ClayPct <- NA
-  SH$SandPct <- NA
-  SH$StructureGrade <- NA
-  SH$StructureSize <- NA
-  SH$StructureType <- NA
-  SH$StructureQuality<- NA
-  SH$Hue<- NA
-  SH$Value<- NA
-  SH$Chroma<- NA
-  SH$ColorMoistDry<- NA #
-  SH$HorizonNotes<- SH$UNUSUAL_FEATURES
-  SH$SiltPct<- NA
-  SH$FragVolGravel<- NA
-  SH$FragVolCobble<- NA
-  SH$FragVolStone<- NA
-  SH$FragVolNodule<- NA
-  SH$FragVolDurinode<- NA
-  SH$HorizonNumber<- SH$SEQNUM
-  SH$source <- "NRI"
+  # match columns to expected naming in LDC
+  SH <- nri$SOILHORIZON %>%
+    # remove duplicates
+    distinct(across(-c(rid, DateModified, SpeciesList)), .keep_all = TRUE) %>%
+    # many cols are NA, assigning
+    mutate(across(all_of(na_cols), ~NA)) %>%
+    # match the remaining cols
+    mutate(
+      ProjectKey        = "NRI",
+      DateLoadedInDb    = todaysDate,
+      HorizonDepthUpper = DEPTH * 2.54,
+      HorizonDepthLower = DEPTH * 2.54,
+      DepthUOM          = "cm",
+      Texture           = HORIZON_TEXTURE,
+      TextureModifier   = TEXTURE_MODIFIER,
+      Effervescence     = EFFERVESCENCE_CLASS,
+      HorizonNotes      = UNUSUAL_FEATURES,
+      HorizonNumber     = SEQNUM,
+      source            = "NRI"
+    )
   #match is failing - retrieving DateVisited
   dates <- dataHeader %>%
     select(PrimaryKey, DateVisited) %>%
@@ -391,13 +380,13 @@ create_soil_horizons_nri <- function(nri, path_tall){
   SH <- SH %>%
     left_join(dates, by = "PrimaryKey")
 
-  # only keep data in schema, in the order of the schema
+  # only keep data in schema
   schema <- read.csv(path_schema)
   schema <- schema %>% dplyr::filter(Table == "dataSoilHorizons")
   # schema column order
   ordered_cols <- schema$Field
 
-  # reorder BSNE, keeping schema cols
+  # reorder, keeping schema cols
   SH <- SH %>%
     dplyr::select(all_of(ordered_cols))
 
