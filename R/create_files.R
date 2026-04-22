@@ -465,11 +465,12 @@ create_mwac <- function(tblBSNE_BoxCollection, path_foringest){
 #'
 #' @param tblBSNE_TrapCollection BSNE data from DIMA
 #' @param path_foringest where final files for LDC ingest are saved
+#' @param path_schema file path for LDC schema plan
 #'
 #' @return processed BSNE DDT data to the path_foringest
 #'
 #' @export
-create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
+create_ddt <- function(tblBSNE_TrapCollection, path_foringest, path_schema){
 
   # remove bad data
   tblBSNE_TrapCollection <- subset(tblBSNE_TrapCollection, SampleCompromised == "FALSE")
@@ -495,7 +496,10 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
   # only keep data in schema, in the order of the schema - can't use schema until Kris updates
   # schema <- read.csv(path_schema)
   # schema <- schema %>% dplyr::filter(Table == "dataDustDeposition")
-  ddtschema <- read.csv("D:/Horizontal_flux_not_yet_uploaded/Horizontal_flux_not_yet_uploaded/DDT/DDT_schema.csv")
+  ddtschema <- read.csv(path_schema)
+  ddtschema <- ddtschema %>% dplyr::filter(Table == "dataDustDeposition")
+
+  tblBSNE_TrapCollection$DustDepositionRate <- tblBSNE_TrapCollection$sedimentWeight/(tblBSNE_TrapCollection$trapOpeningArea*0.0001)/tblBSNE_TrapCollection$daysExposed
   # # schema column order
   ordered_cols <- ddtschema$Field
 
@@ -503,8 +507,6 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
   tblBSNE_TrapCollection <- tblBSNE_TrapCollection %>%
     dplyr::select(all_of(ordered_cols))
 
-  tblBSNE_TrapCollection <- tblBSNE_TrapCollection %>%
-    dplyr::rename(DustDepositionRate = sedimentGperDayByInlet)
 
   write.csv(tblBSNE_TrapCollection, paste0(path_foringest, "/dataDustDeposition.csv"), row.names = FALSE)
 
