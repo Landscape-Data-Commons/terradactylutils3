@@ -352,7 +352,8 @@ create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
                "StructureQuality", "Hue", "Value", "Chroma", "ColorMoistDry",
                "FragVolGravel", "FragVolCobble", "FragVolStone",
                "FragVolNodule", "FragVolDurinode")
-
+  # Pre-create the columns
+  SH[na_cols] <- NA
   # match columns to expected naming in LDC
   SH <- SH %>%
     # many cols are NA, assigning
