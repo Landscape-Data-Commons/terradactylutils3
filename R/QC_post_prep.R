@@ -1024,7 +1024,7 @@ if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]
 
 # compare og and LDC data
 if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0){
-  missing <- compare_ddt_to_og_data(path_parent)
+  missing <- compare_ddt_to_og_data(path_parent, recursive = FALSE)
 
 }else{message("No DDT data detected for QC")}
 
