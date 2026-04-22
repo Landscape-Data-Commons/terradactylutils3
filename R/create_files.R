@@ -242,24 +242,22 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader$State <- dataHeader$STATE
     dataHeader$Latitude_NAD83 <- NA
     dataHeader$Longitude_NAD83 <- NA
-    # if is NA  DateVisited or Year is less than 1900, get SURVEY from POINTCOORDINATES for date
-    PC <- read.csv(paste0(path_original_files,"/POINTCOORDINATES.csv"))
-    dataHeader <- dataHeader %>%
-      # SURVEY based on pkey
-      left_join(select(PC, PrimaryKey, SURVEY), by = "PrimaryKey") %>%
-      mutate(
-        # create a year column to find the incorrect dates
-        yr = year(as.Date(DateVisited)),
 
-        # 0001-01-01 is a known issue
+    dataHeader <- dataHeader %>%
+      # fix date using SURVEY
+      mutate(
+        temp_date = as.Date(DateVisited),
+        yr = year(temp_date),
+
+        # if NA or incorrect year, assign SURVEY as date
         DateVisited = if_else(
-          is.na(DateVisited) | DateVisited == "0001-01-01" | yr < 1900,
+          is.na(temp_date) | DateVisited == "0001-01-01" | yr < 1900,
           as.character(SURVEY),
           as.character(DateVisited)
         )
       ) %>%
-      # remove yr and SURVEY to keep dataHeader structure
-      select(-yr, -SURVEY)
+      # drop columns not used in LDC structure
+      select(-yr, -temp_date)
     #remove NAs
     dataHeader <- dataHeader[!is.na(dataHeader$DateVisited),]
     #save
