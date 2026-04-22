@@ -342,6 +342,10 @@ create_dirs <- function(path_parent, source){
 #'
 #' @export
 create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
+  SH <- nri$SOILHORIZON
+  #drop duplicates
+  dropcols_hf <- SH  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
+  SH <- SH[which(!duplicated(dropcols_hf)),]
 
   na_cols <- c("HorizonKey", "HorizonName", "pH", "EC", "ClayPct", "SandPct",
                "SiltPct", "StructureGrade", "StructureSize", "StructureType",
@@ -350,9 +354,7 @@ create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
                "FragVolNodule", "FragVolDurinode")
 
   # match columns to expected naming in LDC
-  SH <- nri$SOILHORIZON %>%
-    # remove duplicates
-    distinct(across(-c(rid, DateModified, SpeciesList)), .keep_all = TRUE) %>%
+  SH <- SH %>%
     # many cols are NA, assigning
     mutate(across(all_of(na_cols), ~NA)) %>%
     # match the remaining cols
