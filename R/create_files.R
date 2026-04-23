@@ -518,8 +518,6 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest, path_schema){
 #'
 #' save original AIM files
 #'
-#' @param DIMATables path to DIMATables folder
-#' @param path_foringest path to For Ingest folder
 #' @param path_parent path to parent folder where all data are being saved
 #' @param dsn path to gdb for AIM
 #'
@@ -527,12 +525,8 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest, path_schema){
 #'
 #' @export
 
-create_aim_og_files <- function(path_foringest, DIMATables, path_parent){
+create_aim_og_files <- function(dsn, path_parent){
 
-cleaned_tall_lpi <- read.csv(paste0(path_foringest, "/dataLPI.csv"))
-cleaned_tall_gap <- read.csv(paste0(path_foringest, "/dataGap.csv"))
-cleaned_tall_soil_stability <- read.csv(paste0(path_foringest, "/dataSoilStability.csv"))
-cleaned_tall_height <- read.csv(paste0(path_foringest, "/dataHeight.csv"))
 
 # write the DIMATables
 #st_layers(dsn)
