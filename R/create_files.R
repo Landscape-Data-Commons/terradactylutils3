@@ -304,11 +304,13 @@ create_dirs <- function(path_parent, source){
   path_qc <<- file.path(path_parent, "QC")
   DIMATables <<- file.path(path_parent, "DIMATables")
   sensitive_data <<- file.path(path_parent, "sensitive_data")
+  gathered_data <<-file.path(path_parent, "gathered_data")
 
   # set up directories if not yet in parent folder
   if(!dir.exists(path_parent)) dir.create(path_parent)
   if(!dir.exists(path_cache)) dir.create(path_cache)
   if(!dir.exists(path_qc)) dir.create(path_qc)
+  if(!dir.exists(gathered_data)) dir.create(gathered_data)
 
   if(source == "NRI"){
     if(!dir.exists(path_original_files)) dir.create(path_original_files)
