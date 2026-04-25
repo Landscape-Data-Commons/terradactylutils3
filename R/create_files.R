@@ -598,3 +598,54 @@ if(BSNE_only){
 }
 
 }
+
+
+
+
+
+
+###################################
+#' Create species list AIM
+#'
+#' create species list from the dsn
+#'
+#' @param dsn dsn
+#' @param example_path path to example species list with correct header
+#' @param path_species path where species list are stored in LDC expected format
+#'
+#' @return species list from AIM dsn
+#'
+#' @export
+create_species_list_AIM <- function(dsn, example_path, path_species){
+#AIM species list
+
+#
+# # #species
+splist <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__I_Species")
+
+
+# keep only names like in example
+
+example <- read.csv(example_path)
+
+cols_to_keep <- names(example)
+
+splist <- splist[, names(splist) %in% cols_to_keep]
+
+splist$SpeciesCode <- splist$CurrentPLANTSCode
+
+splist <- splist[!duplicated(splist$SpeciesCode),]
+
+splist$SpeciesCode <- trimws(splist$SpeciesCode)
+#
+#
+
+test <- st_read(dsn = dsn, layer = "AIM_Terrestrial__F_tblNationalPlants")
+test$SpeciesCode <- test$NameCode
+test <- test %>%
+  dplyr::left_join(splist %>% dplyr::select(SpeciesCode, SG_Group), by = "SpeciesCode")
+path_specieslist <- paste0(path_species, "BLM_AIM.csv")
+write.csv(test, path_specieslist)
+
+}
+
