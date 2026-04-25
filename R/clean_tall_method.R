@@ -463,202 +463,156 @@ gather_clean_all <- function(source){
 #' @return saves CSV and RDS file of terradactyl gathered files to path gathered_data
 #'
 #' @export
-gather_all <- function(source, path_original_files = NULL, gathered_data){
+gather_all <- function(source, path_original_files = NULL, gathered_data) {
+  # Initialize a list to store the data frames
+  tall_files_list <- list()
+
   ## 8.1 LPI
-  # gather lpi, prepare tall lpi and qc
-  if( exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0){
+  if (exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0) {
     message("Found NRI LPI data; processing")
-    output <<- paste0(path_original_files, "/")
-    lpi_tall <<- terradactyl::gather_lpi(dsn = paste0(output, "PINTERCEPT.csv"),
-                                         file_type = "csv", source = "NRI")
+    output <- paste0(path_original_files, "/")
+    lpi_tall <- terradactyl::gather_lpi(
+      dsn = paste0(output, "PINTERCEPT.csv"),
+      file_type = "csv", source = "NRI"
+    )
     write.csv(lpi_tall, paste0(gathered_data, "/lpi_tall.csv"))
-  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && nrow(dima_data_list[["tblLPIHeader"]]) > 0){
+    tall_files_list$lpi_tall <- lpi_tall
+  } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && nrow(dima_data_list[["tblLPIHeader"]]) > 0) {
     message("Found DIMA LPI data; processing")
 
-    lpi <<- terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
+    lpi <- terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
     write.csv(lpi, paste0(gathered_data, "/lpi_tall.csv"))
-
-  }else if (source == "BLM_AIM"){
+    tall_files_list$lpi_tall <- lpi
+  } else if (source == "BLM_AIM") {
     message("Found BLM gap data; processing")
 
-    tall_lpi <<- gather_lpi_terradat(dsn = dsn)
+    tall_lpi <- gather_lpi_terradat(dsn = dsn)
     write.csv(tall_lpi, paste0(gathered_data, "/lpi_tall.csv"))
+    tall_files_list$lpi_tall <- tall_lpi
+  } else {
+    message("No LPI data found")
+  }
 
-
-
-  }else{message("No LPI data found")}
-
-
-  #### STOP HERE to check QC file outputs ( QC/differing_layer_codes_check & tall_lpi_codes_check) ####################
-
-  ############################
-
-
-  ############################
   ## 8.2 Gap
-  #gather gap, prepare tall gap and qc
-  if(exists("nri") && !is.null(nri$GINTERCEPT) && nrow(nri$GINTERCEPT) > 0 ) {
-
+  if (exists("nri") && !is.null(nri$GINTERCEPT) && nrow(nri$GINTERCEPT) > 0) {
     message("Found NRI gap data; processing")
-    gap_tall <<- terradactyl::gather_gap(source = "NRI", GINTERCEPT = read.csv(paste0(output, "GINTERCEPT.csv")), POINT = read.csv(paste0(output, "POINT.csv")))
+    gap_tall <- terradactyl::gather_gap(source = "NRI", GINTERCEPT = read.csv(paste0(output, "GINTERCEPT.csv")), POINT = read.csv(paste0(output, "POINT.csv")))
     write.csv(gap_tall, paste0(gathered_data, "/gap_tall.csv"))
-
-  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblGapHeader"]]) && nrow(dima_data_list[["tblGapHeader"]]) > 0){
+    tall_files_list$gap_tall <- gap_tall
+  } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblGapHeader"]]) && nrow(dima_data_list[["tblGapHeader"]]) > 0) {
     message("Found DIMA gap data; processing")
-    #having LineKey and FormDate in both tblGapDetail and tblGapHeader prevents gather_gap from running - removing
-    tblGapDetail2 <<- tblGapDetail %>% mutate(LineKey = NULL)
-    tblGapDetail2 <<- tblGapDetail2 %>% mutate(FormDate = NULL)
+    tblGapDetail2 <- tblGapDetail %>% mutate(LineKey = NULL)
+    tblGapDetail2 <- tblGapDetail2 %>% mutate(FormDate = NULL)
 
-    #gather
-    tall_gap <<- terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2) %>% dplyr::filter(PrimaryKey %in% pkeys)
+    tall_gap <- terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2) %>% dplyr::filter(PrimaryKey %in% pkeys)
     write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
-
-  }else if(source == "BLM_AIM"){
-    tall_gap <<- gather_gap_terradat(dsn = dsn)
+    tall_files_list$gap_tall <- tall_gap
+  } else if (source == "BLM_AIM") {
+    tall_gap <- gather_gap_terradat(dsn = dsn)
     write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
-
-  }else{message("No Gap data found")}
-
-  #### STOP AND CHECK QC/ GapStart_check, Gap_check, GapEnd_check #########
-
-  ############################
-
-
-
-  ############################
+    tall_files_list$gap_tall <- tall_gap
+  } else {
+    message("No Gap data found")
+  }
 
   ## 8.3 Soil stability
-
-  # gather soilstability, prepare tall soil stability and qc
-  if(exists("nri") && !is.null(nri$SOILDISAG) && nrow(nri$SOILDISAG) > 0) {
-
+  if (exists("nri") && !is.null(nri$SOILDISAG) && nrow(nri$SOILDISAG) > 0) {
     message("Found NRI soil stability data; processing")
-    soilstab_tall <<- terradactyl::gather_soil_stability(source = "NRI", SOILDISAG = read.csv(paste0(output, "/SOILDISAG.csv")))
+    soilstab_tall <- terradactyl::gather_soil_stability(source = "NRI", SOILDISAG = read.csv(paste0(output, "/SOILDISAG.csv")))
     write.csv(soilstab_tall, paste0(gathered_data, "/soil_stability_tall.csv"))
-
-  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblSoilStabHeader"]]) && nrow(dima_data_list[["tblSoilStabHeader"]]) > 0){
+    tall_files_list$soil_stability_tall <- soilstab_tall
+  } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblSoilStabHeader"]]) && nrow(dima_data_list[["tblSoilStabHeader"]]) > 0) {
     message("Found DIMA soil stability data; processing")
-    #gather
-    tall_soil_stability <<- terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = tblSoilStabDetail, tblSoilStabHeader = tblSoilStabHeader)
+    tall_soil_stability <- terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = tblSoilStabDetail, tblSoilStabHeader = tblSoilStabHeader)
     write.csv(tall_soil_stability, paste0(gathered_data, "/soil_stability_tall.csv"))
-
-  }else if (source == "BLM_AIM"){
-    tall_soilstability <<- gather_soil_stability_terradat(dsn = dsn)
+    tall_files_list$soil_stability_tall <- tall_soil_stability
+  } else if (source == "BLM_AIM") {
+    tall_soilstability <- gather_soil_stability_terradat(dsn = dsn)
     write.csv(tall_soilstability, paste0(gathered_data, "/soil_stability_tall.csv"))
-
-
-  }else{message("No soil stability data found")}
-
-  #### STOP AND CHECK QC/ soil_stability_rating_check, soil_stability_Veg_check #########
-
-  ############################
-
-
-
-  ############################
+    tall_files_list$soil_stability_tall <- tall_soilstability
+  } else {
+    message("No soil stability data found")
+  }
 
   ## 8.4 Species richness
-
-  # gather species richness, prepare tall species richness and qc
-  if(exists("nri") && !is.null(nri$PLANTCENSUS) && nrow(nri$PLANTCENSUS) > 0) {
+  if (exists("nri") && !is.null(nri$PLANTCENSUS) && nrow(nri$PLANTCENSUS) > 0) {
     message("Found NRI species richness data; processing")
-    species_inventory_tall <<- terradactyl::gather_species_inventory(source = "NRI", PLANTCENSUS = read.csv(paste0(output, "/PLANTCENSUS.csv")))
+    species_inventory_tall <- terradactyl::gather_species_inventory(source = "NRI", PLANTCENSUS = read.csv(paste0(output, "/PLANTCENSUS.csv")))
     write.csv(species_inventory_tall, paste0(gathered_data, "/species_inventory_tall.csv"))
-
-
-
-  }else if(exists("dima_data_list") && !is.null(dima_data_list[["tblSpecRichHeader"]]) && nrow(dima_data_list[["tblSpecRichHeader"]]) > 0){
+    tall_files_list$species_inventory_tall <- species_inventory_tall
+  } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblSpecRichHeader"]]) && nrow(dima_data_list[["tblSpecRichHeader"]]) > 0) {
     message("Found DIMA species richness data; processing")
-    #gather
-    tblSpecRichHeader$RecKey <<- as.character(tblSpecRichHeader$RecKey)
-
+    tblSpecRichHeader$RecKey <- as.character(tblSpecRichHeader$RecKey)
     tall_species <- terradactyl::gather_species_inventory(source = source, tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader)
     write.csv(tall_species, paste0(gathered_data, "/species_inventory_tall.csv"))
-
-  }else if (source == "BLM_AIM"){
-    tall_sr <<- gather_species_inventory_terradat(dsn = dsn)
+    tall_files_list$species_inventory_tall <- tall_species
+  } else if (source == "BLM_AIM") {
+    tall_sr <- gather_species_inventory_terradat(dsn = dsn)
     write.csv(tall_sr, paste0(gathered_data, "/species_inventory_tall.csv"))
+    tall_files_list$species_inventory_tall <- tall_sr
+  } else {
+    message("No species richness data found")
+  }
 
-  }else{message("No species richness data found")}
-
-  ############################
-
-
-
-  ############################
   ## 8.5 Height
-  # height has different requirements for the class of RecKey and SpeciesLowerHerb than LPI for gather to run,
-  # which means height with the changes below needs to be run after gather LPI
-  if(exists("nri") && !is.null(nri$PASTUREHEIGHTS) && nrow(nri$PASTUREHEIGHTS) > 0) {
+  if (exists("nri") && !is.null(nri$PASTUREHEIGHTS) && nrow(nri$PASTUREHEIGHTS) > 0) {
     message("Found NRI height data; processing")
-    height_tall <<- terradactyl::gather_height(source = "NRI", PASTUREHEIGHTS = read.csv(paste0(output, "PASTUREHEIGHTS.csv")))
+    height_tall <- terradactyl::gather_height(source = "NRI", PASTUREHEIGHTS = read.csv(paste0(output, "PASTUREHEIGHTS.csv")))
     write.csv(height_tall, paste0(gathered_data, "/height_tall.csv"))
+    tall_files_list$height_tall <- height_tall
+  } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && sum(dima_data_list[["tblLPIDetail"]][["HeightHerbaceous"]], na.rm = T) > 0) {
+    tblLPIHeader$RecKey <- as.character(tblLPIHeader$RecKey)
+    tblLPIDetail$RecKey <- as.character(tblLPIDetail$RecKey)
+    tblLPIDetail$SpeciesLowerHerb <- as.character(tblLPIDetail$SpeciesLowerHerb)
 
-  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && sum(dima_data_list[["tblLPIDetail"]][["HeightHerbaceous"]], na.rm = T) > 0){
-    tblLPIHeader$RecKey <<- as.character(tblLPIHeader$RecKey)
-    tblLPIDetail$RecKey <<- as.character(tblLPIDetail$RecKey)
-    tblLPIDetail$SpeciesLowerHerb <<- as.character(tblLPIDetail$SpeciesLowerHerb)
-
-    # gather height, prepare tall height data and qc
-
-
-    #gather
-    tall_height <<- terradactyl::gather_height(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
+    tall_height <- terradactyl::gather_height(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
-
-  }else if (source == "BLM_AIM"){
-    tall_height <<- gather_height_terradat(dsn = dsn)
-
+    tall_files_list$height_tall <- tall_height
+  } else if (source == "BLM_AIM") {
+    tall_height <- gather_height_terradat(dsn = dsn)
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
-
-
-  }else{message("No height data found")}
-
-  #### STOP AND CHECK QC/Height_check #########
-
+    tall_files_list$height_tall <- tall_height
+  } else {
+    message("No height data found")
+  }
 
   # 8.6 RANGEHEALTH
-  if(exists("nri") && !is.null(nri$RANGEHEALTH) && nrow(nri$RANGEHEALTH) > 0){
-    header <<- read.csv(paste0(gathered_data, "/header.csv"))
-    rangehealth_tall <<- gather_rangeland_health(source = "NRI", RANGEHEALTH = read.csv(paste0(output, "/RANGEHEALTH.csv")))
-    saveRDS(rangehealth_tall,paste0(gathered_data,"/rangelandhealth_tall.Rdata"))
-    write.csv(rangehealth_tall,paste0(gathered_data,"/rangelandhealth_tall.csv"))
+  if (exists("nri") && !is.null(nri$RANGEHEALTH) && nrow(nri$RANGEHEALTH) > 0) {
+    header <- read.csv(paste0(gathered_data, "/header.csv"))
+    rangehealth_tall <- gather_rangeland_health(source = "NRI", RANGEHEALTH = read.csv(paste0(output, "/RANGEHEALTH.csv")))
+    saveRDS(rangehealth_tall, paste0(gathered_data, "/rangelandhealth_tall.Rdata"))
+    write.csv(rangehealth_tall, paste0(gathered_data, "/rangelandhealth_tall.csv"))
+    tall_files_list$rangelandhealth_tall <- rangehealth_tall
+  } else {
+    message("No RH NRI data found")
+  }
 
-  }else{message("No RH NRI data found")}
-  ############################
+  # Soil horizons
+  if (exists("nri") && !is.null(nri$SOILHORIZON) && nrow(nri$SOILHORIZON) > 0) {
+    # Assuming this function handles its own output or returns something useful
+    tall_files_list$soil_horizons <- terradactylutils3::create_soil_horizons_nri(nri = nri, gathered_data = gathered_data)
+  } else {
+    message("No NRI soil horizon data found")
+  }
 
-  ###########################
-  # soil horizons
-  if(exists("nri") && !is.null(nri$SOILHORIZON) && nrow(nri$SOILHORIZON) > 0){
-    terradactylutils3::create_soil_horizons_nri(nri = nri, gathered_data = gathered_data)
-  }else{message("No NRI soil horizon data found")}
-
-
-
-
-  ##########################
   # Horizontal flux and DDT
-  if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0){
+  if (exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0) {
     message("DIMA MWAC data found; processing")
+    tall_files_list$mwac <- terradactylutils3::create_mwac(tblBSNE_BoxCollection = dima_data_list[["tblBSNE_BoxCollection"]], path_foringest = path_foringest)
+  } else {
+    message("No DIMA MWAC data found")
+  }
 
-    terradactylutils3::create_mwac(tblBSNE_BoxCollection = dima_data_list[["tblBSNE_BoxCollection"]], path_foringest = path_foringest)
-  }else{message("No DIMA MWAC data found")}
-
-
-  ##########################
-
-
-  ##########################
   # DDT
-  if(exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0){
+  if (exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0) {
     message("DIMA DDT data found; processing")
+    tall_files_list$ddt <- create_ddt(dima_data_list[["tblBSNE_TrapCollection"]], path_foringest = path_foringest)
+  } else {
+    message("No DIMA DDT data found")
+  }
 
-    create_ddt(dima_data_list[["tblBSNE_TrapCollection"]], path_foringest = path_foringest)
-  }else{message("No DIMA DDT data found")}
-
-
-
+  # Return the collected data frames
+  return(tall_files_list)
 }
-
 
 
