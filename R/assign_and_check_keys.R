@@ -647,7 +647,7 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
 
 
     # Read  NRI tables in and apply names
-    df <- lapply(X = table_name, function(X) {
+    data_list <- lapply(X = table_name, function(X) {
       print(X)
       # read all files for the table and merge
       data <- read_nri_text( dsn = dsn, table_name = X, DBKey = "auto", GL_schema_path = "D:/LDC_data_10012025/NRI/og_data/Grazing_Land_Data_Guide.xlsx")
@@ -655,9 +655,9 @@ assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
     })
 
     # add names to list elements
-    names(df) <- toupper(table_name)
+    names(data_list) <- toupper(table_name)
 
-    nri <<- terradactyl::assign_pkey_nri(df = df, sensitive_data = path_sensitive_data)
+    nri <<- assign_pkey_nri(data_list = data_list, sensitive_data = sensitive_data)
 
 
     # save original file as Rdata
