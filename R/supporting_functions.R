@@ -638,3 +638,105 @@ lpi_calc_graminoid <- function(header, lpi_tall,species_file,source,dsn,verbose 
 }
 #########################################
 
+
+
+
+
+
+#########################################
+#' add o to save dates in nri data
+#'
+#'
+#' @param PINTERCEPT as a data.frame, nri PINTERCEPT
+#' @param PH as a data.frame, tnri PASTUREHEIGHTS
+#' @param path_original_files path where nri original_files as csv are stored
+#'
+#' @return data frames saved with date corrections
+#' @export
+#'
+
+date_corrections_nri <- function(PINTERCEPT, PH, path_original_files){
+# cols to fix
+hit_cols <- c(paste0("HIT", 1:6), "BASAL", "NONSOIL")
+
+# make dates codes and add o to dates
+PINTERCEPT <- PINTERCEPT %>%
+  mutate(across(all_of(hit_cols), ~ {
+    val <- as.character(.x)
+
+    # regex to catch: 2-Dec, 2-JUN, 2-Mar, 2-Nov, 2-Feb
+    # Pattern: Digit(s) followed by a hyphen and a 3-letter month
+    is_date_corrupted <- str_detect(val, "^[0-9]{1,2}-(Dec|Jun|Mar|Nov|Feb|Jan|Jul|Aug|Sep|Oct)$")
+
+    # Turn "2-Dec" into "DECE2", "2-Mar" into "MARC2", etc.
+    # take the first 4 letters of the month (uppercase) and add the number
+    if (any(is_date_corrupted, na.rm = TRUE)) {
+      val <- if_else(is_date_corrupted,
+                     paste0(toupper(str_sub(str_extract(val, "[A-Za-z]+$"), 1, 4)),
+                            str_extract(val, "^[0-9]+")),
+                     val)
+    }
+
+    # dec70 differs
+    val <- if_else(val == "Dec-70", "DECE70", val)
+
+    return(val)
+  }))
+
+# "o"
+PINTERCEPT <- PINTERCEPT %>%
+  mutate(across(all_of(hit_cols), ~ {
+    # Check if it matches our reconstructed patterns
+    if_else(str_detect(.x, "^(FEBR|DECE|MARC|NOVE|JUNE)"),
+            paste0("o", .x),
+            as.character(.x))
+  }))
+
+# save
+write_csv(PINTERCEPT, paste0(path_original_files,"/PINTERCEPT.csv"), quote = "all")
+
+
+
+
+## do same for PASTUREHEIGHTS
+
+
+# cols to be fixed
+hit_cols <- c("HPLANT")
+
+#
+PH <- PH %>%
+  mutate(across(all_of(hit_cols), ~ {
+    val <- as.character(.x)
+
+    # Identify strings that match Digit-Month (e.g., 2-Dec, 2-JUN)
+    # or Month-Digit (e.g., Dec-70)
+    # Pattern: Digit-Abbrev OR Abbrev-Digit
+    months_regex <- "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+    is_date_error <- str_detect(val, paste0("^[0-9]+-", months_regex, "$|^", months_regex, "-[0-9]+$"))
+
+
+    if_else(is_date_error,
+            # Extract the month, make it 4 letters, uppercase it, and attach the number
+            # We use str_remove_all to clean out the hyphens
+            paste0(toupper(str_sub(str_extract(val, "[A-Za-z]+"), 1, 4)),
+                   str_extract(val, "[0-9]+")),
+            val)
+  }))
+
+# "o"
+PH <- PH %>%
+  mutate(across(all_of(hit_cols), ~ {
+    # This regex catches any of our reconstructed prefixes
+    prefix_pattern <- "^(JANN|FEBR|MARC|APRI|MAYY|JUNE|JULY|AUGU|SEPT|OCTO|NOVE|DECE)"
+
+    if_else(str_detect(.x, prefix_pattern),
+            paste0("o", .x),
+            as.character(.x))
+  }))
+
+
+#save
+write_csv(PH, paste0(path_original_files,"/PASTUREHEIGHTS.csv"), quote = "all")
+
+}
