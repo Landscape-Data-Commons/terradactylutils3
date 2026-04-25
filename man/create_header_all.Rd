@@ -4,7 +4,13 @@
 \alias{create_header_all}
 \title{Create header ALL}
 \usage{
-create_header_all(source, path_original_files = NULL, path_tall, dsn = NULL)
+create_header_all(
+  source,
+  path_original_files = NULL,
+  path_tall,
+  dsn = NULL,
+  gathered_data
+)
 }
 \arguments{
 \item{source}{as a character string, the data source such as "AIM", "NRI" or "DIMA"}
@@ -14,6 +20,8 @@ create_header_all(source, path_original_files = NULL, path_tall, dsn = NULL)
 \item{path_tall}{where tall data will be saved}
 
 \item{dsn}{dsn for AIM data only}
+
+\item{gathered_data}{path where gathered data will be stored}
 }
 \value{
 a dataHeader that is in the expected LDC format to the tall file path

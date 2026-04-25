@@ -761,24 +761,36 @@ return(data_list)
 #' @return 4 files with a subset of the tall files saved within a subset folder
 #' @export
 #'
-subset_tall_files <- function(gathered_data){
+subset_tall_files <- function(gathered_data, path_tall) {
+  # Define the new folder structure
+  output_root <- file.path(gathered_data, "subset")
 
-  input_dir <- gathered_data
-  output_root <- file.path(input_dir, "subset")
+  # Create the nested directory structure if it doesn't exist
+  if (!dir.exists(output_root)) dir.create(output_root, recursive = TRUE)
 
-  # gather files
-  csv_files <- list.files(path = input_dir, pattern = "\\.csv$", full.names = TRUE, recursive = FALSE)
+  # Gather files
+  csv_files <- list.files(path = gathered_data, pattern = "\\.csv$", full.names = TRUE, recursive = FALSE)
+  header <- read_csv(file.path(path_tall, "header.csv"), show_col_types = FALSE)
 
-  # use header to get even split of files
-  header <- read_csv(file.path(input_dir, "header.csv"), show_col_types = FALSE)
+  # subset if more than 10000 rows
+  if (nrow(header) > 10000) {
+    num_groups <- 4
+    set.seed(123)
+    keys_assigned <- header %>%
+      distinct(PrimaryKey) %>%
+      mutate(group = ntile(row_number(), num_groups))
+  } else {
+    num_groups <- 1 # Only one group (group 0)
+    keys_assigned <- header %>%
+      distinct(PrimaryKey) %>%
+      mutate(group = 0)
+  }
 
-  set.seed(123)
-  keys_assigned <- header %>%
-    distinct(PrimaryKey) %>%
-    mutate(group = ntile(row_number(), 4))
+  # process groups
+  # if row count was low, this loop runs once for group 0
+  unique_groups <- unique(keys_assigned$group)
 
-  # now get the pkeys for each group into the assoc. folder
-  for (i in 1:4) {
+  for (i in unique_groups) {
     current_output_dir <- file.path(output_root, paste0("subset_", i))
     if (!dir.exists(current_output_dir)) dir.create(current_output_dir, recursive = TRUE)
 
@@ -786,22 +798,20 @@ subset_tall_files <- function(gathered_data){
       filter(group == i) %>%
       pull(PrimaryKey)
 
-    message(paste("--- Processing Subset", i, "---"))
+    message(paste("--- Processing Group", i, "---"))
 
     walk(csv_files, function(file_path) {
       file_name <- basename(file_path)
-
-
       current_df <- read_csv(file_path, show_col_types = FALSE)
 
       if ("PrimaryKey" %in% names(current_df)) {
-        filtered_df <- current_df %>% filter(PrimaryKey %in% selected_keys)
+        filtered_df <- current_df %>%
+          filter(PrimaryKey %in% selected_keys) %>%
+          # Add the column based on the folder number
+          mutate(subset_nbr = i)
+
         write_csv(filtered_df, file.path(current_output_dir, file_name))
       }
     })
   }
-
 }
-
-
-

@@ -4,7 +4,13 @@
 \alias{gather_all}
 \title{gather all data}
 \usage{
-gather_all(source, path_original_files = NULL, gathered_data)
+gather_all(
+  source,
+  path_original_files = NULL,
+  gathered_data,
+  path_tall,
+  path_schema
+)
 }
 \arguments{
 \item{source}{source, either "NRI", "AIM" or "DIMA"}
@@ -12,6 +18,10 @@ gather_all(source, path_original_files = NULL, gathered_data)
 \item{path_original_files}{default NULL, path where CSV of raw NRI data saved}
 
 \item{gathered_data}{file path where gathered data, not yet cleaned, will be saved}
+
+\item{path_tall}{path where cleaned tall files are/will be stored}
+
+\item{path_schema}{path to LDC schema plan}
 }
 \value{
 saves CSV and RDS file of terradactyl gathered files to path gathered_data

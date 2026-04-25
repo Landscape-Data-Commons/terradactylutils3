@@ -7,11 +7,9 @@
 date_corrections_nri(PINTERCEPT, PH, path_original_files)
 }
 \arguments{
-\item{PINTERCEPT}{as a data.frame, nri PINTERCEPT}
-
-\item{PH}{as a data.frame, tnri PASTUREHEIGHTS}
-
 \item{path_original_files}{path where nri original_files as csv are stored}
+
+\item{data_list}{nri data as list}
 }
 \value{
 data frames saved with date corrections

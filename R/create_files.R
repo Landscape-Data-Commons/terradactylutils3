@@ -120,13 +120,14 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
 #' @param tblPlots tblPlots from the DIMA tables read in as a data.frame
 #' @param todaysDate today's date
 #' @param source source type such as "DIMA" or "Terradat"
+#' @param gathered_data path where gathered data will be stored
 #' @param by_species_key whether the SpeciesState in the header differentiates by state (T) or by ProjectKey(F)
 #'
 #' @return  RDS and CSV of header saved to the tall file directory (path_tall) as well as a data.frame in your console (unless set to an object) with the name dataHeader
 #'
 #' @examples create_header(path_tall = file.path(path_parent, "Tall"), tblPlots = tblPlots, todaysDate = format(Sys.Date(), "%m/%d/%Y"), source = "DIMA", by_species_key = FALSE)
 #' @export
-create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key){
+create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key, gathered_data){
   problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
   tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
   dataHeader <- tblPlots |>
@@ -166,6 +167,7 @@ create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_ke
 
   write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
   saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
+  write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
   dataHeader
 
@@ -228,6 +230,7 @@ create_geoind <- function(path_schema, path_parent){
 #'
 #' @param source as a character string, the data source such as "AIM", "NRI" or "DIMA"
 #' @param path_original_files path_original_files, for NRI data only
+#' @param gathered_data path where gathered data will be stored
 #' @param path_tall where tall data will be saved
 #' @param dsn dsn for AIM data only
 
@@ -235,7 +238,7 @@ create_geoind <- function(path_schema, path_parent){
 #' @return a dataHeader that is in the expected LDC format to the tall file path
 #'
 #' @export
-create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL){
+create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL, gathered_data){
   if(source == "NRI"){
     dataHeader <- terradactyl::gather_header_nri(dsn = path_original_files, point_path = "POINT.csv", speciesstate = "NRI")
     dataHeader$LocationStatus <- "Obscured"
@@ -263,6 +266,7 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     #save
     write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
     saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
+    write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
 
   }else if (source == "BLM_AIM"){
@@ -273,6 +277,7 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader$ProjectKey <- "BLM_AIM"
     write.csv(dataHeader, file.path(path_tall, "header.csv"), row.names = F)
     saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
+    write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
   }else{
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
