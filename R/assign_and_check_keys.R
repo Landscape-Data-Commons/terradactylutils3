@@ -657,11 +657,11 @@ assign_keys_all <- function(dsn = NULL, source, sensitive_data){
     # add names to list elements
     names(data_list) <- toupper(table_name)
 
-    nri <<- terradactyl::assign_pkey_nri(data_list = data_list, sensitive_data = sensitive_data)
+    data_list <- terradactyl::assign_pkey_nri(data_list = data_list, sensitive_data = sensitive_data)
 
 
     # save original file as Rdata
-    saveRDS(nri, paste0(path_original_files, "/NRI_raw_2024.Rdata"))
+    saveRDS(data_list, paste0(path_original_files, "/NRI_raw_2024.Rdata"))
 
     # Write all tables to CSV
     up_tab <- toupper(table_name)
@@ -669,15 +669,16 @@ assign_keys_all <- function(dsn = NULL, source, sensitive_data){
       X = up_tab,
       function(X) {
         print(X)
-        dat <- as.data.frame(nri[[X]])
+        dat <- as.data.frame(data_list[[X]])
         dat$DBKey <- basename(dsn)
         dat <- dat %>% dplyr::distinct()
         write.csv(dat, paste(path_original_files,"/", toupper(X), ".csv", sep = ""), row.names = FALSE)
       })
 
     #QC
-    terradactylutils3::nri_table_qc(nri = nri, path_qc = path_qc)
+    terradactylutils3::nri_table_qc(nri = data_list, path_qc = path_qc)
 
+    return(data_list)
 
   }else if(source == "BLM_AIM"){
     message("PrimaryKey assigned by BLM")
@@ -686,15 +687,14 @@ assign_keys_all <- function(dsn = NULL, source, sensitive_data){
     terradactylutils3::assign_keys(path_project = path_project, non_line_tables = non_line_table_list )
 
     # using data produced from assign_keys function to produce QC files to review
-    dima_data_list <- readRDS(paste0(path_qc,"/all_dimas_pks.Rdata") )
-
-    return(dima_data_list)
+    data_list <- readRDS(paste0(path_qc,"/all_dimas_pks.Rdata") )
 
     terradactylutils3::dima_table_qc(
       dima_data_list = readRDS(paste0(path_qc, "/all_dimas_pks.Rdata")),
       primarykey_qc = read.csv(paste0(path_qc, "/primarykey_resolve_", date_pkey_qc_run, ".csv")),
       path_qc = path_qc
     )
+    return(data_list)
   }
 
 
