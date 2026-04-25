@@ -746,3 +746,62 @@ data_list$PASTUREHEIGHTS <- PH
 return(data_list)
 
 }
+
+
+
+
+
+
+#########################################
+#' divide data into four groups based on pkey
+#'
+#'
+#' @param gathered_data path where nri terradactyl gathered tall files are stored
+#'
+#' @return 4 files with a subset of the tall files saved within a subset folder
+#' @export
+#'
+subset_tall_files <- function(gathered_data){
+
+  input_dir <- gathered_data
+  output_root <- file.path(input_dir, "subset")
+
+  # gather files
+  csv_files <- list.files(path = input_dir, pattern = "\\.csv$", full.names = TRUE, recursive = FALSE)
+
+  # use header to get even split of files
+  header <- read_csv(file.path(input_dir, "header.csv"), show_col_types = FALSE)
+
+  set.seed(123)
+  keys_assigned <- header %>%
+    distinct(PrimaryKey) %>%
+    mutate(group = ntile(row_number(), 4))
+
+  # now get the pkeys for each group into the assoc. folder
+  for (i in 1:4) {
+    current_output_dir <- file.path(output_root, paste0("subset_", i))
+    if (!dir.exists(current_output_dir)) dir.create(current_output_dir, recursive = TRUE)
+
+    selected_keys <- keys_assigned %>%
+      filter(group == i) %>%
+      pull(PrimaryKey)
+
+    message(paste("--- Processing Subset", i, "---"))
+
+    walk(csv_files, function(file_path) {
+      file_name <- basename(file_path)
+
+
+      current_df <- read_csv(file_path, show_col_types = FALSE)
+
+      if ("PrimaryKey" %in% names(current_df)) {
+        filtered_df <- current_df %>% filter(PrimaryKey %in% selected_keys)
+        write_csv(filtered_df, file.path(current_output_dir, file_name))
+      }
+    })
+  }
+
+}
+
+
+

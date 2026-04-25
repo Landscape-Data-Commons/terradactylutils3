@@ -458,12 +458,14 @@ gather_clean_all <- function(source){
 #'
 #' @param source source, either "NRI", "AIM" or "DIMA"
 #' @param path_original_files default NULL, path where CSV of raw NRI data saved
+#' @param path_tall path where cleaned tall files are/will be stored
+#' @param path_schema path to LDC schema plan
 #' @param gathered_data file path where gathered data, not yet cleaned, will be saved
 #'
 #' @return saves CSV and RDS file of terradactyl gathered files to path gathered_data
 #'
 #' @export
-gather_all <- function(source, path_original_files = NULL, gathered_data) {
+gather_all <- function(source, path_original_files = NULL, gathered_data, path_tall, path_schema) {
   # Initialize a list to store the data frames
   tall_files_list <- list()
 
@@ -578,9 +580,8 @@ gather_all <- function(source, path_original_files = NULL, gathered_data) {
 
   # 8.6 RANGEHEALTH
   if (exists("nri") && !is.null(nri$RANGEHEALTH) && nrow(nri$RANGEHEALTH) > 0) {
-    header <- read.csv(paste0(gathered_data, "/header.csv"))
+    header <- read.csv(paste0(path_tall, "/header.csv"))
     rangehealth_tall <- gather_rangeland_health(source = "NRI", RANGEHEALTH = read.csv(paste0(output, "/RANGEHEALTH.csv")))
-    saveRDS(rangehealth_tall, paste0(gathered_data, "/rangelandhealth_tall.Rdata"))
     write.csv(rangehealth_tall, paste0(gathered_data, "/rangelandhealth_tall.csv"))
     tall_files_list$rangelandhealth_tall <- rangehealth_tall
   } else {
@@ -590,7 +591,8 @@ gather_all <- function(source, path_original_files = NULL, gathered_data) {
   # Soil horizons
   if (exists("nri") && !is.null(nri$SOILHORIZON) && nrow(nri$SOILHORIZON) > 0) {
     # Assuming this function handles its own output or returns something useful
-    tall_files_list$soil_horizons <- terradactylutils3::create_soil_horizons_nri(nri = nri, gathered_data = gathered_data)
+    header <- read.csv(paste0(path_tall, "/header.csv"))
+    tall_files_list$soil_horizons <- terradactylutils3::create_soil_horizons_nri(nri = nri, path_tall = path_tall, path_schema = path_schema, dataHeader = header)
   } else {
     message("No NRI soil horizon data found")
   }
