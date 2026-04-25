@@ -647,8 +647,7 @@ lpi_calc_graminoid <- function(header, lpi_tall,species_file,source,dsn,verbose 
 #' add o to save dates in nri data
 #'
 #'
-#' @param PINTERCEPT as a data.frame, nri PINTERCEPT
-#' @param PH as a data.frame, tnri PASTUREHEIGHTS
+#' @param data_list nri data as list
 #' @param path_original_files path where nri original_files as csv are stored
 #'
 #' @return data frames saved with date corrections
@@ -656,7 +655,10 @@ lpi_calc_graminoid <- function(header, lpi_tall,species_file,source,dsn,verbose 
 #'
 
 date_corrections_nri <- function(PINTERCEPT, PH, path_original_files){
-# cols to fix
+  PINTERCEPT <- data_list$PINTERCEPT
+  PH <- data_list$PASTUREHEIGHTS
+
+  # cols to fix
 hit_cols <- c(paste0("HIT", 1:6), "BASAL", "NONSOIL")
 
 # make dates codes and add o to dates
@@ -695,7 +697,7 @@ PINTERCEPT <- PINTERCEPT %>%
 # save
 write_csv(PINTERCEPT, paste0(path_original_files,"/PINTERCEPT.csv"), quote = "all")
 
-
+data_list$PINTERCEPT <- PINTERCEPT
 
 
 ## do same for PASTUREHEIGHTS
@@ -738,5 +740,9 @@ PH <- PH %>%
 
 #save
 write_csv(PH, paste0(path_original_files,"/PASTUREHEIGHTS.csv"), quote = "all")
+
+data_list$PASTUREHEIGHTS <- PH
+
+return(data_list)
 
 }
