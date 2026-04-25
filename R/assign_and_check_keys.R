@@ -631,14 +631,14 @@ nri_table_qc <- function(nri, path_qc){
 #'
 #'assing PrimaryKey and other relevant Keys depending on the source
 #'
-#' @param path_sensitive_data if NRI, path to sensitive_data folder
+#' @param sensitive_data if NRI, path to sensitive_data folder
 #' @param source as a character string, the data source such as "AIM", "NRI" or "DIMA"
 #' @param dsn only applicable if source is NRI
 #'
 #' @return if NRI, csvs and list of dataframes to the environment; if DIMA, data list and PrimaryKey QC
 #'
 #' @export
-assign_keys_all <- function(dsn = NULL, source, path_sensitive_data){
+assign_keys_all <- function(dsn = NULL, source, sensitive_data){
 
   if(source == "NRI"){
 
