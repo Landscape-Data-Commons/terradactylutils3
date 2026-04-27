@@ -580,6 +580,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 
   # 8.6 RANGEHEALTH
   if (exists("nri") && !is.null(nri$RANGEHEALTH) && nrow(nri$RANGEHEALTH) > 0) {
+    message("Found NRI rangeland health data; Processing")
     header <- read.csv(paste0(path_tall, "/header.csv"))
     rangehealth_tall <- gather_rangeland_health(source = "NRI", RANGEHEALTH = read.csv(paste0(output, "/RANGEHEALTH.csv")))
     write.csv(rangehealth_tall, paste0(gathered_data, "/rangelandhealth_tall.csv"))
@@ -590,6 +591,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 
   # Soil horizons
   if (exists("nri") && !is.null(nri$SOILHORIZON) && nrow(nri$SOILHORIZON) > 0) {
+    message("Found NRI soil horizons data; Processing")
     # Assuming this function handles its own output or returns something useful
     header <- read.csv(paste0(path_tall, "/header.csv"))
     tall_files_list$soil_horizons <- terradactylutils3::create_soil_horizons_nri(nri = nri, path_tall = path_tall, path_schema = path_schema, dataHeader = header)
