@@ -341,14 +341,14 @@ create_dirs <- function(path_parent, source){
 #' create soil horizon file from NRI tables
 #'
 #' @param nri list of nri data frames
-#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param gathered_data path where gathered files are stored
 #' @param dataHeader as dataframe dataHeader
 #' @param path_schema file path to LDC schema plan
 #'
 #' @return gathered soil horizon table to path_tall
 #'
 #' @export
-create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
+create_soil_horizons_nri <- function(nri, gathered_data, dataHeader, path_schema){
   SH <- nri$SOILHORIZON
   #drop duplicates
   dropcols_hf <- SH  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
@@ -399,8 +399,7 @@ create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
     dplyr::select(all_of(ordered_cols))
 
 
-  write.csv(SH, paste0(path_tall, "/soil_horizons_tall.csv"), row.names = FALSE)
-  write.csv(SH, paste0(path_tall, "/dataSoilHorizons.csv"), row.names = FALSE)
+  write.csv(SH, paste0(gathered_data, "/soil_horizons_tall.csv"), row.names = FALSE)
 
 
 }
@@ -415,12 +414,12 @@ create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
 #' create MWAC table in the LDC format from DIMA
 #'
 #' @param tblBSNE_BoxCollection BSNE data from DIMA
-#' @param path_foringest where final files for LDC ingest are saved
+#' @param gathered_data path where gathered files are stored
 #'
 #' @return processed BSNE MWAC data to the path_foringest
 #'
 #' @export
-create_mwac <- function(tblBSNE_BoxCollection, path_foringest){
+create_mwac <- function(tblBSNE_BoxCollection, gathered_data){
 
   # remove bad data
   tblBSNE_BoxCollection <- subset(tblBSNE_BoxCollection, SampleCompromised == "FALSE")
@@ -457,7 +456,7 @@ create_mwac <- function(tblBSNE_BoxCollection, path_foringest){
     dplyr::select(all_of(ordered_cols))
 
 
-  write.csv(tblBSNE_BoxCollection, paste0(path_foringest, "/dataHorizontalFlux.csv"), row.names = FALSE)
+  write.csv(tblBSNE_BoxCollection, paste0(gathered_data, "/horizontalflux_tall.csv"), row.names = FALSE)
 
 }
 
@@ -471,13 +470,13 @@ create_mwac <- function(tblBSNE_BoxCollection, path_foringest){
 #' create DDT table in the LDC format from DIMA
 #'
 #' @param tblBSNE_TrapCollection BSNE data from DIMA
-#' @param path_foringest where final files for LDC ingest are saved
+#' @param gathered_data path where gathered files are stored
 #' @param path_schema file path for LDC schema plan
 #'
 #' @return processed BSNE DDT data to the path_foringest
 #'
 #' @export
-create_ddt <- function(tblBSNE_TrapCollection, path_foringest, path_schema){
+create_ddt <- function(tblBSNE_TrapCollection, gathered_data, path_schema){
 
   # remove bad data
   tblBSNE_TrapCollection <- subset(tblBSNE_TrapCollection, SampleCompromised == "FALSE")
@@ -515,7 +514,7 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest, path_schema){
     dplyr::select(all_of(ordered_cols))
 
 
-  write.csv(tblBSNE_TrapCollection, paste0(path_foringest, "/dataDustDeposition.csv"), row.names = FALSE)
+  write.csv(tblBSNE_TrapCollection, paste0(gathered_data, "/dustdeposition_tall.csv"), row.names = FALSE)
 
 }
 

@@ -816,3 +816,60 @@ subset_tall_files <- function(gathered_data, path_tall) {
     })
   }
 }
+
+
+
+#' Assign subset group numbers to header data
+#'
+#' @param gathered_data path where NRI terradactyl gathered tall files are stored
+#' @param path_tall path where NRI cleaned tall files (specifically header.csv) are stored
+#'
+#' @return A single header.csv file saved in a 'subset' folder with a 'subset_nbr' column
+#' @export
+#'
+assign_subset_nbr <- function(gathered_data, path_tall) {
+  output_root <- file.path(gathered_data, "subset")
+  if (!dir.exists(output_root)) dir.create(output_root, recursive = TRUE)
+
+  csv_files <- list.files(path = gathered_data, pattern = "\\.csv$", full.names = TRUE)
+
+  # Use vroom for much faster reading
+  header <- vroom::vroom(file.path(path_tall, "header.csv"), show_col_types = FALSE)
+
+  if (nrow(header) > 10000) {
+    set.seed(123)
+    keys_assigned <- header %>%
+      dplyr::distinct(PrimaryKey) %>%
+      dplyr::mutate(subset_nbr = dplyr::ntile(dplyr::row_number(), 4))
+  } else {
+    keys_assigned <- header %>%
+      dplyr::distinct(PrimaryKey) %>%
+      dplyr::mutate(subset_nbr = 0)
+  }
+
+  header <- header %>% dplyr::left_join(keys_assigned, by = "PrimaryKey")
+  vroom::vroom_write(header, file.path(output_root, "header.csv"), delim = ",")
+
+  pkey_to_subset <- header %>%
+    dplyr::select(PrimaryKey, subset_nbr) %>%
+    dplyr::distinct()
+
+  # Set up parallel processing (uses all available CPU cores)
+  future::plan(multisession)
+
+  # Use future_walk to process files in parallel
+  furrr::future_walk(csv_files, function(file_path) {
+    file_name <- basename(file_path)
+    if (file_name == "header.csv") return()
+
+    # vroom only loads what it needs, making the join very fast
+    current_df <- vroom::vroom(file_path, show_col_types = FALSE)
+
+    if ("PrimaryKey" %in% names(current_df)) {
+      updated_df <- current_df %>%
+        dplyr::left_join(pkey_to_subset, by = "PrimaryKey")
+
+      vroom::vroom_write(updated_df, file.path(output_root, file_name), delim = ",")
+    }
+  })
+}

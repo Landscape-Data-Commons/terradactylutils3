@@ -4,12 +4,12 @@
 \alias{create_ddt}
 \title{Create DDT table}
 \usage{
-create_ddt(tblBSNE_TrapCollection, path_foringest, path_schema)
+create_ddt(tblBSNE_TrapCollection, gathered_data, path_schema)
 }
 \arguments{
 \item{tblBSNE_TrapCollection}{BSNE data from DIMA}
 
-\item{path_foringest}{where final files for LDC ingest are saved}
+\item{gathered_data}{path where gathered files are stored}
 
 \item{path_schema}{file path for LDC schema plan}
 }

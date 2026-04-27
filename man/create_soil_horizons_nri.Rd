@@ -4,12 +4,12 @@
 \alias{create_soil_horizons_nri}
 \title{Gather soil horizons for NRI}
 \usage{
-create_soil_horizons_nri(nri, path_tall, dataHeader, path_schema)
+create_soil_horizons_nri(nri, gathered_data, dataHeader, path_schema)
 }
 \arguments{
 \item{nri}{list of nri data frames}
 
-\item{path_tall}{where all tall files from terradactyl::gather_... were saved}
+\item{gathered_data}{path where gathered files are stored}
 
 \item{dataHeader}{as dataframe dataHeader}
 

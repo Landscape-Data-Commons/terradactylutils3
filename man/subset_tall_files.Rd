@@ -4,10 +4,12 @@
 \alias{subset_tall_files}
 \title{divide data into four groups based on pkey}
 \usage{
-subset_tall_files(gathered_data)
+subset_tall_files(gathered_data, path_tall)
 }
 \arguments{
 \item{gathered_data}{path where nri terradactyl gathered tall files are stored}
+
+\item{path_tall}{path where nri cleaned tall files are stored}
 }
 \value{
 4 files with a subset of the tall files saved within a subset folder

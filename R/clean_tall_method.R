@@ -594,7 +594,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     message("Found NRI soil horizons data; Processing")
     # Assuming this function handles its own output or returns something useful
     header <- read.csv(paste0(path_tall, "/header.csv"))
-    tall_files_list$soil_horizons <- terradactylutils3::create_soil_horizons_nri(nri = nri, path_tall = path_tall, path_schema = path_schema, dataHeader = header)
+    tall_files_list$soil_horizons <- terradactylutils3::create_soil_horizons_nri(nri = nri, gathered_data = gathered_data, path_schema = path_schema, dataHeader = header)
   } else {
     message("No NRI soil horizon data found")
   }
@@ -602,7 +602,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
   # Horizontal flux and DDT
   if (exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0) {
     message("DIMA MWAC data found; processing")
-    tall_files_list$mwac <- terradactylutils3::create_mwac(tblBSNE_BoxCollection = dima_data_list[["tblBSNE_BoxCollection"]], path_foringest = path_foringest)
+    tall_files_list$mwac <- terradactylutils3::create_mwac(tblBSNE_BoxCollection = dima_data_list[["tblBSNE_BoxCollection"]], gathered_data = gathered_data)
   } else {
     message("No DIMA MWAC data found")
   }
@@ -610,7 +610,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
   # DDT
   if (exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0) {
     message("DIMA DDT data found; processing")
-    tall_files_list$ddt <- create_ddt(dima_data_list[["tblBSNE_TrapCollection"]], path_foringest = path_foringest)
+    tall_files_list$ddt <- create_ddt(dima_data_list[["tblBSNE_TrapCollection"]], gathered_data = gathered_data)
   } else {
     message("No DIMA DDT data found")
   }

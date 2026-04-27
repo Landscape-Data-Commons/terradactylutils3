@@ -16,5 +16,8 @@ Imports:
     tidyr,
     tidyselect,
     purrr,
-    readr
+    readr,
+    future,
+    vroom,
+    furrr
 RoxygenNote: 7.3.3
