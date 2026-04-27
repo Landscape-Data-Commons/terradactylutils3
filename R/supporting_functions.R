@@ -757,6 +757,7 @@ return(data_list)
 #'
 #'
 #' @param gathered_data path where nri terradactyl gathered tall files are stored
+#' @param path_tall path where nri cleaned tall files are stored
 #'
 #' @return 4 files with a subset of the tall files saved within a subset folder
 #' @export
