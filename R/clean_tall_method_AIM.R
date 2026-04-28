@@ -110,6 +110,7 @@ clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,source, todaysDat
   tall_gap$DBKey <- header$DBKey[match(tall_gap$PrimaryKey,header$PrimaryKey)]
   saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
   write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
+  return(tall_gap)
 }
 
 
@@ -163,7 +164,7 @@ header <- dataHeader
   saveRDS(tall_soilstability, file.path(path_tall, "soil_stability_tall.rdata"))
   write.csv(tall_soilstability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
 
-
+return(tall_soilstability)
 
 }
 
@@ -217,7 +218,7 @@ header <- dataHeader
   saveRDS(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.rdata"))
   write.csv(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
 
-
+return(tall_speciesinventory)
 }
 
 
@@ -255,6 +256,6 @@ header <- dataHeader
 
   saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
   write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
-
+return(tall_height)
 
 }

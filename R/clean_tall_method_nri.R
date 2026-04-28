@@ -154,7 +154,7 @@ tall_lpi <- tall_lpi[tall_lpi$code != "None",]
   saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
   write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
 
-  tall_lpi
+  return(tall_lpi)
 }
 ####################################
 
@@ -200,7 +200,7 @@ clean_tall_gap_nri <- function(tall_gap, dataHeader, path_tall){
 
   saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
   write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
-  tall_gap
+  return(tall_gap)
 }
 #####################################
 
@@ -235,7 +235,7 @@ clean_tall_soil_stability_nri <- function(tall_soil_stability, dataHeader, path_
 
   saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
   write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
-  tall_soil_stability
+  return(tall_soil_stability)
 }
 ##################################
 
@@ -268,7 +268,7 @@ clean_tall_species_nri <- function(tall_species, dataHeader, path_tall){
   saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
   write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
 
-  tall_species
+  return(tall_species)
 }
 ########################################
 
@@ -308,7 +308,7 @@ clean_tall_height_nri <- function(tall_height, dataHeader, tblLPIHeader,  source
   saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
   write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
 
-  tall_height
+  return(tall_height)
 }
 ##################################
 
