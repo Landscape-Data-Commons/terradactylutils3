@@ -4,14 +4,14 @@
 \alias{assign_keys_all}
 \title{Assign and QC Keys depending on the source}
 \usage{
-assign_keys_all(dsn = NULL, source, path_sensitive_data)
+assign_keys_all(dsn = NULL, source, sensitive_data)
 }
 \arguments{
 \item{dsn}{only applicable if source is NRI}
 
 \item{source}{as a character string, the data source such as "AIM", "NRI" or "DIMA"}
 
-\item{path_sensitive_data}{if NRI, path to sensitive_data folder}
+\item{sensitive_data}{if NRI, path to sensitive_data folder}
 }
 \value{
 if NRI, csvs and list of dataframes to the environment; if DIMA, data list and PrimaryKey QC

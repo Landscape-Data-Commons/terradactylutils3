@@ -12,7 +12,7 @@ gather_clean_all(source)
 \item{path_foringest}{where final files for LDC ingest are saved}
 }
 \value{
-processed BSNE DDT data to the path_foringest
+gathered, cleaned and QC files to their respective folders
 }
 \description{
 based on the source, create tall tables and get the QC information when available

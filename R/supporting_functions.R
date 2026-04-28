@@ -638,3 +638,238 @@ lpi_calc_graminoid <- function(header, lpi_tall,species_file,source,dsn,verbose 
 }
 #########################################
 
+
+
+
+
+
+#########################################
+#' add o to save dates in nri data
+#'
+#'
+#' @param data_list nri data as list
+#' @param path_original_files path where nri original_files as csv are stored
+#'
+#' @return data frames saved with date corrections
+#' @export
+#'
+
+date_corrections_nri <- function(PINTERCEPT, PH, path_original_files){
+  PINTERCEPT <- data_list$PINTERCEPT
+  PH <- data_list$PASTUREHEIGHTS
+
+  # cols to fix
+hit_cols <- c(paste0("HIT", 1:6), "BASAL", "NONSOIL")
+
+# make dates codes and add o to dates
+PINTERCEPT <- PINTERCEPT %>%
+  mutate(across(all_of(hit_cols), ~ {
+    val <- as.character(.x)
+
+    # regex to catch: 2-Dec, 2-JUN, 2-Mar, 2-Nov, 2-Feb
+    # Pattern: Digit(s) followed by a hyphen and a 3-letter month
+    is_date_corrupted <- str_detect(val, "^[0-9]{1,2}-(Dec|Jun|Mar|Nov|Feb|Jan|Jul|Aug|Sep|Oct)$")
+
+    # Turn "2-Dec" into "DECE2", "2-Mar" into "MARC2", etc.
+    # take the first 4 letters of the month (uppercase) and add the number
+    if (any(is_date_corrupted, na.rm = TRUE)) {
+      val <- if_else(is_date_corrupted,
+                     paste0(toupper(str_sub(str_extract(val, "[A-Za-z]+$"), 1, 4)),
+                            str_extract(val, "^[0-9]+")),
+                     val)
+    }
+
+    # dec70 differs
+    val <- if_else(val == "Dec-70", "DECE70", val)
+
+    return(val)
+  }))
+
+# "o"
+PINTERCEPT <- PINTERCEPT %>%
+  mutate(across(all_of(hit_cols), ~ {
+    # Check if it matches our reconstructed patterns
+    if_else(str_detect(.x, "^(FEBR|DECE|MARC|NOVE|JUNE)"),
+            paste0("o", .x),
+            as.character(.x))
+  }))
+
+# save
+write_csv(PINTERCEPT, paste0(path_original_files,"/PINTERCEPT.csv"), quote = "all")
+
+data_list$PINTERCEPT <- PINTERCEPT
+
+
+## do same for PASTUREHEIGHTS
+
+
+# cols to be fixed
+hit_cols <- c("HPLANT")
+
+#
+PH <- PH %>%
+  mutate(across(all_of(hit_cols), ~ {
+    val <- as.character(.x)
+
+    # Identify strings that match Digit-Month (e.g., 2-Dec, 2-JUN)
+    # or Month-Digit (e.g., Dec-70)
+    # Pattern: Digit-Abbrev OR Abbrev-Digit
+    months_regex <- "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+    is_date_error <- str_detect(val, paste0("^[0-9]+-", months_regex, "$|^", months_regex, "-[0-9]+$"))
+
+
+    if_else(is_date_error,
+            # Extract the month, make it 4 letters, uppercase it, and attach the number
+            # We use str_remove_all to clean out the hyphens
+            paste0(toupper(str_sub(str_extract(val, "[A-Za-z]+"), 1, 4)),
+                   str_extract(val, "[0-9]+")),
+            val)
+  }))
+
+# "o"
+PH <- PH %>%
+  mutate(across(all_of(hit_cols), ~ {
+    # This regex catches any of our reconstructed prefixes
+    prefix_pattern <- "^(JANN|FEBR|MARC|APRI|MAYY|JUNE|JULY|AUGU|SEPT|OCTO|NOVE|DECE)"
+
+    if_else(str_detect(.x, prefix_pattern),
+            paste0("o", .x),
+            as.character(.x))
+  }))
+
+
+#save
+write_csv(PH, paste0(path_original_files,"/PASTUREHEIGHTS.csv"), quote = "all")
+
+data_list$PASTUREHEIGHTS <- PH
+
+return(data_list)
+
+}
+
+
+
+
+
+
+#########################################
+#' divide data into four groups based on pkey
+#'
+#'
+#' @param gathered_data path where nri terradactyl gathered tall files are stored
+#' @param path_tall path where nri cleaned tall files are stored
+#'
+#' @return 4 files with a subset of the tall files saved within a subset folder
+#' @export
+#'
+subset_tall_files <- function(gathered_data, path_tall) {
+  # Define the new folder structure
+  output_root <- file.path(gathered_data, "subset")
+
+  # Create the nested directory structure if it doesn't exist
+  if (!dir.exists(output_root)) dir.create(output_root, recursive = TRUE)
+
+  # Gather files
+  csv_files <- list.files(path = gathered_data, pattern = "\\.csv$", full.names = TRUE, recursive = FALSE)
+  header <- read_csv(file.path(path_tall, "header.csv"), show_col_types = FALSE)
+
+  # subset if more than 10000 rows
+  if (nrow(header) > 10000) {
+    num_groups <- 4
+    set.seed(123)
+    keys_assigned <- header %>%
+      distinct(PrimaryKey) %>%
+      mutate(group = ntile(row_number(), num_groups))
+  } else {
+    num_groups <- 1 # Only one group (group 0)
+    keys_assigned <- header %>%
+      distinct(PrimaryKey) %>%
+      mutate(group = 0)
+  }
+
+  # process groups
+  # if row count was low, this loop runs once for group 0
+  unique_groups <- unique(keys_assigned$group)
+
+  for (i in unique_groups) {
+    current_output_dir <- file.path(output_root, paste0("subset_", i))
+    if (!dir.exists(current_output_dir)) dir.create(current_output_dir, recursive = TRUE)
+
+    selected_keys <- keys_assigned %>%
+      filter(group == i) %>%
+      pull(PrimaryKey)
+
+    message(paste("--- Processing Group", i, "---"))
+
+    walk(csv_files, function(file_path) {
+      file_name <- basename(file_path)
+      current_df <- read_csv(file_path, show_col_types = FALSE)
+
+      if ("PrimaryKey" %in% names(current_df)) {
+        filtered_df <- current_df %>%
+          filter(PrimaryKey %in% selected_keys) %>%
+          # Add the column based on the folder number
+          mutate(subset_nbr = i)
+
+        write_csv(filtered_df, file.path(current_output_dir, file_name))
+      }
+    })
+  }
+}
+
+
+
+#' Assign subset group numbers to header data
+#'
+#' @param gathered_data path where NRI terradactyl gathered tall files are stored
+#' @param path_tall path where NRI cleaned tall files (specifically header.csv) are stored
+#'
+#' @return A single header.csv file saved in a 'subset' folder with a 'subset_nbr' column
+#' @export
+#'
+assign_subset_nbr <- function(gathered_data, path_tall) {
+  output_root <- file.path(gathered_data, "subset")
+  if (!dir.exists(output_root)) dir.create(output_root, recursive = TRUE)
+
+  csv_files <- list.files(path = gathered_data, pattern = "\\.csv$", full.names = TRUE)
+
+  # Use vroom for much faster reading
+  header <- vroom::vroom(file.path(path_tall, "header.csv"), show_col_types = FALSE)
+
+  if (nrow(header) > 10000) {
+    set.seed(123)
+    keys_assigned <- header %>%
+      dplyr::distinct(PrimaryKey) %>%
+      dplyr::mutate(subset_nbr = dplyr::ntile(dplyr::row_number(), 4))
+  } else {
+    keys_assigned <- header %>%
+      dplyr::distinct(PrimaryKey) %>%
+      dplyr::mutate(subset_nbr = 0)
+  }
+
+  header <- header %>% dplyr::left_join(keys_assigned, by = "PrimaryKey")
+  vroom::vroom_write(header, file.path(output_root, "header.csv"), delim = ",")
+
+  pkey_to_subset <- header %>%
+    dplyr::select(PrimaryKey, subset_nbr) %>%
+    dplyr::distinct()
+
+  # Set up parallel processing (uses all available CPU cores)
+  future::plan(multisession)
+
+  # Use future_walk to process files in parallel
+  furrr::future_walk(csv_files, function(file_path) {
+    file_name <- basename(file_path)
+    if (file_name == "header.csv") return()
+
+    # vroom only loads what it needs, making the join very fast
+    current_df <- vroom::vroom(file_path, show_col_types = FALSE)
+
+    if ("PrimaryKey" %in% names(current_df)) {
+      updated_df <- current_df %>%
+        dplyr::left_join(pkey_to_subset, by = "PrimaryKey")
+
+      vroom::vroom_write(updated_df, file.path(output_root, file_name), delim = ",")
+    }
+  })
+}

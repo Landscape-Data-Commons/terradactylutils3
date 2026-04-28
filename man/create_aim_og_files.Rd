@@ -4,16 +4,12 @@
 \alias{create_aim_og_files}
 \title{Create OG AIM files}
 \usage{
-create_aim_og_files(path_foringest, DIMATables, path_parent)
+create_aim_og_files(dsn, path_parent)
 }
 \arguments{
-\item{path_foringest}{path to For Ingest folder}
-
-\item{DIMATables}{path to DIMATables folder}
+\item{dsn}{path to gdb for AIM}
 
 \item{path_parent}{path to parent folder where all data are being saved}
-
-\item{dsn}{path to gdb for AIM}
 }
 \value{
 saves files to For Ingest and DIMATables folder to be used for QC

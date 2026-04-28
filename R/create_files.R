@@ -120,13 +120,14 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
 #' @param tblPlots tblPlots from the DIMA tables read in as a data.frame
 #' @param todaysDate today's date
 #' @param source source type such as "DIMA" or "Terradat"
+#' @param gathered_data path where gathered data will be stored
 #' @param by_species_key whether the SpeciesState in the header differentiates by state (T) or by ProjectKey(F)
 #'
 #' @return  RDS and CSV of header saved to the tall file directory (path_tall) as well as a data.frame in your console (unless set to an object) with the name dataHeader
 #'
 #' @examples create_header(path_tall = file.path(path_parent, "Tall"), tblPlots = tblPlots, todaysDate = format(Sys.Date(), "%m/%d/%Y"), source = "DIMA", by_species_key = FALSE)
 #' @export
-create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key){
+create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key, gathered_data){
   problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
   tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
   dataHeader <- tblPlots |>
@@ -166,6 +167,7 @@ create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_ke
 
   write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
   saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
+  write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
   dataHeader
 
@@ -228,6 +230,7 @@ create_geoind <- function(path_schema, path_parent){
 #'
 #' @param source as a character string, the data source such as "AIM", "NRI" or "DIMA"
 #' @param path_original_files path_original_files, for NRI data only
+#' @param gathered_data path where gathered data will be stored
 #' @param path_tall where tall data will be saved
 #' @param dsn dsn for AIM data only
 
@@ -235,36 +238,35 @@ create_geoind <- function(path_schema, path_parent){
 #' @return a dataHeader that is in the expected LDC format to the tall file path
 #'
 #' @export
-create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL){
+create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL, gathered_data){
   if(source == "NRI"){
     dataHeader <- terradactyl::gather_header_nri(dsn = path_original_files, point_path = "POINT.csv", speciesstate = "NRI")
     dataHeader$LocationStatus <- "Obscured"
     dataHeader$State <- dataHeader$STATE
     dataHeader$Latitude_NAD83 <- NA
     dataHeader$Longitude_NAD83 <- NA
-    # if is NA  DateVisited or Year is less than 1900, get SURVEY from POINTCOORDINATES for date
-    PC <- read.csv(paste0(path_original_files,"POINTCOORDINATES.csv"))
-    dataHeader <- dataHeader %>%
-      # SURVEY based on pkey
-      left_join(select(PC, PlotID, SURVEY), by = "PrimaryKey") %>%
-      mutate(
-        # create a year column to find the incorrect dates
-        yr = year(as.Date(DateVisited)),
 
-        # 0001-01-01 is a known issue
+    dataHeader <- dataHeader %>%
+      # fix date using SURVEY
+      mutate(
+        temp_date = as.Date(DateVisited),
+        yr = year(temp_date),
+
+        # if NA or incorrect year, assign SURVEY as date
         DateVisited = if_else(
-          is.na(DateVisited) | DateVisited == "0001-01-01" | yr < 1900,
+          is.na(temp_date) | DateVisited == "0001-01-01" | yr < 1900,
           as.character(SURVEY),
           as.character(DateVisited)
         )
       ) %>%
-      # remove yr and SURVEY to keep dataHeader structure
-      select(-yr, -SURVEY)
+      # drop columns not used in LDC structure
+      select(-yr, -temp_date)
     #remove NAs
     dataHeader <- dataHeader[!is.na(dataHeader$DateVisited),]
     #save
     write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
     saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
+    write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
 
   }else if (source == "BLM_AIM"){
@@ -275,6 +277,7 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader$ProjectKey <- "BLM_AIM"
     write.csv(dataHeader, file.path(path_tall, "header.csv"), row.names = F)
     saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
+    write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
   }else{
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
@@ -306,11 +309,13 @@ create_dirs <- function(path_parent, source){
   path_qc <<- file.path(path_parent, "QC")
   DIMATables <<- file.path(path_parent, "DIMATables")
   sensitive_data <<- file.path(path_parent, "sensitive_data")
+  gathered_data <<-file.path(path_parent, "gathered_data")
 
   # set up directories if not yet in parent folder
   if(!dir.exists(path_parent)) dir.create(path_parent)
   if(!dir.exists(path_cache)) dir.create(path_cache)
   if(!dir.exists(path_qc)) dir.create(path_qc)
+  if(!dir.exists(gathered_data)) dir.create(gathered_data)
 
   if(source == "NRI"){
     if(!dir.exists(path_original_files)) dir.create(path_original_files)
@@ -336,25 +341,28 @@ create_dirs <- function(path_parent, source){
 #' create soil horizon file from NRI tables
 #'
 #' @param nri list of nri data frames
-#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param gathered_data path where gathered files are stored
 #' @param dataHeader as dataframe dataHeader
 #' @param path_schema file path to LDC schema plan
 #'
 #' @return gathered soil horizon table to path_tall
 #'
 #' @export
-create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
+create_soil_horizons_nri <- function(nri, gathered_data, dataHeader, path_schema){
+  SH <- nri$SOILHORIZON
+  #drop duplicates
+  dropcols_hf <- SH  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
+  SH <- SH[which(!duplicated(dropcols_hf)),]
 
   na_cols <- c("HorizonKey", "HorizonName", "pH", "EC", "ClayPct", "SandPct",
                "SiltPct", "StructureGrade", "StructureSize", "StructureType",
                "StructureQuality", "Hue", "Value", "Chroma", "ColorMoistDry",
                "FragVolGravel", "FragVolCobble", "FragVolStone",
                "FragVolNodule", "FragVolDurinode")
-
+  # Pre-create the columns
+  SH[na_cols] <- NA
   # match columns to expected naming in LDC
-  SH <- nri$SOILHORIZON %>%
-    # remove duplicates
-    distinct(across(-c(rid, DateModified, SpeciesList)), .keep_all = TRUE) %>%
+  SH <- SH %>%
     # many cols are NA, assigning
     mutate(across(all_of(na_cols), ~NA)) %>%
     # match the remaining cols
@@ -391,8 +399,7 @@ create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
     dplyr::select(all_of(ordered_cols))
 
 
-  write.csv(SH, paste0(path_tall, "/soil_horizons_tall.csv"), row.names = FALSE)
-  write.csv(SH, paste0(path_tall, "/dataSoilHorizons.csv"), row.names = FALSE)
+  write.csv(SH, paste0(gathered_data, "/soil_horizons_tall.csv"), row.names = FALSE)
 
 
 }
@@ -407,12 +414,12 @@ create_soil_horizons_nri <- function(nri, path_tall, dataHeader, path_schema){
 #' create MWAC table in the LDC format from DIMA
 #'
 #' @param tblBSNE_BoxCollection BSNE data from DIMA
-#' @param path_foringest where final files for LDC ingest are saved
+#' @param gathered_data path where gathered files are stored
 #'
 #' @return processed BSNE MWAC data to the path_foringest
 #'
 #' @export
-create_mwac <- function(tblBSNE_BoxCollection, path_foringest){
+create_mwac <- function(tblBSNE_BoxCollection, gathered_data){
 
   # remove bad data
   tblBSNE_BoxCollection <- subset(tblBSNE_BoxCollection, SampleCompromised == "FALSE")
@@ -449,7 +456,7 @@ create_mwac <- function(tblBSNE_BoxCollection, path_foringest){
     dplyr::select(all_of(ordered_cols))
 
 
-  write.csv(tblBSNE_BoxCollection, paste0(path_foringest, "/dataHorizontalFlux.csv"), row.names = FALSE)
+  write.csv(tblBSNE_BoxCollection, paste0(gathered_data, "/horizontalflux_tall.csv"), row.names = FALSE)
 
 }
 
@@ -463,12 +470,13 @@ create_mwac <- function(tblBSNE_BoxCollection, path_foringest){
 #' create DDT table in the LDC format from DIMA
 #'
 #' @param tblBSNE_TrapCollection BSNE data from DIMA
-#' @param path_foringest where final files for LDC ingest are saved
+#' @param gathered_data path where gathered files are stored
+#' @param path_schema file path for LDC schema plan
 #'
 #' @return processed BSNE DDT data to the path_foringest
 #'
 #' @export
-create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
+create_ddt <- function(tblBSNE_TrapCollection, gathered_data, path_schema){
 
   # remove bad data
   tblBSNE_TrapCollection <- subset(tblBSNE_TrapCollection, SampleCompromised == "FALSE")
@@ -494,7 +502,10 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
   # only keep data in schema, in the order of the schema - can't use schema until Kris updates
   # schema <- read.csv(path_schema)
   # schema <- schema %>% dplyr::filter(Table == "dataDustDeposition")
-  ddtschema <- read.csv("D:/Horizontal_flux_not_yet_uploaded/Horizontal_flux_not_yet_uploaded/DDT/DDT_schema.csv")
+  ddtschema <- read.csv(path_schema)
+  ddtschema <- ddtschema %>% dplyr::filter(Table == "dataDustDeposition")
+
+  tblBSNE_TrapCollection$DustDepositionRate <- tblBSNE_TrapCollection$sedimentWeight/(tblBSNE_TrapCollection$trapOpeningArea*0.0001)/tblBSNE_TrapCollection$daysExposed
   # # schema column order
   ordered_cols <- ddtschema$Field
 
@@ -502,10 +513,8 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
   tblBSNE_TrapCollection <- tblBSNE_TrapCollection %>%
     dplyr::select(all_of(ordered_cols))
 
-  tblBSNE_TrapCollection <- tblBSNE_TrapCollection %>%
-    dplyr::rename(DustDepositionRate = sedimentGperDayByInlet)
 
-  write.csv(tblBSNE_TrapCollection, paste0(path_foringest, "/dataDustDeposition.csv"), row.names = FALSE)
+  write.csv(tblBSNE_TrapCollection, paste0(gathered_data, "/dustdeposition_tall.csv"), row.names = FALSE)
 
 }
 
@@ -515,8 +524,6 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
 #'
 #' save original AIM files
 #'
-#' @param DIMATables path to DIMATables folder
-#' @param path_foringest path to For Ingest folder
 #' @param path_parent path to parent folder where all data are being saved
 #' @param dsn path to gdb for AIM
 #'
@@ -524,12 +531,8 @@ create_ddt <- function(tblBSNE_TrapCollection, path_foringest){
 #'
 #' @export
 
-create_aim_og_files <- function(path_foringest, DIMATables, path_parent){
+create_aim_og_files <- function(dsn, path_parent){
 
-cleaned_tall_lpi <- read.csv(paste0(path_foringest, "/dataLPI.csv"))
-cleaned_tall_gap <- read.csv(paste0(path_foringest, "/dataGap.csv"))
-cleaned_tall_soil_stability <- read.csv(paste0(path_foringest, "/dataSoilStability.csv"))
-cleaned_tall_height <- read.csv(paste0(path_foringest, "/dataHeight.csv"))
 
 # write the DIMATables
 #st_layers(dsn)
@@ -599,3 +602,54 @@ if(BSNE_only){
 }
 
 }
+
+
+
+
+
+
+###################################
+#' Create species list AIM
+#'
+#' create species list from the dsn
+#'
+#' @param dsn dsn
+#' @param example_path path to example species list with correct header
+#' @param path_species path where species list are stored in LDC expected format
+#'
+#' @return species list from AIM dsn
+#'
+#' @export
+create_species_list_AIM <- function(dsn, example_path, path_species){
+#AIM species list
+
+#
+# # #species
+splist <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__I_Species")
+
+
+# keep only names like in example
+
+example <- read.csv(example_path)
+
+cols_to_keep <- names(example)
+
+splist <- splist[, names(splist) %in% cols_to_keep]
+
+splist$SpeciesCode <- splist$CurrentPLANTSCode
+
+splist <- splist[!duplicated(splist$SpeciesCode),]
+
+splist$SpeciesCode <- trimws(splist$SpeciesCode)
+#
+#
+
+test <- st_read(dsn = dsn, layer = "AIM_Terrestrial__F_tblNationalPlants")
+test$SpeciesCode <- test$NameCode
+test <- test %>%
+  dplyr::left_join(splist %>% dplyr::select(SpeciesCode, SG_Group), by = "SpeciesCode")
+path_specieslist <- paste0(path_species, "BLM_AIM.csv")
+write.csv(test, path_specieslist)
+
+}
+

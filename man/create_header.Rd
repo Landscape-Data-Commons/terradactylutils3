@@ -4,7 +4,14 @@
 \alias{create_header}
 \title{Create header}
 \usage{
-create_header(path_tall, tblPlots, todaysDate, source, by_species_key)
+create_header(
+  path_tall,
+  tblPlots,
+  todaysDate,
+  source,
+  by_species_key,
+  gathered_data
+)
 }
 \arguments{
 \item{path_tall}{a file path where your tall data will be stored, that is saved within path_parent, where path_parent is the path with the dima exports file for the project and export files (tall, for ingest and QC files)}
@@ -16,6 +23,8 @@ create_header(path_tall, tblPlots, todaysDate, source, by_species_key)
 \item{source}{source type such as "DIMA" or "Terradat"}
 
 \item{by_species_key}{whether the SpeciesState in the header differentiates by state (T) or by ProjectKey(F)}
+
+\item{gathered_data}{path where gathered data will be stored}
 }
 \value{
 RDS and CSV of header saved to the tall file directory (path_tall) as well as a data.frame in your console (unless set to an object) with the name dataHeader

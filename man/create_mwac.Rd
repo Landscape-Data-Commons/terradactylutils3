@@ -4,12 +4,12 @@
 \alias{create_mwac}
 \title{Create MWAC table}
 \usage{
-create_mwac(tblBSNE_BoxCollection, path_foringest)
+create_mwac(tblBSNE_BoxCollection, gathered_data)
 }
 \arguments{
 \item{tblBSNE_BoxCollection}{BSNE data from DIMA}
 
-\item{path_foringest}{where final files for LDC ingest are saved}
+\item{gathered_data}{path where gathered files are stored}
 }
 \value{
 processed BSNE MWAC data to the path_foringest
