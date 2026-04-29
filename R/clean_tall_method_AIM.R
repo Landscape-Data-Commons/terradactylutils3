@@ -131,7 +131,7 @@ header <- dataHeader
   #dropcols_soilstability <- tall_soilstability  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
 
   dropcols_soilstability <- tall_soilstability  %>% dplyr::select_if(!(names(.) %in% c( "rid", "DateModified", "SpeciesList")))
-
+  pkeys <- dataHeader$PrimaryKey
   tall_soilstability <- tall_soilstability[which(!duplicated(dropcols_soilstability)),] %>%
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
 
@@ -188,7 +188,7 @@ header <- dataHeader
   dropcols_speciesinventory <- tall_sr  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   tall_speciesinventory <- tall_sr[which(!duplicated(dropcols_speciesinventory)),] %>%
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
-  tall_speciesinventory$ProjectKey <- rep(projectkey)
+  tall_speciesinventory$ProjectKey <- "BLM_AIM"
 
 
   tall_speciesinventory$DateVisited <- as.Date(tall_speciesinventory$FormDate, format = "%Y-%m-%d")
