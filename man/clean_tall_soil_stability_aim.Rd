@@ -4,12 +4,7 @@
 \alias{clean_tall_soil_stability_aim}
 \title{Clean Tall soil stability AIM}
 \usage{
-clean_tall_soil_stability_aim(
-  tall_soil_stability,
-  path_tall,
-  dataHeader,
-  todaysDate
-)
+clean_tall_soil_stability_aim(tall_soil_stability, path_tall, dataHeader)
 }
 \arguments{
 \item{tall_soil_stability}{as a data.frame, the tall_gap file}
@@ -17,8 +12,6 @@ clean_tall_soil_stability_aim(
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
 
 \item{dataHeader}{dataframe dataHeader}
-
-\item{todaysDate}{today's date in format Y-m-d}
 }
 \value{
 updated tall file written to path_tall

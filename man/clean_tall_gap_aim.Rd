@@ -4,13 +4,7 @@
 \alias{clean_tall_gap_aim}
 \title{Clean Tall gap AIM}
 \usage{
-clean_tall_gap_aim(
-  tall_gap,
-  path_tall,
-  dataHeader,
-  todaysDate,
-  tblGapHeader = NULL
-)
+clean_tall_gap_aim(tall_gap, path_tall, dataHeader, tblGapHeader = NULL)
 }
 \arguments{
 \item{tall_gap}{as a data.frame, the tall_gap file}
@@ -18,8 +12,6 @@ clean_tall_gap_aim(
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
 
 \item{dataHeader}{dataframe dataHeader}
-
-\item{todaysDate}{today's date in format Y-m-d}
 
 \item{tblGapHeader}{for BLM_AIM, this argument remains NULL}
 }

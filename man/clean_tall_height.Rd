@@ -4,14 +4,7 @@
 \alias{clean_tall_height}
 \title{Clean Tall Height}
 \usage{
-clean_tall_height(
-  tall_height,
-  dataHeader,
-  tblLPIHeader,
-  source,
-  todaysDate,
-  path_tall
-)
+clean_tall_height(tall_height, dataHeader, tblLPIHeader, path_tall)
 }
 \arguments{
 \item{tall_height}{as a data.frame, the tall_file produced from terradactyl::gather_height()}
@@ -20,10 +13,6 @@ clean_tall_height(
 
 \item{tblLPIHeader}{as data.frame, tblLPIHeader from the DIMA tables}
 
-\item{source}{data type}
-
-\item{todaysDate}{today's date}
-
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
 }
 \value{
@@ -31,7 +20,4 @@ a CSV saved to the specified path_tall and an updated tall_height file saved to 
 }
 \description{
 adds and removes columns (not) necessary to run terradactylutils2::geofiles() for the the file produced using terradactyl::gather_height()
-}
-\examples{
-clean_tall_height(tall_height = gather_height(source = "DIMA", tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader), dataHeader = dataHeader, tblLPIHeader = tblLPIHeader,  source = DIMA, todaysDate = todaysDate, path_tall = file.path(path_parent, "Tall"))
 }
