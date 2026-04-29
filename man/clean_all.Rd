@@ -4,7 +4,13 @@
 \alias{clean_all}
 \title{clean all data}
 \usage{
-clean_all(source, gathered_data, dataHeader, path_tall)
+clean_all(
+  source,
+  gathered_data,
+  dataHeader,
+  path_tall,
+  subset_to_filter = NULL
+)
 }
 \arguments{
 \item{source}{source, either "NRI", "AIM" or "DIMA"}

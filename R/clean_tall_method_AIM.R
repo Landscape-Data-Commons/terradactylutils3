@@ -7,13 +7,12 @@
 #' @param tall_lpi as a data.frame, the tall_lpi file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader dataHeader as dataframe
-#' @param source data source (e.g., "DIMA")
 #' @param todaysDate today's date in format Y-m-d
 #'
 #' @return cleaned, in LDC format, tall lpi to the path_tall
 #'
 #' @export
-clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader, source, todaysDate){
+clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader, todaysDate){
 
 header <- dataHeader
 dropcols_lpi <- tall_lpi %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
@@ -59,7 +58,7 @@ dropcols_lpi <- tall_lpi  %>% dplyr::select_if(!(names(.) %in% c( "rid", "DateMo
 tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] %>%
   dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
 
-tall_lpi$source <- rep(source)
+tall_lpi$source <- "BLM_AIM"
 tall_lpi$ProjectKey <- rep(projectkey)
 tall_lpi$DateLoadedInDb <- todaysDate
 tall_lpi$SpeciesState <- rep("BLM_AIM") # should this be the species state from header??
@@ -82,13 +81,13 @@ write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
 #' @param tall_gap as a data.frame, the tall_gap file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader dataframe dataHeader
-#' @param source data source (e.g., "DIMA")
+#' @param tblGapHeader for BLM_AIM, this argument remains NULL
 #' @param todaysDate today's date in format Y-m-d
 #'
 #' @return cleaned, in LDC format, tall gap file to path_tall
 #'
 #' @export
-clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,source, todaysDate){
+clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader, todaysDate, tblGapHeader = NULL){
   header <- dataHeader
   dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   #dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "rid", "DateModified", "SpeciesList")))
@@ -103,7 +102,7 @@ clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,source, todaysDat
   tall_gap$FormType        <- rep("Gap")
 
   tall_gap$DateLoadedInDb    <-rep(todaysDate)
-  tall_gap$source <- rep("AIM") #
+  tall_gap$source <- rep("BLM_AIM") #
   tall_gap <- tall_gap %>% dplyr::group_by(PrimaryKey, LineKey, RecType) %>%
     dplyr::mutate(sumCanCat1 = sum(Gap, na.rm = T)) %>% dplyr::ungroup() #
   tall_gap$Notes <- rep(NA) #
@@ -122,13 +121,12 @@ clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,source, todaysDat
 #' @param tall_soil_stability as a data.frame, the tall_gap file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader dataframe dataHeader
-#' @param source data source (e.g., "DIMA")
 #' @param todaysDate today's date in format Y-m-d
 #'
 #' @return updated tall file written to path_tall
 #'
 #' @export
-clean_tall_soil_stability_aim <- function(tall_soil_stability, path_tall, dataHeader,source, todaysDate){
+clean_tall_soil_stability_aim <- function(tall_soil_stability, path_tall, dataHeader, todaysDate){
 header <- dataHeader
   #dropcols_soilstability <- tall_soilstability  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
 
@@ -139,7 +137,7 @@ header <- dataHeader
 
   tall_soilstability$DateVisited  <- as.Date(tall_soilstability$FormDate, format = "%Y-%m-%d") # formdate, don't keep hr and min
   tall_soilstability$FormType   <- rep("SoilStability")
-  tall_soilstability$source <-rep(source)
+  tall_soilstability$source <-"BLM_AIM"
   tall_soilstability$Notes <- rep(NA)
   tall_soilstability$DBKey <- header$DBKey[match(tall_soilstability$PrimaryKey,header$PrimaryKey)]
   # add DBKey and DateLoadedInDb?
@@ -179,13 +177,12 @@ return(tall_soilstability)
 #' @param tall_species_richness as a data.frame, the tall_gap file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader as data frame dataHeader
-#' @param source data source (e.g., "DIMA")
 #' @param todaysDate today's date in format Y-m-d
 #'
 #' @return updated tall file written to path_tall
 #'
 #' @export
-clean_tall_species_richness_aim <- function(tall_species_richness, path_tall, dataHeader,source, todaysDate){
+clean_tall_species_richness_aim <- function(tall_species_richness, path_tall, dataHeader, todaysDate){
 header <- dataHeader
   #stop rempving DateLoadedInDb and DBKey if add on terra ?
   dropcols_speciesinventory <- tall_sr  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
@@ -201,7 +198,7 @@ header <- dataHeader
 
   tall_speciesinventory$DateLoadedInDb   <- rep(todaysDate)
   tall_speciesinventory$Notes <- rep(NA)
-  tall_speciesinventory$source <- rep(source)
+  tall_speciesinventory$source <- "BLM_AIM"
   tall_speciesinventory$DBKey <- header$DBKey[match(tall_speciesinventory$PrimaryKey,header$PrimaryKey)]
   schema_spr <- read.csv(path_schema)
 
@@ -232,13 +229,14 @@ return(tall_speciesinventory)
 #' @param tall_height as a data.frame, the tall_height file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader as data frame dataHeader
+#' @param tblLPIHeader for aim this remains NULL
 #' @param source data source (e.g., "DIMA")
 #' @param todaysDate today's date in format Y-m-d
 #'
 #' @return cleaned, in LDC format, file to path_tall
 #'
 #' @export
-clean_tall_height_aim <- function(tall_height, path_tall, dataHeader, source, todaysDate){
+clean_tall_height_aim <- function(tall_height, path_tall, dataHeader, source, todaysDate, tblLPIHeader = NULL){
 header <- dataHeader
   #dropcols_height <- tall_height  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   # keep DBKey and DateLoadedInDb if change on terra ?

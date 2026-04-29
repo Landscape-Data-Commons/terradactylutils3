@@ -4,20 +4,22 @@
 \alias{clean_tall_gap_nri}
 \title{Clean Tall Gap NRI}
 \usage{
-clean_tall_gap_nri(tall_gap, dataHeader, path_tall)
+clean_tall_gap_nri(tall_gap, dataHeader, path_tall, tblGapHeader = NULL)
 }
 \arguments{
-\item{tall_gap}{as a data.frame, tall gap file produced from terradactyl::gather_gap()}
+\item{tall_gap}{as a data.frame, tall gap file produced from terradactyl::gather_gap}
 
-\item{dataHeader}{as a data.frame, the dataHeader file produced from terradactylutils2::create_header()}
+\item{dataHeader}{as a data.frame, the dataHeader file produced from terradactylutils2::create_header}
 
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
+
+\item{tblGapHeader}{for NRI, this remains NULL}
 }
 \value{
 an updated tall_gap file saved to path_tall and tall_gap in the console (unless saved to an object)
 }
 \description{
-removes and adds columns to the tall_gap file produced using terradactyl::gather_gap that are (not) necessary to produce geofiles
+removes and adds columns to the tall_gap file produced using terradactyl::gather_gap that are necessary to produce geofiles
 }
 \examples{
 clean_tall_gap(tall_gap = terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))

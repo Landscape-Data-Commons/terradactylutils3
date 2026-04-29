@@ -163,17 +163,18 @@ tall_lpi <- tall_lpi[tall_lpi$code != "None",]
 ############################################
 #' Clean Tall Gap NRI
 #'
-#'removes and adds columns to the tall_gap file produced using terradactyl::gather_gap that are (not) necessary to produce geofiles
+#'removes and adds columns to the tall_gap file produced using terradactyl::gather_gap that are necessary to produce geofiles
 #'
-#' @param tall_gap as a data.frame, tall gap file produced from terradactyl::gather_gap()
-#' @param dataHeader as a data.frame, the dataHeader file produced from terradactylutils2::create_header()
+#' @param tall_gap as a data.frame, tall gap file produced from terradactyl::gather_gap
+#' @param dataHeader as a data.frame, the dataHeader file produced from terradactylutils2::create_header
+#' @param tblGapHeader for NRI, this remains NULL
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #'
 #' @return an updated tall_gap file saved to path_tall and tall_gap in the console (unless saved to an object)
 #'
 #' @examples clean_tall_gap(tall_gap = terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
 #' @export
-clean_tall_gap_nri <- function(tall_gap, dataHeader, path_tall){
+clean_tall_gap_nri <- function(tall_gap, dataHeader, path_tall, tblGapHeader = NULL){
 
   dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   pkeys <- dataHeader$PrimaryKey

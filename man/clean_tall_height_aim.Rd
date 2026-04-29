@@ -4,7 +4,14 @@
 \alias{clean_tall_height_aim}
 \title{Clean Tall height AIM}
 \usage{
-clean_tall_height_aim(tall_height, path_tall, dataHeader, source, todaysDate)
+clean_tall_height_aim(
+  tall_height,
+  path_tall,
+  dataHeader,
+  source,
+  todaysDate,
+  tblLPIHeader = NULL
+)
 }
 \arguments{
 \item{tall_height}{as a data.frame, the tall_height file}
@@ -16,6 +23,8 @@ clean_tall_height_aim(tall_height, path_tall, dataHeader, source, todaysDate)
 \item{source}{data source (e.g., "DIMA")}
 
 \item{todaysDate}{today's date in format Y-m-d}
+
+\item{tblLPIHeader}{for aim this remains NULL}
 }
 \value{
 cleaned, in LDC format, file to path_tall

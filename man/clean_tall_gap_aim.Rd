@@ -4,7 +4,13 @@
 \alias{clean_tall_gap_aim}
 \title{Clean Tall gap AIM}
 \usage{
-clean_tall_gap_aim(tall_gap, path_tall, dataHeader, source, todaysDate)
+clean_tall_gap_aim(
+  tall_gap,
+  path_tall,
+  dataHeader,
+  todaysDate,
+  tblGapHeader = NULL
+)
 }
 \arguments{
 \item{tall_gap}{as a data.frame, the tall_gap file}
@@ -13,9 +19,9 @@ clean_tall_gap_aim(tall_gap, path_tall, dataHeader, source, todaysDate)
 
 \item{dataHeader}{dataframe dataHeader}
 
-\item{source}{data source (e.g., "DIMA")}
-
 \item{todaysDate}{today's date in format Y-m-d}
+
+\item{tblGapHeader}{for BLM_AIM, this argument remains NULL}
 }
 \value{
 cleaned, in LDC format, tall gap file to path_tall

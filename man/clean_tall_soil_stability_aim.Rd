@@ -8,7 +8,6 @@ clean_tall_soil_stability_aim(
   tall_soil_stability,
   path_tall,
   dataHeader,
-  source,
   todaysDate
 )
 }
@@ -18,8 +17,6 @@ clean_tall_soil_stability_aim(
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
 
 \item{dataHeader}{dataframe dataHeader}
-
-\item{source}{data source (e.g., "DIMA")}
 
 \item{todaysDate}{today's date in format Y-m-d}
 }

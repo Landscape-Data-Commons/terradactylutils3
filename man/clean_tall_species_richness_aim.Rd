@@ -8,7 +8,6 @@ clean_tall_species_richness_aim(
   tall_species_richness,
   path_tall,
   dataHeader,
-  source,
   todaysDate
 )
 }
@@ -18,8 +17,6 @@ clean_tall_species_richness_aim(
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
 
 \item{dataHeader}{as data frame dataHeader}
-
-\item{source}{data source (e.g., "DIMA")}
 
 \item{todaysDate}{today's date in format Y-m-d}
 }
