@@ -15,6 +15,7 @@
 clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader, todaysDate){
 
 header <- dataHeader
+pkeys <- dataHeader$PrimaryKey
 dropcols_lpi <- tall_lpi %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
 tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] %>%
   dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
@@ -54,12 +55,12 @@ tall_lpi <- lpi
 #dropcols_lpi <- tall_lpi  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
 # we want to keep the DBKey and DateLoadedInDb
 dropcols_lpi <- tall_lpi  %>% dplyr::select_if(!(names(.) %in% c( "rid", "DateModified", "SpeciesList")))
-
+pkeys <- dataHeader$PrimaryKey
 tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] %>%
   dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
 
 tall_lpi$source <- "BLM_AIM"
-tall_lpi$ProjectKey <- rep(projectkey)
+tall_lpi$ProjectKey <- "BLM_AIM"
 tall_lpi$DateLoadedInDb <- todaysDate
 tall_lpi$SpeciesState <- rep("BLM_AIM") # should this be the species state from header??
 tall_lpi$DBKey <- header$DBKey[match(tall_lpi$PrimaryKey,header$PrimaryKey)] # adding outside of terra
@@ -91,12 +92,12 @@ clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader, todaysDate, tblG
   header <- dataHeader
   dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   #dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "rid", "DateModified", "SpeciesList")))
-
+  pkeys <- dataHeader$PrimaryKey
   tall_gap <- tall_gap[which(!duplicated(dropcols_gap)),] %>%
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
   #tall_gap$DBKey.y <- NULL
   #colnames(tall_gap)[colnames(tall_gap) == 'DBKey.x'] <- 'DBKey'
-  tall_gap$ProjectKey  <- rep(projectkey)
+  tall_gap$ProjectKey  <-"BLM_AIM"
   tall_gap$chckbox <- rep(NA)
   tall_gap$DateVisited   <- as.Date(tall_gap$FormDate, format = "%Y-%m-%d")
   tall_gap$FormType        <- rep("Gap")
@@ -241,10 +242,10 @@ header <- dataHeader
   #dropcols_height <- tall_height  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   # keep DBKey and DateLoadedInDb if change on terra ?
   dropcols_height <- tall_height  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-
+  pkeys <- dataHeader$PrimaryKey
   tall_height <- tall_height[which(!duplicated(dropcols_height)),] %>%
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
-  tall_height$ProjectKey <- rep(projectkey)
+  tall_height$ProjectKey <- "BLM_AIM"
   tall_height$FormType <- rep("LPI") # add formtype to all in terra?
   tall_height$source <- rep(source)
   tall_height$DateVisited <- as.Date(tall_height$FormDate, format = "%Y-%m-%d")
