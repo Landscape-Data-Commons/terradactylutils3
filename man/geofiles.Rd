@@ -27,6 +27,8 @@ geofiles(
 
 \item{path_specieslist}{path to species lists including the ProjectKey}
 
+\item{path_schema}{file path to LDC schema plan}
+
 \item{template}{path to an indicator list using graminoid identifiers, currently used while certain agencies use GRASS}
 
 \item{doGSP}{TRUE unless user does not want a geoSpecies file produced}

@@ -27,13 +27,13 @@ geofiles_nri(
 
 \item{path_specieslist}{path to species lists including the ProjectKey}
 
+\item{path_schema}{file path to LDC schema plan}
+
 \item{template}{path to an indicator list using graminoid identifiers, currently used while certain agencies use GRASS}
 
 \item{doGSP}{TRUE unless user does not want a geoSpecies file produced}
 
 \item{calculate_dead}{Logical. If \code{TRUE} and \code{doGSP} is \code{TRUE} then the accumulated species calculations will differentiate between "live" and "dead" records. Defaults to \code{FALSE}.}
-
-\item{digits}{Number of digits user wants observations rounded to}
 
 \item{date}{Optional character string. The date value for the DateLoadedInDb variable. Must be in the format mm/dd/YYYY, e.g. "6/19/2026". Defaults to the date returned by \code{Sys.date()}.}
 }
