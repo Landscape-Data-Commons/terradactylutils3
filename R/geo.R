@@ -11,6 +11,7 @@
 #' @param doGSP TRUE unless user does not want a geoSpecies file produced
 #' @param calculate_dead Logical. If \code{TRUE} and \code{doGSP} is \code{TRUE} then the accumulated species calculations will differentiate between "live" and "dead" records. Defaults to \code{FALSE}.
 #' @param date Optional character string. The date value for the DateLoadedInDb variable. Must be in the format mm/dd/YYYY, e.g. "6/19/2026". Defaults to the date returned by \code{Sys.date()}.
+#' @param path_schema file path to LDC schema plan
 #' @param digits Number of digits user wants observations rounded to
 #' @return geoSpecies and geoIndicators file written to the path_foringest
 #'
@@ -256,6 +257,10 @@ geofiles <- function(path_foringest,
 
   #### Accumulated species stuff -----------------------------------------------
   if (doGSP) {
+    schema <- read.csv(path_schema) |>
+      # I don't know why this would be necessary, but it was used elsewhere so I'm
+      # keeping it here just in case it was load-bearing.
+      dplyr::distinct()
     species_list <- read.csv(path_specieslist)
 
     accumulated_species_data <- accumulated_species(lpi_tall = data[["lpi_tall"]],
@@ -320,7 +325,8 @@ geofiles <- function(path_foringest,
 #' @param doGSP TRUE unless user does not want a geoSpecies file produced
 #' @param calculate_dead Logical. If \code{TRUE} and \code{doGSP} is \code{TRUE} then the accumulated species calculations will differentiate between "live" and "dead" records. Defaults to \code{FALSE}.
 #' @param date Optional character string. The date value for the DateLoadedInDb variable. Must be in the format mm/dd/YYYY, e.g. "6/19/2026". Defaults to the date returned by \code{Sys.date()}.
-#' @param digits Number of digits user wants observations rounded to
+#' @param date Optional character string. The date value for the DateLoadedInDb variable. Must be in the format mm/dd/YYYY, e.g. "6/19/2026". Defaults to the date returned by \code{Sys.date()}.
+#' @param path_schema file path to LDC schema plan
 #' @return geoSpecies and geoIndicators file written to the path_foringest
 #'
 #'
@@ -597,4 +603,119 @@ geofiles_nri <- function(path_foringest,
                         "geoSpecies.csv"),
               row.names = FALSE)
   }
+}
+
+
+
+geofiles_from_subsets_nri <- function(path_foringest,
+                                      path_tall,
+                                      path_species,
+                                      template,
+                                      path_schema,
+                                      gathered_data,
+                                      doGSP = FALSE) {
+
+  # master header from the gathered_data path
+  tall_header <- read.csv(file.path(gathered_data, "subset", "header.csv"))
+  projectkey <- unique(tall_header$ProjectKey)
+  subset_indices <- unique(tall_header$subset_nbr)
+
+  # create the subset directory structure within foringest
+  path_ingest_subset_root <- file.path(path_foringest, "subset")
+  if (!dir.exists(path_ingest_subset_root)) dir.create(path_ingest_subset_root, recursive = TRUE)
+
+  # use projectkey and subset_nbr to run geoind
+  lapply(subset_indices, function(s_nbr) {
+
+    message("--- Generating GeoFiles for Subset: ", s_nbr, " ---")
+
+    # subset paths
+    current_path_tall   <- file.path(path_tall, "subset", paste0("subset_", s_nbr))
+    current_path_ingest <- file.path(path_ingest_subset_root, paste0("subset_", s_nbr))
+
+    if (!dir.exists(current_path_ingest)) dir.create(current_path_ingest, recursive = TRUE)
+
+    # subset header
+    subset_header <- tall_header %>%
+      dplyr::filter(as.character(subset_nbr) == as.character(s_nbr))
+
+    # --- THE FIX: Create a temporary RDS file ---
+    # geofiles_nri uses readRDS(), so we MUST use saveRDS()
+    # We name it 'header.Rdata' because that's what the function expects
+    temp_header_path <- file.path(current_path_tall, "header.Rdata")
+    saveRDS(subset_header, file = temp_header_path)
+
+    # delete temp file
+    on.exit(if (file.exists(temp_header_path)) file.remove(temp_header_path))
+
+    for (projkey in projectkey) {
+      # Only run if the project actually exists in this subset
+      if (!(projkey %in% subset_header$ProjectKey)) next
+
+      message("  >> Processing Project: ", projkey)
+
+      path_specieslist <- paste0(path_species, projkey, ".csv")
+
+      # Run the core NRI geofiles function
+      geofiles_nri(
+        path_foringest   = current_path_ingest,
+        path_tall        = current_path_tall,
+        header           = subset_header,
+        path_specieslist = path_specieslist,
+        template         = template,
+        path_schema      = path_schema,
+        doGSP            = doGSP,
+        verbose          = TRUE,
+        calculate_dead   = FALSE,
+        digits           = 6
+      )
+
+      # renaming
+      geo_file <- file.path(current_path_ingest, "geoIndicators.csv")
+      if (file.exists(geo_file)) {
+        geoind <- read.csv(geo_file) %>% dplyr::filter(ProjectKey == projkey)
+        new_name <- file.path(current_path_ingest, paste0("geoIndicators_", projkey, "_sub", s_nbr, ".csv"))
+        write.csv(geoind, new_name, row.names = FALSE)
+        file.remove(geo_file)
+      }
+
+      # geosp
+      if (doGSP) {
+        spec_file <- file.path(current_path_ingest, "geoSpecies.csv")
+        if (file.exists(spec_file)) {
+          geosp <- read.csv(spec_file) %>% dplyr::filter(ProjectKey == projkey)
+          new_spec_name <- file.path(current_path_ingest, paste0("geoSpecies_", projkey, "_sub", s_nbr, ".csv"))
+          write.csv(geosp, new_spec_name, row.names = FALSE)
+          file.remove(spec_file)
+        }
+      }
+    }
+  })
+
+  # merge files to end up with one geo file
+  message("\nMerging all subset outputs into final master files...")
+
+  # Merge GeoIndicators
+  all_geo_files <- list.files(path_ingest_subset_root,
+                              pattern = "geoIndicators_.*\\.csv",
+                              recursive = TRUE, full.names = TRUE)
+
+  if (length(all_geo_files) > 0) {
+    master_geo <- lapply(all_geo_files, read.csv) %>% dplyr::bind_rows()
+    write.csv(master_geo, file.path(path_foringest, "geoIndicators.csv"), row.names = FALSE)
+    file.remove(all_geo_files)
+  }
+
+  # Merge GeoSpecies
+  if (doGSP) {
+    all_spec_files <- list.files(path_ingest_subset_root,
+                                 pattern = "geoSpecies_.*\\.csv",
+                                 recursive = TRUE, full.names = TRUE)
+    if (length(all_spec_files) > 0) {
+      master_spec <- lapply(all_spec_files, read.csv) %>% dplyr::bind_rows()
+      write.csv(master_spec, file.path(path_foringest, "geoSpecies.csv"), row.names = FALSE)
+      file.remove(all_spec_files)
+    }
+  }
+
 }

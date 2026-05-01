@@ -396,31 +396,30 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 #'
 #' clean any of the tall files available in the gathered_data folder
 #'
-#' @param source source, either "NRI", "AIM" or "DIMA"
+#' @param data_source source, either "NRI", "AIM" or "DIMA"
 #' @param dataHeader as data frame dataHeader
 #' @param path_tall path where cleaned tall files are/will be stored
+#' @param subset_to_filter number or numbers to process
 #' @param gathered_data file path where gathered data, not yet cleaned, will be saved
+#' @param data_list list of original fies
 #'
-#' @return saves CSV and RDS file of terradactyl gathered files to path gathered_data
-#'
+#' @return saves CSVs of cleaned, LDC vars present, tall files to subset folders. if one subset, saved to subset_0
 #' @export
-clean_all <- function(source, gathered_data, dataHeader, path_tall, subset_to_filter = NULL) {
+clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL) {
 
-  # Initialize the return list
   tall_files_list <- list()
 
-  # Define the output directory: path_tall/subset/subset_X
-  # If no subset is provided, it defaults to the main path_tall
+  # Define the unique output directory
   if (!is.null(subset_to_filter)) {
     output_dir <- file.path(path_tall, "subset", paste0("subset_", subset_to_filter))
   } else {
     output_dir <- path_tall
   }
 
-  # Ensure the directory exists (recursive = TRUE handles creating /subset/ then /subset_X/)
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-  # load all files in gathered_data
+  # 1. Load and Filter Data
+  # Added back horizontalflux and dustdeposition to the loading list
   tall_file_names <- c("lpi_tall", "height_tall", "gap_tall", "species_inventory_tall",
                        "soil_stability_tall", "rangelandhealth_tall", "header", "soil_horizons_tall",
                        "horizontalflux_tall", "dustdeposition_tall")
@@ -430,103 +429,86 @@ clean_all <- function(source, gathered_data, dataHeader, path_tall, subset_to_fi
     if (file.exists(file_path)) {
       dat <- vroom::vroom(file_path, show_col_types = FALSE)
 
-      # Filter by subset_nbr if a subset is specified and the column exists
       if (!is.null(subset_to_filter) && "subset_nbr" %in% names(dat)) {
-        dat <- dat %>% dplyr::filter(subset_nbr == subset_to_filter)
+        dat <- dat %>% dplyr::filter(as.numeric(subset_nbr) == as.numeric(subset_to_filter))
       }
 
-      # Assign to Global for your other scripts
       assign(file_name, dat, envir = .GlobalEnv)
-      # Assign to Local so THIS function can see it
       assign(file_name, dat)
     }
   }
 
-  # source suffix for function names
-  # NRI -> "_nri", BLM_AIM -> "_aim", DIMA -> ""
+  # 2. Suffix Logic
   s_suffix <- case_when(
-    source == "NRI" ~ "_nri",
-    source == "BLM_AIM" ~ "_aim",
+    data_source == "NRI" ~ "_nri",
+    data_source == "BLM_AIM" ~ "_aim",
     TRUE ~ ""
   )
 
-  # Improved dynamic function runner
+  # 3. Dynamic Process Runner
   run_process <- function(protocol, ...) {
-    # Construct just the function name WITHOUT the ::
-    # Handle the 'richness' naming discrepancy if it exists in your package
     p_name <- if(protocol == "species") "species_richness" else protocol
     func_name <- paste0("clean_tall_", p_name, s_suffix)
 
-    # Check if the function exists in the terradactylutils3 namespace
     if (exists(func_name, where = asNamespace("terradactylutils3"), mode = "function")) {
-      message("Executing: terradactylutils3::", func_name)
-
-      # Get the actual function object from the package
       actual_func <- getExportedValue("terradactylutils3", func_name)
-
       return(do.call(actual_func, list(...)))
     } else {
-      message("Warning: Function ", func_name, " not found in terradactylutils3")
       return(NULL)
     }
   }
 
-  ## process each method by source
+  # 4. Standardized arguments
+  standard_args <- list(dataHeader = dataHeader, path_tall = output_dir)
+
+  # --- Method-Specific Calls ---
 
   # LPI
   if (exists("lpi_tall")) {
-    cleaned_lpi_tall <- run_process("lpi", lpi = lpi_tall, dataHeader = dataHeader, path_tall = path_tall)
-    tall_files_list$lpi <- cleaned_lpi_tall
+    tall_files_list$lpi <- do.call(run_process, c(list(protocol = "lpi", lpi = lpi_tall), standard_args))
   }
 
   # Gap
+  gap_header <- if(s_suffix %in% c("_nri", "_aim")) NULL else data_list$tblGapHeader
   if (exists("gap_tall")) {
-    cleaned_tall_gap <- run_process("gap", tall_gap = gap_tall, dataHeader = dataHeader, path_tall = path_tall)
-    tall_files_list$gap <- cleaned_tall_gap
+    tall_files_list$gap <- do.call(run_process, c(list(protocol = "gap", tall_gap = gap_tall, tblGapHeader = gap_header), standard_args))
+  }
+
+  # Height
+  lpi_header <- if(s_suffix %in% c("_nri", "_aim")) NULL else data_list$tblLPIHeader
+  if (exists("height_tall")) {
+    tall_files_list$height <- do.call(run_process, c(list(protocol = "height", tall_height = height_tall, tblLPIHeader = lpi_header), standard_args))
   }
 
   # Soil Stability
   if (exists("soil_stability_tall")) {
-    cleaned_tall_soil_stability <- run_process("soil_stability", tall_soil_stability = soil_stability_tall, dataHeader = dataHeader, path_tall = path_tall)
-    tall_files_list$soil_stability <- cleaned_tall_soil_stability
+    tall_files_list$soil_stability <- do.call(run_process, c(list(protocol = "soil_stability", tall_soil_stability = soil_stability_tall), standard_args))
   }
 
-  # Species Richness
+  # Species
   if (exists("species_inventory_tall")) {
-    cleaned_tall_species <- run_process("species", tall_species = species_inventory_tall, dataHeader = dataHeader, path_tall = path_tall)
-    tall_files_list$species_inventory <- cleaned_tall_species
+    tall_files_list$species_inventory <- do.call(run_process, c(list(protocol = "species", tall_species = species_inventory_tall), standard_args))
   }
 
-  # Height
-  if (exists("height_tall")) {
-    cleaned_tall_height <- run_process("height", tall_height = height_tall, dataHeader = dataHeader, path_tall = path_tall)
-    tall_files_list$height <- cleaned_tall_height
-  }
+  # 5. Handle Direct-Save Tables (Range Health, MWAC, DDT, Soil Horizons)
+  # These tables are subsetted but usually don't have a unique 'clean_tall' function
 
-  #  Range Health
-  if (exists("nri") && !is.null(nri$RANGEHEALTH) && nrow(nri$RANGEHEALTH) > 0) {
-    if(exists("rangelandhealth_tall")){
-      tall_files_list$rangehealth <- rangelandhealth_tall
-      write.csv(rangelandhealth_tall, file.path(output_dir, "rangelandhealth_tall.csv"), row.names = FALSE)
+  direct_save_map <- list(
+    rangehealth = "rangelandhealth_tall",
+    soil_horizons = "soil_horizons_tall",
+    horizontal_flux = "horizontalflux_tall",
+    dust_deposition = "dustdeposition_tall"
+  )
+
+  for (list_name in names(direct_save_map)) {
+    obj_name <- direct_save_map[[list_name]]
+
+    if (exists(obj_name)) {
+      dat_obj <- get(obj_name)
+      tall_files_list[[list_name]] <- dat_obj
+      # Save the subsetted version to the new directory
+      write.csv(dat_obj, file.path(output_dir, paste0(obj_name, ".csv")), row.names = FALSE)
     }
-  }
-
-  # soil horizons
-  if(exists("soil_horizons_tall")){
-    tall_files_list$soil_horizons <- soil_horizons_tall
-    write.csv(soil_horizons_tall, file.path(output_dir, "soil_horizons_tall.csv"), row.names = FALSE)
-  }
-
-  # Horizontal flux and DDT
-  if(exists("horizontalflux_tall")){
-    tall_files_list$horizontal_flux <- horizontalflux_tall
-    write.csv(horizontalflux_tall, file.path(output_dir, "horizontalflux_tall.csv"), row.names = FALSE)
-  }
-
-  # DDT
-  if(exists("dustdeposition_tall")){
-    tall_files_list$dust_deposition <- dustdeposition_tall
-    write.csv(dustdeposition_tall, file.path(output_dir, "dustdeposition_tall.csv"), row.names = FALSE)
   }
 
   return(tall_files_list)

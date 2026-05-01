@@ -1147,14 +1147,14 @@ tall_height_qc_nri <- function(PASTUREHEIGHTS, tall_height, path_qc){
 #' produces QC information using the tall_height file produced from terradactylutils2::clean_tall_height()
 #'
 #' @param SOILDISAG as a data.frame, SOILDISAG table
-#' @param tall_soil_stability gathered soil stability file
+#' @param cleaned_tall_soil_stability gathered soil stability file
 #' @param path_qc path where the QC data will be saved
 #'
 #' @return a CSV file with QC information about the soil stability data saved to the specified path_qc
 #'
 #' @export
 ######################
-tall_soil_stability_qc_nri <- function(SOILDISAG, tall_soil_stability, path_qc){
+tall_soil_stability_qc_nri <- function(SOILDISAG, cleaned_tall_soil_stability, path_qc){
 
   tall_soil_stability <- cleaned_tall_soil_stability
   # SS rating errors
@@ -1312,3 +1312,111 @@ ss_veg_issues <- tall_soil_stability[tall_soil_stability$Veg %notin% valid_veg,]
   write.csv(ss_veg_issues, paste0(path_qc, "/soil_stability_veg_type_check_tall_data.csv"))
 }
 
+
+
+
+
+
+#' QC tall files
+#'
+#' @param path_tall path to the directory containing tall CSV files
+#' @param source source type
+#' @param speciescode speciescode
+#' @param USDA_plants species list of USDA codes
+#' @param data_list list of raw files with keys assigned
+#' @param path_qc file path where QC documents will be stored
+#' @param DIMATables folder path to raw DIMA tables - AIM and DIMA only - keys not yet assigned
+#' @param subset_nbr one or multiple numbers; an optional variable for running in subsets
+#'
+#' @export
+qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
+                        data_list = NULL, path_qc, DIMATables = NULL,
+                        subset_nbr = NULL) {
+
+  tall_file_names <- c("lpi_tall", "height_tall", "gap_tall",
+                       "species_inventory_tall", "soil_stability_tall")
+
+  # can't rely on .GlobalEnv for parallel - ensure objects are available locally
+  for (file_name in tall_file_names) {
+    # save qc by subset nbr if available
+    file_path <- file.path(path_tall, paste0("subset", subset_nbr, "_", file_name, ".csv"))
+
+    if (file.exists(file_path)) {
+      dat <- vroom::vroom(file_path, show_col_types = FALSE)
+      # Assigning locally
+      assign(file_name, dat)
+    }
+  }
+
+  # need subset paths for parallel
+  subset_qc_path <- file.path(path_qc, paste0("subset", subset_nbr))
+  if (!dir.exists(subset_qc_path)) {
+    dir.create(subset_qc_path, recursive = TRUE)
+  }
+
+
+  ## LPI
+  if(exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0){
+    terradactylutils3::tall_lpi_qc_nri(tall_lpi = lpi_tall, speciescode = speciescode, USDA_plants = USDA_plants, PINTERCEPT = nri$PINTERCEPT, path_qc = subset_qc_path)
+
+  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && nrow(dima_data_list[["tblLPIHeader"]]) > 0){
+    terradactylutils3::tall_lpi_qc(cleaned_tall_lpi = lpi_tall, speciescode = speciescode, tblLPIDetail = dima_data_list$tblLPIDetail, USDA_plants = USDA_plants , path_qc = subset_qc_path)
+
+  } else if (source == "BLM_AIM"){
+    terradactylutils3::tall_lpi_qc_AIM(tall_lpi = lpi_tall, path_tall = path_tall, path_qc = subset_path_qc)
+
+  } else {
+    message("No LPI data found")
+  }
+
+  ## Gap
+  if(exists("nri") && !is.null(nri$GINTERCEPT) && nrow(nri$GINTERCEPT) > 0 ) {
+    terradactylutils3::tall_gap_qc_nri(tall_gap = gap_tall, GINTERCEPT = nri$GINTERCEPT, path_qc = subset_qc_path)
+
+  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblGapHeader"]]) && nrow(dima_data_list[["tblGapHeader"]]) > 0){
+    message("Found DIMA gap data; processing")
+    terradactylutils3::tall_gap_qc(cleaned_tall_gap = gap_tall, tblGapDetail = dima_data_list$tblGapDetail, path_qc = subset_qc_path)
+
+  } else if(source == "BLM_AIM"){
+    # Fixed path and extension
+    tblGapDetail <- read.csv(file.path(DIMATables, "tblGapDetail.csv"))
+    terradactylutils3::tall_gap_qc_AIM(cleaned_tall_gap = gap_tall, tblGapDetail = tblGapDetail, path_qc = subset_qc_path)
+
+  } else {
+    message("No Gap data found")
+  }
+
+  ## Soil stability
+  if(exists("nri") && !is.null(nri$SOILDISAG) && nrow(nri$SOILDISAG) > 0) {
+    terradactylutils3::tall_soil_stability_qc_nri(
+      cleaned_tall_soil_stability = soil_stability_tall,
+      SOILDISAG = nri$SOILDISAG,
+      path_qc = subset_qc_path
+    )
+  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblSoilStabHeader"]]) && nrow(dima_data_list[["tblSoilStabHeader"]]) > 0){
+    terradactylutils3::tall_soil_stability_qc(tblSoilStabDetail = dima_data_list$tblSoilStabDetail, cleaned_tall_soil_stability = soil_stability_tall, path_qc = subset_qc_path)
+
+  } else if (source == "BLM_AIM"){
+    message("Currently no QC for BLM AIM soil stability")
+
+  } else {
+    message("No soil stability data found")
+  }
+
+  ## Species richness
+  message("No species richness QC")
+
+  ## Height
+  if(exists("nri") && !is.null(nri$PASTUREHEIGHTS) && nrow(nri$PASTUREHEIGHTS) > 0) {
+    terradactylutils3::tall_height_qc_nri(PASTUREHEIGHTS = nri$PASTUREHEIGHTS, tall_height = height_tall, path_qc = subset_qc_path)
+
+  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && sum(dima_data_list[["tblLPIDetail"]][["HeightHerbaceous"]], na.rm = T) > 0){
+    terradactylutils3::tall_height_qc(tblLPIDetail = dima_data_list$tblLPIDetail, cleaned_tall_height = height_tall, path_qc = subset_qc_path)
+
+  } else if (source == "BLM_AIM"){
+    message("Currently no BLM AIM height QC")
+
+  } else {
+    message("No height data found")
+  }
+}

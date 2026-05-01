@@ -873,3 +873,57 @@ assign_subset_nbr <- function(gathered_data, path_tall) {
     }
   })
 }
+
+
+#' Merge CSVs from subfolders with matching names (Base R Version)
+#'
+#' @param parent_path String. The path to a parent directory with subfolders within for merging.
+#' @param verbose Logical. If TRUE, prints progress messages.
+merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
+
+  # check path
+  if (!dir.exists(parent_path)) {
+    stop("The provided parent directory does not exist.")
+  }
+
+  # subfolders
+  # full.names = TRUE gives the path, recursive = FALSE stays in top level
+  sub_folders <- list.dirs(parent_path, full.names = TRUE, recursive = FALSE)
+
+  if (length(sub_folders) == 0) {
+    warning("No subfolders found in the parent directory.")
+    return(invisible(NULL))
+  }
+
+  # all csvs
+  all_files <- list.files(
+    path = sub_folders,
+    pattern = "\\.csv$",
+    full.names = TRUE,
+    recursive = FALSE
+  )
+
+  if (length(all_files) == 0) {
+    warning("No CSV files found within the subfolders.")
+    return(invisible(NULL))
+  }
+
+  # group by name
+  file_groups <- split(all_files, basename(all_files))
+
+  lapply(names(file_groups), function(filename) {
+    paths <- file_groups[[filename]]
+
+    if (verbose) message("Processing: ", filename)
+
+    # Read and combine using do.call(rbind, ...)
+    # lapply replaces map(); read.csv is the base equivalent to read_csv
+    list_of_dfs <- lapply(paths, read.csv, stringsAsFactors = FALSE)
+    combined_df <- do.call(rbind, list_of_dfs)
+
+    # save to parent folder
+    out_path <- file.path(parent_path, filename)
+    write.csv(combined_df, out_path, row.names = FALSE)
+  })
+
+}
