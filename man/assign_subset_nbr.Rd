@@ -2,18 +2,15 @@
 % Please edit documentation in R/supporting_functions.R
 \name{assign_subset_nbr}
 \alias{assign_subset_nbr}
-\title{Assign subset group numbers to header data}
+\title{Assign Subset Numbers to gathered data}
 \usage{
 assign_subset_nbr(gathered_data, path_tall)
 }
 \arguments{
-\item{gathered_data}{path where NRI terradactyl gathered tall files are stored}
+\item{gathered_data}{Path to the folder containing your CSV files.}
 
-\item{path_tall}{path where NRI cleaned tall files (specifically header.csv) are stored}
-}
-\value{
-A single header.csv file saved in a 'subset' folder with a 'subset_nbr' column
+\item{path_tall}{Path to the folder containing the 'header.csv' file.}
 }
 \description{
-Assign subset group numbers to header data
+Assign Subset Numbers to gathered data
 }

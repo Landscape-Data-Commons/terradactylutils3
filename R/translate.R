@@ -423,3 +423,100 @@ for(proj in projectkey) {
 }
 
 }
+
+
+
+#' Translate Core Methods
+#'
+#' @param path_tall path to the directory containing tall CSV files
+#' @param path_foringest path where translated files will be saved
+#' @param path_schema path to the CSV schema file
+#' @param verbose Logical. If TRUE, prints progress messages.
+#'
+#' @export
+translate_coremethods <- function(path_tall, path_foringest, path_schema, verbose = FALSE) {
+
+  # ldc schema
+  if (!file.exists(path_schema)) stop("Schema file not found.")
+  schema <- read.csv(path_schema, stringsAsFactors = FALSE)
+
+  # convert "_tall" to "data"
+  name_to_ldc <- function(filename) {
+    clean_name <- gsub("\\.csv$|_tall", "", filename)
+    parts <- unlist(strsplit(clean_name, "_"))
+    camel_case <- paste0(toupper(substring(parts, 1, 1)), substring(parts, 2))
+    return(paste0("data", paste(camel_case, collapse = "")))
+  }
+
+  # header for joins
+  header_path <- file.path(path_tall, "header.csv")
+  if (!file.exists(header_path)) {
+    stop("header.csv not found. Header is required for PrimaryKey/Date mapping.")
+  }
+
+  header_raw <- read.csv(header_path, stringsAsFactors = FALSE)
+
+  dataHeader <- header_raw |>
+    terradactylutils3::translate_schema2(
+      schema = schema,
+      datatype = "dataHeader",
+      dropcols = TRUE,
+      verbose = verbose
+    )
+
+  # Ensure DateVisited is a Date object for subsequent joins
+  dataHeader$DateVisited <- as.Date(dataHeader$DateVisited)
+
+  write.csv(dataHeader, file.path(path_foringest, "dataHeader.csv"), row.names = FALSE)
+
+  # detect files in path_tall excluding header
+  all_csvs <- list.files(path_tall, pattern = "\\.csv$", full.names = FALSE)
+  tall_files <- all_csvs[all_csvs != "header.csv"]
+
+  if (length(tall_files) == 0) {
+    if (verbose) message("No tall files found.")
+    return(invisible(NULL))
+  }
+
+  # assign name in schema
+  for (f in tall_files) {
+    ldc_datatype <- name_to_ldc(f)
+    if (verbose) message("Processing: ", f, " as ", ldc_datatype)
+
+    # Read the tall data
+    dat <- read.csv(file.path(path_tall, f), stringsAsFactors = FALSE)
+
+    # join header
+    if ("PrimaryKey" %in% names(dat)) {
+      # Remove any existing DateVisited to avoid DateVisited.x / DateVisited.y
+      dat <- dat[, !(names(dat) %in% "DateVisited"), drop = FALSE]
+
+      # Join with translated Header
+      dat <- dat |>
+        dplyr::left_join(
+          dataHeader |> dplyr::select(PrimaryKey, DateVisited),
+          by = "PrimaryKey"
+        )
+
+      # format date
+      dat$DateVisited <- as.Date(dat$DateVisited)
+    }
+
+    # schema translation
+    if (!(ldc_datatype %in% schema$table)) {
+      warning(paste("Datatype", ldc_datatype, "not found in schema. Saving without translation."))
+      write.csv(dat, file.path(path_foringest, paste0(ldc_datatype, ".csv")), row.names = FALSE)
+    } else {
+      data_translated <- dat |>
+        terradactylutils3::translate_schema2(
+          schema = schema,
+          datatype = ldc_datatype,
+          dropcols = TRUE,
+          verbose = verbose
+        )
+
+      write.csv(data_translated, file.path(path_foringest, paste0(ldc_datatype, ".csv")), row.names = FALSE)
+    }
+  }
+
+}

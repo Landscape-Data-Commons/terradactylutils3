@@ -58,16 +58,19 @@ pkeys <- dataHeader$PrimaryKey
 tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] %>%
   dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
 
-tall_lpi$source <- "BLM_AIM"
-tall_lpi$ProjectKey <- "BLM_AIM"
-tall_lpi$DateLoadedInDb <- Sys.Date()
-tall_lpi$SpeciesState <- rep("BLM_AIM") # should this be the species state from header??
-tall_lpi$DBKey <- header$DBKey[match(tall_lpi$PrimaryKey,header$PrimaryKey)] # adding outside of terra
-tall_lpi$ShowCheckbox <- NA
-tall_lpi$code<- trimws(tall_lpi$code)
-tall_lpi$SpeciesState <- NULL
+tall_lpi <- tall_lpi |>
+  transform(
+    source         = "BLM_AIM",
+    ProjectKey     = "BLM_AIM",
+    DateLoadedInDb = Sys.Date(),
+    # Pulling State from header based on PrimaryKey
+    #SpeciesState   = header$State[match(PrimaryKey, header$PrimaryKey)],
+    DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)],
+    ShowCheckbox   = NA,
+    code           = trimws(code)
+  )
 saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
-write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
+#write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
 
 }
 
@@ -95,19 +98,24 @@ clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,  tblGapHeader = 
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
   #tall_gap$DBKey.y <- NULL
   #colnames(tall_gap)[colnames(tall_gap) == 'DBKey.x'] <- 'DBKey'
-  tall_gap$ProjectKey  <-"BLM_AIM"
-  tall_gap$chckbox <- rep(NA)
-  tall_gap$DateVisited   <- as.Date(tall_gap$FormDate, format = "%Y-%m-%d")
-  tall_gap$FormType        <- rep("Gap")
-
-  tall_gap$DateLoadedInDb    <-Sys.Date()
-  tall_gap$source <- rep("BLM_AIM") #
-  tall_gap <- tall_gap %>% dplyr::group_by(PrimaryKey, LineKey, RecType) %>%
-    dplyr::mutate(sumCanCat1 = sum(Gap, na.rm = T)) %>% dplyr::ungroup() #
-  tall_gap$Notes <- rep(NA) #
-  tall_gap$DBKey <- header$DBKey[match(tall_gap$PrimaryKey,header$PrimaryKey)]
+  tall_gap <- tall_gap |>
+    # Perform the grouped sum (Equivalent to group_by + mutate)
+    transform(
+      sumCanCat1 = ave(Gap, PrimaryKey, LineKey, RecType, FUN = \(x) sum(x, na.rm = TRUE))
+    ) |>
+    # Assign all other metadata
+    transform(
+      ProjectKey     = "BLM_AIM",
+      chckbox        = NA,
+      DateVisited    = as.Date(FormDate, format = "%Y-%m-%d"),
+      FormType       = "Gap",
+      DateLoadedInDb = Sys.Date(),
+      source         = "BLM_AIM",
+      Notes          = NA,
+      DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)]
+    )
   saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
-  write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
+ # write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
   return(tall_gap)
 }
 
@@ -128,39 +136,43 @@ clean_tall_soil_stability_aim <- function(tall_soil_stability, path_tall, dataHe
 header <- dataHeader
   #dropcols_soilstability <- tall_soilstability  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
 
-  dropcols_soilstability <- tall_soilstability  %>% dplyr::select_if(!(names(.) %in% c( "rid", "DateModified", "SpeciesList")))
+  dropcols_soilstability <- tall_soil_stability  %>% dplyr::select_if(!(names(.) %in% c( "rid", "DateModified", "SpeciesList")))
   pkeys <- dataHeader$PrimaryKey
-  tall_soilstability <- tall_soilstability[which(!duplicated(dropcols_soilstability)),] %>%
+  tall_soil_stability <- tall_soil_stability[which(!duplicated(dropcols_soilstability)),] %>%
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
 
-  tall_soilstability$DateVisited  <- as.Date(tall_soilstability$FormDate, format = "%Y-%m-%d") # formdate, don't keep hr and min
-  tall_soilstability$FormType   <- rep("SoilStability")
-  tall_soilstability$source <-"BLM_AIM"
-  tall_soilstability$Notes <- rep(NA)
-  tall_soilstability$DBKey <- header$DBKey[match(tall_soilstability$PrimaryKey,header$PrimaryKey)]
-  # add DBKey and DateLoadedInDb?
+  tall_soil_stability <- tall_soil_stability |>
+    transform(
+      ProjectKey         = "BLM_AIM",
+      DateVisited        = as.Date(FormDate, format = "%Y-%m-%d"),
+      FormType           = "SoilStability",
+      source             = "BLM_AIM",
+      Notes              = NA,
+      DBKey              = header$DBKey[match(PrimaryKey, header$PrimaryKey)],
+      # New columns added below
+      LineKey            = NA,
+      SoilStabSubSurface = NA,
+      Line               = NA,
+      Pos                = NA
+    )  # add DBKey and DateLoadedInDb?
   # missing cols from schema
   schema_ss <- read.csv(path_schema)
 
   schema_ss <- schema_ss %>% dplyr::filter(Table == "dataSoilStability")
-  missing_cols <- setdiff(schema_ss$Field, names(tall_soilstability))
+  missing_cols <- setdiff(schema_ss$Field, names(tall_soil_stability))
 
-  tall_soilstability$ProjectKey <- "BLM_AIM"
-  tall_soilstability$LineKey <- NA
-  tall_soilstability$SoilStabSubSurface <- NA
-  tall_soilstability$Line <- NA
-  tall_soilstability$Pos <- NA
+
 
   # missing columns with NA
   for (col in missing_cols) {
-    tall_soilstability[[col]] <- NA
+    tall_soil_stability[[col]] <- NA
   }
 
 
-  saveRDS(tall_soilstability, file.path(path_tall, "soil_stability_tall.rdata"))
-  write.csv(tall_soilstability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
+  saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
+  #write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
 
-return(tall_soilstability)
+return(tall_soil_stability)
 
 }
 
@@ -185,18 +197,17 @@ header <- dataHeader
   dropcols_speciesinventory <- tall_sr  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   tall_speciesinventory <- tall_sr[which(!duplicated(dropcols_speciesinventory)),] %>%
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
-  tall_speciesinventory$ProjectKey <- "BLM_AIM"
-
-
-  tall_speciesinventory$DateVisited <- as.Date(tall_speciesinventory$FormDate, format = "%Y-%m-%d")
-
-  tall_speciesinventory$DENSITY <- rep(NA)
-  tall_speciesinventory$ FormType <- rep("SpeciesInventory")
-
-  tall_speciesinventory$DateLoadedInDb   <- Sys.Date()
-  tall_speciesinventory$Notes <- rep(NA)
-  tall_speciesinventory$source <- "BLM_AIM"
-  tall_speciesinventory$DBKey <- header$DBKey[match(tall_speciesinventory$PrimaryKey,header$PrimaryKey)]
+  tall_speciesinventory <- tall_speciesinventory |>
+    transform(
+      ProjectKey     = "BLM_AIM",
+      DateVisited    = as.Date(FormDate, format = "%Y-%m-%d"),
+      DENSITY        = NA,
+      FormType       = "SpeciesInventory",
+      DateLoadedInDb = Sys.Date(),
+      Notes          = NA,
+      source         = "BLM_AIM",
+      DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)]
+    )
   schema_spr <- read.csv(path_schema)
 
   schema_spr <- schema_spr %>% dplyr::filter(Table == "dataSpeciesInventory")
@@ -210,7 +221,7 @@ header <- dataHeader
 
 
   saveRDS(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.rdata"))
-  write.csv(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
+  #write.csv(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
 
 return(tall_speciesinventory)
 }
@@ -239,16 +250,18 @@ header <- dataHeader
   pkeys <- dataHeader$PrimaryKey
   tall_height <- tall_height[which(!duplicated(dropcols_height)),] %>%
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
-  tall_height$ProjectKey <- "BLM_AIM"
-  tall_height$FormType <- rep("LPI") # add formtype to all in terra?
-  tall_height$source <- "BLM_AIM"
-  tall_height$DateVisited <- as.Date(tall_height$FormDate, format = "%Y-%m-%d")
-  tall_height$DateLoadedInDb <- Sys.Date()
-  tall_height$DBKey <- header$DBKey[match(tall_height$PrimaryKey,header$PrimaryKey)] # adding outside of terra
-  tall_height$ShowCheckbox <- NA
-
+  tall_height <- tall_height |>
+    transform(
+      ProjectKey     = "BLM_AIM",
+      FormType       = "LPI",
+      source         = "BLM_AIM",
+      DateVisited    = as.Date(FormDate, format = "%Y-%m-%d"),
+      DateLoadedInDb = Sys.Date(),
+      DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)],
+      ShowCheckbox   = NA
+    )
   saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
-  write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
+  #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
 return(tall_height)
 
 }

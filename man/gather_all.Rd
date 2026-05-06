@@ -9,7 +9,8 @@ gather_all(
   path_original_files = NULL,
   gathered_data,
   path_tall,
-  path_schema
+  path_schema,
+  dsn
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ gather_all(
 \item{path_tall}{path where cleaned tall files are/will be stored}
 
 \item{path_schema}{path to LDC schema plan}
+
+\item{dsn}{if BLM_AIM dsn to gdb}
 }
 \value{
 saves CSV and RDS file of terradactyl gathered files to path gathered_data

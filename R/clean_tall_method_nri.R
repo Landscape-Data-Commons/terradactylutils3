@@ -152,7 +152,7 @@ tall_lpi <- tall_lpi[tall_lpi$code != "None",]
     ungroup()
 
   saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
-  write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
+  #write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
 
   return(tall_lpi)
 }
@@ -181,15 +181,13 @@ clean_tall_gap_nri <- function(tall_gap, dataHeader, path_tall, tblGapHeader = N
   tall_gap <- tall_gap[which(!duplicated(dropcols_gap)),] |>
     dplyr::filter(PrimaryKey %in% pkeys) |> unique()
   # add back in cols that are currently being removed with the function
-  tall_gap$DBKey <- dataHeader$DBKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
-
-  tall_gap$DateVisited <- dataHeader$DateVisited[match(tall_gap$PrimaryKey,dataHeader$PrimaryKey)]
-  #tall_gap$DateVisited <- as.character(tall_gap$DateVisited)
-
-  tall_gap$Direction <- NA
-  #match
-  tall_gap$ProjectKey <- dataHeader$ProjectKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
-
+  tall_gap <- tall_gap |>
+    transform(
+      DBKey       = dataHeader$DBKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      DateVisited = dataHeader$DateVisited[match(PrimaryKey, dataHeader$PrimaryKey)],
+      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      Direction   = NA
+    )
   # remove GapEnd NAs when there is already a good entry
   tall_gap <- tall_gap %>%
     group_by(PrimaryKey, LineKey, SeqNo) %>%
@@ -200,7 +198,7 @@ clean_tall_gap_nri <- function(tall_gap, dataHeader, path_tall, tblGapHeader = N
     ungroup()
 
   saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
-  write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
+  #write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
   return(tall_gap)
 }
 #####################################
@@ -228,14 +226,14 @@ clean_tall_soil_stability_nri <- function(tall_soil_stability, dataHeader, path_
   tall_soil_stability <- tall_soil_stability[which(!duplicated(dropcols_soil_stability)),] |>
     dplyr::filter(PrimaryKey %in% pkeys) |> unique()
   # add back in cols that are currently being removed with the function
-  tall_soil_stability$DBKey <- dataHeader$DBKey[match(tall_soil_stability$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_soil_stability$Hydro <- rep(FALSE)
-  #tall_soil_stability$DateVisited <- as.character(tall_soil_stability$DateVisited)
-  #rename
-  tall_soil_stability$ProjectKey <- dataHeader$ProjectKey[match(tall_soil_stability$PrimaryKey, dataHeader$PrimaryKey)]
-
+  tall_soil_stability <- tall_soil_stability |>
+    transform(
+      DBKey       = dataHeader$DBKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      Hydro       = FALSE
+    )
   saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
-  write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
+  #write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
   return(tall_soil_stability)
 }
 ##################################
@@ -261,13 +259,14 @@ clean_tall_species_nri <- function(tall_species, dataHeader, path_tall){
   tall_species <- tall_species[which(!duplicated(dropcols_species)),] |>
     dplyr::filter(PrimaryKey %in% pkeys) |> unique()
   # add back in cols that are currently being removed with the function
-  tall_species$DBKey <- dataHeader$DBKey[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_species$Direction <- NA
-  #tall_species$DateVisited <- as.character(tall_species$DateVisited)
-  tall_species$ProjectKey <- dataHeader$ProjectKey[match(tall_species$PrimaryKey, dataHeader$PrimaryKey)]
-
+  tall_species <- tall_species |>
+    transform(
+      DBKey       = dataHeader$DBKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      Direction   = NA
+    )
   saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
-  write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
+ # write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
 
   return(tall_species)
 }
@@ -293,18 +292,19 @@ clean_tall_height_nri <- function(tall_height, dataHeader, tblLPIHeader, path_ta
   tall_height <- tall_height[which(!duplicated(dropcols_height)),] |>
     dplyr::filter(PrimaryKey %in% pkeys) |> unique()
   # add back in cols that are currently being removed with the function
-  tall_height$DBKey <- dataHeader$DBKey[match(tall_height$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_height$ProjectKey <- dataHeader$ProjectKey[match(tall_height$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_height$FormType <- NA
-  tall_height$source <- "NRI"
-  tall_height$DateVisited <-dataHeader$DateVisited[match(tall_height$PrimaryKey, dataHeader$PrimaryKey)]
-  #tall_height$DateVisited <- as.Date(tall_height$DateVisited, format = format)
-  tall_height$DateLoadedInDb <- Sys.Date()
-  tall_height$FormDate <- dataHeader$DateVisited[match(tall_height$PrimaryKey, dataHeader$PrimaryKey)]
-
+  tall_height <- tall_height |>
+    transform(
+      DBKey          = dataHeader$DBKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      ProjectKey     = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      FormType       = NA,
+      source         = "NRI",
+      DateVisited    = dataHeader$DateVisited[match(PrimaryKey, dataHeader$PrimaryKey)],
+      DateLoadedInDb = Sys.Date(),
+      FormDate       = dataHeader$DateVisited[match(PrimaryKey, dataHeader$PrimaryKey)]
+    )
 
   saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
-  write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
+  #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
 
   return(tall_height)
 }

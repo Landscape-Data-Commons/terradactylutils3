@@ -819,59 +819,116 @@ subset_tall_files <- function(gathered_data, path_tall) {
 
 
 
-#' Assign subset group numbers to header data
-#'
-#' @param gathered_data path where NRI terradactyl gathered tall files are stored
-#' @param path_tall path where NRI cleaned tall files (specifically header.csv) are stored
-#'
-#' @return A single header.csv file saved in a 'subset' folder with a 'subset_nbr' column
-#' @export
-#'
+#' Assign Subset Numbers to gathered data
+#' @param gathered_data Path to the folder containing your CSV files.
+#' @param path_tall Path to the folder containing the 'header.csv' file.
 assign_subset_nbr <- function(gathered_data, path_tall) {
+
+  # output is within gathered data
   output_root <- file.path(gathered_data, "subset")
   if (!dir.exists(output_root)) dir.create(output_root, recursive = TRUE)
 
+
+  # Use 'select' to keep memory usage to the absolute minimum
+  header_path <- file.path(path_tall, "header.csv")
+  if (!file.exists(header_path)) stop("header.csv not found in path_tall")
+
+  h_dt <- data.table::fread(header_path, select = "PrimaryKey")
+
+  # Create unique mapping
+  keys_assigned <- unique(h_dt, by = "PrimaryKey")
+
+  # Assign subset numbers - right now only doing 4 at a time
+  keys_assigned[, subset_nbr := dplyr::ntile(1:.N, 4)]
+
+  # Set key for lightning-fast join
+  data.table::setkey(keys_assigned, PrimaryKey)
+
+  # Clean up the raw header read
+  rm(h_dt)
+
+  # process all other files
   csv_files <- list.files(path = gathered_data, pattern = "\\.csv$", full.names = TRUE)
 
-  # Use vroom for much faster reading
-  header <- vroom::vroom(file.path(path_tall, "header.csv"), show_col_types = FALSE)
+  message(paste("Processing", length(csv_files), "files..."))
 
-  if (nrow(header) > 10000) {
-    set.seed(123)
-    keys_assigned <- header %>%
-      dplyr::distinct(PrimaryKey) %>%
-      dplyr::mutate(subset_nbr = dplyr::ntile(dplyr::row_number(), 4))
-  } else {
-    keys_assigned <- header %>%
-      dplyr::distinct(PrimaryKey) %>%
-      dplyr::mutate(subset_nbr = 0)
+  for (f in csv_files) {
+    fname <- basename(f)
+
+    # Skip the header file if it exists in the gathered_data folder
+    # and skip directories or empty files
+    if (fname == "header.csv" || file.info(f)$isdir || file.info(f)$size == 0) next
+
+    # Read current file
+    current_dt <- data.table::fread(f)
+
+    if ("PrimaryKey" %in% names(current_dt)) {
+      # In-place join: adds subset_nbr column without copying the table
+      current_dt[keys_assigned, subset_nbr := i.subset_nbr, on = .(PrimaryKey)]
+
+      # Write updated file
+      data.table::fwrite(current_dt, file.path(output_root, fname))
+    }
+
+    # Force memory release for this file before moving to the next
+    rm(current_dt)
+    if (runif(1) > 0.8) gc() # Occasional garbage collection to keep RAM stable
   }
 
-  header <- header %>% dplyr::left_join(keys_assigned, by = "PrimaryKey")
-  vroom::vroom_write(header, file.path(output_root, "header.csv"), delim = ",")
+}
 
-  pkey_to_subset <- header %>%
-    dplyr::select(PrimaryKey, subset_nbr) %>%
-    dplyr::distinct()
 
-  # Set up parallel processing (uses all available CPU cores)
-  future::plan(multisession)
+#' Merge CSVs from subfolders with matching names (Base R Version)
+#'
+#' @param parent_path String. The path to a parent directory with subfolders within for merging.
+#' @param verbose Logical. If TRUE, prints progress messages.
+merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
 
-  # Use future_walk to process files in parallel
-  furrr::future_walk(csv_files, function(file_path) {
-    file_name <- basename(file_path)
-    if (file_name == "header.csv") return()
+  # check path
+  if (!dir.exists(parent_path)) {
+    stop("The provided parent directory does not exist.")
+  }
 
-    # vroom only loads what it needs, making the join very fast
-    current_df <- vroom::vroom(file_path, show_col_types = FALSE)
+  # subfolders
+  # full.names = TRUE gives the path, recursive = FALSE stays in top level
+  sub_folders <- list.dirs(parent_path, full.names = TRUE, recursive = FALSE)
 
-    if ("PrimaryKey" %in% names(current_df)) {
-      updated_df <- current_df %>%
-        dplyr::left_join(pkey_to_subset, by = "PrimaryKey")
+  if (length(sub_folders) == 0) {
+    warning("No subfolders found in the parent directory.")
+    return(invisible(NULL))
+  }
 
-      vroom::vroom_write(updated_df, file.path(output_root, file_name), delim = ",")
-    }
+  # all csvs
+  all_files <- list.files(
+    path = sub_folders,
+    pattern = "\\.csv$",
+    full.names = TRUE,
+    recursive = FALSE
+  )
+
+  if (length(all_files) == 0) {
+    warning("No CSV files found within the subfolders.")
+    return(invisible(NULL))
+  }
+
+  # group by name
+  file_groups <- split(all_files, basename(all_files))
+
+  lapply(names(file_groups), function(filename) {
+    paths <- file_groups[[filename]]
+
+    if (verbose) message("Processing: ", filename)
+
+    # Read and combine using do.call(rbind, ...)
+    # lapply replaces map(); read.csv is the base equivalent to read_csv
+    list_of_dfs <- lapply(paths, read.csv, stringsAsFactors = FALSE)
+    combined_df <- do.call(rbind, list_of_dfs)
+
+    # save to parent folder
+    out_path <- file.path(parent_path, filename)
+    write.csv(combined_df, out_path, row.names = FALSE)
   })
+
 }
 
 

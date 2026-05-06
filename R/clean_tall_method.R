@@ -56,7 +56,7 @@ clean_tall_lpi <- function(lpi, dataHeader, path_tall){
 
 
   saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
-  write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
+  #write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
 
   return(tall_lpi)
 }
@@ -83,17 +83,18 @@ clean_tall_gap <- function(tall_gap, dataHeader, path_tall, tblGapHeader){
   tall_gap <- tall_gap[which(!duplicated(dropcols_gap)),] |>
     dplyr::filter(PrimaryKey %in% pkeys) |> unique()
   # add back in cols that are currently being removed with the function
-  tall_gap$DBKey <- dataHeader$DBKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
+  tall_gap <- tall_gap |>
+    transform(
+      # Pulling from dataHeader
+      DBKey       = dataHeader$DBKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
 
-  tall_gap$DateVisited <- tblGapHeader$DateVisited[match(tall_gap$PrimaryKey, tblGapHeader$PrimaryKey)]
-  #tall_gap$DateVisited <- as.character(tall_gap$DateVisited)
-
-  tall_gap$Direction <- tblGapHeader$Direction[match(tall_gap$PrimaryKey, tblGapHeader$PrimaryKey)]
-  #match
-  tall_gap$ProjectKey <- dataHeader$ProjectKey[match(tall_gap$PrimaryKey, dataHeader$PrimaryKey)]
-
+      # Pulling from tblGapHeader
+      DateVisited = tblGapHeader$DateVisited[match(PrimaryKey, tblGapHeader$PrimaryKey)],
+      Direction   = tblGapHeader$Direction[match(PrimaryKey, tblGapHeader$PrimaryKey)]
+    )
   saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
-  write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
+  #write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
   return(tall_gap)
 }
 #####################################
@@ -130,7 +131,7 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
       ProjectKey = project
     )
   saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
-  write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
+  #write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
   return(tall_soil_stability)
 }
 ##################################
@@ -165,7 +166,7 @@ clean_tall_species <- function(tall_species, dataHeader, path_tall){
     )
 
   saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
-  write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
+  #write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
 
   return(tall_species)
 }
@@ -193,18 +194,24 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
   tall_height <- tall_height[which(!duplicated(dropcols_height)),] |>
     dplyr::filter(PrimaryKey %in% pkeys) |> unique()
   # add back in cols that are currently being removed with the function
-  tall_height$DBKey <- dataHeader$DBKey[match(tall_height$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_height$ProjectKey <- dataHeader$ProjectKey[match(tall_height$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_height$FormType <- tblLPIHeader$FormType[match(tall_height$PrimaryKey, tblLPIHeader$PrimaryKey)]
-  tall_height$source <- "DIMA"
-  tall_height$DateVisited <-tblLPIHeader$DateVisited[match(tall_height$PrimaryKey, tblLPIHeader$PrimaryKey)]
-  #tall_height$DateVisited <- as.Date(tall_height$DateVisited, format = format)
-  tall_height$DateLoadedInDb <- Sys.Date()
-  tall_height$FormDate <- tblLPIHeader$FormDate[match(tall_height$PrimaryKey, tblLPIHeader$PrimaryKey)]
+  tall_height <- tall_height |>
+    transform(
+      # Mapping from dataHeader
+      DBKey          = dataHeader$DBKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      ProjectKey     = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
 
+      # Mapping from tblLPIHeader
+      FormType       = tblLPIHeader$FormType[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
+      DateVisited    = tblLPIHeader$DateVisited[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
+      FormDate       = tblLPIHeader$FormDate[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
+
+      # Constants
+      source         = "DIMA",
+      DateLoadedInDb = Sys.Date()
+    )
 
   saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
-  write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
+  #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
 
   return(tall_height)
 }
@@ -230,11 +237,12 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
 #' @param path_tall path where cleaned tall files are/will be stored
 #' @param path_schema path to LDC schema plan
 #' @param gathered_data file path where gathered data, not yet cleaned, will be saved
+#' @param dsn if BLM_AIM dsn to gdb
 #'
 #' @return saves CSV and RDS file of terradactyl gathered files to path gathered_data
 #'
 #' @export
-gather_all <- function(source, path_original_files = NULL, gathered_data, path_tall, path_schema) {
+gather_all <- function(source, path_original_files = NULL, gathered_data, path_tall, path_schema, dsn) {
   # Initialize a list to store the data frames
   tall_files_list <- list()
 
@@ -504,12 +512,19 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
     obj_name <- direct_save_map[[list_name]]
 
     if (exists(obj_name)) {
+      # Get the actual data object
       dat_obj <- get(obj_name)
+
+      # Update your list
       tall_files_list[[list_name]] <- dat_obj
-      # Save the subsetted version to the new directory
-      write.csv(dat_obj, file.path(output_dir, paste0(obj_name, ".csv")), row.names = FALSE)
+
+      # Define the file path
+      file_path <- file.path(output_dir, paste0(obj_name, ".RData"))
+
+      # Save as RData
+      # We use list = obj_name so it saves the object WITH its name
+      save(list = obj_name, file = file_path)
     }
   }
-
   return(tall_files_list)
 }
