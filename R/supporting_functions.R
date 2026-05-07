@@ -992,15 +992,14 @@ merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
 #'
 #' @param parent_path String. The path to a parent directory with subfolders within for merging.
 #' @param verbose Logical. If TRUE, prints progress messages.
-merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
+merge_subfolder <- function(parent_path, verbose = TRUE) {
 
-  # check path
+ # read in all subfolder rdata
   if (!dir.exists(parent_path)) {
     stop("The provided parent directory does not exist.")
   }
 
-  # subfolders
-  # full.names = TRUE gives the path, recursive = FALSE stays in top level
+
   sub_folders <- list.dirs(parent_path, full.names = TRUE, recursive = FALSE)
 
   if (length(sub_folders) == 0) {
@@ -1008,16 +1007,17 @@ merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
     return(invisible(NULL))
   }
 
-  # all csvs
+
   all_files <- list.files(
     path = sub_folders,
-    pattern = "\\.csv$",
+    pattern = "\\.rdata$",
     full.names = TRUE,
-    recursive = FALSE
+    recursive = FALSE,
+    ignore.case = TRUE
   )
 
   if (length(all_files) == 0) {
-    warning("No CSV files found within the subfolders.")
+    warning("No .rdata files found within the subfolders.")
     return(invisible(NULL))
   }
 
@@ -1029,14 +1029,32 @@ merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
 
     if (verbose) message("Processing: ", filename)
 
-    # Read and combine using do.call(rbind, ...)
-    # lapply replaces map(); read.csv is the base equivalent to read_csv
-    list_of_dfs <- lapply(paths, read.csv, stringsAsFactors = FALSE)
+    # combine
+    list_of_dfs <- lapply(paths, function(path) {
+      # Create a temporary environment to load the .rdata into
+      # This prevents overwriting variables in your global workspace
+      tmp_env <- new.env()
+      load(path, envir = tmp_env)
+
+      # Extract the first (and usually only) object from that environment
+      obj_name <- ls(tmp_env)[1]
+      return(tmp_env[[obj_name]])
+    })
+
+    # Combine using dplyr::bind_rows
     combined_df <- do.call(rbind, list_of_dfs)
 
-    # save to parent folder
-    out_path <- file.path(parent_path, filename)
-    write.csv(combined_df, out_path, row.names = FALSE)
-  })
+    # strip the .rdata extension to create clean filenames
+    base_name <- gsub("\\.[Rr]data$", "", filename)
+    csv_out <- file.path(parent_path, paste0(base_name, ".csv"))
+    rdata_out <- file.path(parent_path, paste0(base_name, ".rdata"))
 
+    # 7save as CSV and rdata
+    write.csv(combined_df, csv_out, row.names = FALSE)
+
+    assign(base_name, combined_df)
+    save(list = base_name, file = rdata_out)
+
+    if (verbose) message("Saved CSV and RData for: ", base_name)
+  })
 }
