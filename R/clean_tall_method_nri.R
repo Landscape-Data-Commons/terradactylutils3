@@ -252,7 +252,7 @@ clean_tall_soil_stability_nri <- function(tall_soil_stability, dataHeader, path_
 #'
 #' @examples clean_tall_species(tall_species = gather_species_inventory(source = "DIMA", tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
 #' @export
-clean_tall_species_nri <- function(tall_species, dataHeader, path_tall){
+clean_tall_species_inventory_nri <- function(tall_species, dataHeader, path_tall){
 
   dropcols_species <- tall_species  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   pkeys <- dataHeader$PrimaryKey

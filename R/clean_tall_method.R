@@ -150,7 +150,7 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
 #'
 #' @examples clean_tall_species(tall_species = gather_species_inventory(source = "DIMA", tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
 #' @export
-clean_tall_species <- function(tall_species, dataHeader, path_tall){
+clean_tall_species_inventory <- function(tall_species, dataHeader, path_tall){
 
   dropcols_species <- tall_species  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   pkeys <- dataHeader$PrimaryKey
@@ -455,8 +455,7 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
 
   # 3. Dynamic Process Runner
   run_process <- function(protocol, ...) {
-    p_name <- if(protocol == "species") "species_richness" else protocol
-    func_name <- paste0("clean_tall_", p_name, s_suffix)
+    func_name <- paste0("clean_tall_", protocol, s_suffix)
 
     if (exists(func_name, where = asNamespace("terradactylutils3"), mode = "function")) {
       actual_func <- getExportedValue("terradactylutils3", func_name)
@@ -495,7 +494,7 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
 
   # Species
   if (exists("species_inventory_tall")) {
-    tall_files_list$species_inventory <- do.call(run_process, c(list(protocol = "species", tall_species = species_inventory_tall), standard_args))
+    tall_files_list$species_inventory <- do.call(run_process, c(list(protocol = "species_inventory", tall_species = species_inventory_tall), standard_args))
   }
 
   # 5. Handle Direct-Save Tables (Range Health, MWAC, DDT, Soil Horizons)
@@ -519,7 +518,7 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
       tall_files_list[[list_name]] <- dat_obj
 
       # Define the file path
-      file_path <- file.path(output_dir, paste0(obj_name, ".RData"))
+      file_path <- file.path(output_dir, paste0(obj_name, ".Rdata"))
 
       # Save as RData
       # We use list = obj_name so it saves the object WITH its name

@@ -184,14 +184,14 @@ return(tall_soil_stability)
 #'
 #'after gathering, this function makes adjustments to the tall table that are necessary to produce geofiles and the data prepared for the LDC
 #'
-#' @param tall_species_richness as a data.frame, the tall_gap file
+#' @param tall_species as a data.frame, the tall_gap file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader as data frame dataHeader
 #'
 #' @return updated tall file written to path_tall
 #'
 #' @export
-clean_tall_species_richness_aim <- function(tall_species_richness, path_tall, dataHeader){
+clean_tall_species_inventory_aim <- function(tall_species, path_tall, dataHeader){
 header <- dataHeader
   #stop rempving DateLoadedInDb and DBKey if add on terra ?
   dropcols_speciesinventory <- tall_sr  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
