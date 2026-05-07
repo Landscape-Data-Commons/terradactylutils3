@@ -518,7 +518,7 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
       tall_files_list[[list_name]] <- dat_obj
 
       # Define the file path
-      file_path <- file.path(output_dir, paste0(obj_name, ".Rdata"))
+      file_path <- file.path(output_dir, paste0(obj_name, ".rdata"))
 
       # Save as RData
       # We use list = obj_name so it saves the object WITH its name

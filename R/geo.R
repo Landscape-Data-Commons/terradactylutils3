@@ -353,7 +353,7 @@ geofiles_nri <- function(path_foringest,
   }
   # Read in the headers because these will be used to filter the incoming data
   # by PrimaryKey before indicators are calculated.
-  header <- readRDS(file = file.path(path_tall, "header.Rdata"))
+  header <- readRDS(file = file.path(path_tall, "header.rdata"))
 
   # These are the assumed base filenames (with the extension .Rdata) that
   # correspond to the data types.
@@ -376,7 +376,7 @@ geofiles_nri <- function(path_foringest,
                  FUN = function(X, path_tall, header){
                    # Create the assumed filepath.
                    current_filepath <- file.path(path_tall,
-                                                 paste0(X, ".Rdata"))
+                                                 paste0(X, ".rdata"))
 
                    if (file.exists(current_filepath)) {
                      # Read in and filter data
