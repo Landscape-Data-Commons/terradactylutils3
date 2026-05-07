@@ -266,7 +266,7 @@ clean_tall_species_inventory_nri <- function(tall_species, dataHeader, path_tall
       Direction   = NA
     )
   saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
- # write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
+ #write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
 
   return(tall_species)
 }
