@@ -504,7 +504,8 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
     rangehealth = "rangelandhealth_tall",
     soil_horizons = "soil_horizons_tall",
     horizontal_flux = "horizontalflux_tall",
-    dust_deposition = "dustdeposition_tall"
+    dust_deposition = "dustdeposition_tall",
+    header = "header"
   )
 
   for (list_name in names(direct_save_map)) {

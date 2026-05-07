@@ -665,7 +665,7 @@ geofiles_from_subsets_nri <- function(path_foringest,
       dplyr::filter(as.character(subset_nbr) == as.character(s_nbr))
 
     # geofiles_nri uses readRDS(), so we MUST use saveRDS()
-    temp_header_path <- file.path(current_path_tall, "header.Rdata")
+    temp_header_path <- file.path(current_path_tall, "header.rdata")
 
     # Ensure the folder exists before saving (if path_tall is empty)
     if (!dir.exists(current_path_tall)) dir.create(current_path_tall, recursive = TRUE)
