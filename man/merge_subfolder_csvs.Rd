@@ -7,6 +7,8 @@
 merge_subfolder_csvs(parent_path, verbose = TRUE)
 
 merge_subfolder_csvs(parent_path, verbose = TRUE)
+
+merge_subfolder_csvs(parent_path, verbose = TRUE)
 }
 \arguments{
 \item{parent_path}{String. The path to a parent directory with subfolders within for merging.}
@@ -14,6 +16,8 @@ merge_subfolder_csvs(parent_path, verbose = TRUE)
 \item{verbose}{Logical. If TRUE, prints progress messages.}
 }
 \description{
+Merge CSVs from subfolders with matching names (Base R Version)
+
 Merge CSVs from subfolders with matching names (Base R Version)
 
 Merge CSVs from subfolders with matching names (Base R Version)
