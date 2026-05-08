@@ -822,6 +822,7 @@ subset_tall_files <- function(gathered_data, path_tall) {
 #' Assign Subset Numbers to gathered data
 #' @param gathered_data Path to the folder containing your CSV files.
 #' @param path_tall Path to the folder containing the 'header.csv' file.
+#' @export
 assign_subset_nbr <- function(gathered_data, path_tall) {
 
   # output is within gathered data
@@ -936,15 +937,15 @@ merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
 #'
 #' @param parent_path String. The path to a parent directory with subfolders within for merging.
 #' @param verbose Logical. If TRUE, prints progress messages.
-merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
+#' @export
+merge_subfolder <- function(parent_path, verbose = TRUE) {
 
-  # check path
+  # find all files
   if (!dir.exists(parent_path)) {
     stop("The provided parent directory does not exist.")
   }
 
-  # subfolders
-  # full.names = TRUE gives the path, recursive = FALSE stays in top level
+
   sub_folders <- list.dirs(parent_path, full.names = TRUE, recursive = FALSE)
 
   if (length(sub_folders) == 0) {
@@ -952,16 +953,17 @@ merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
     return(invisible(NULL))
   }
 
-  # all csvs
+
   all_files <- list.files(
     path = sub_folders,
-    pattern = "\\.csv$",
+    pattern = "\\.rdata$",
     full.names = TRUE,
-    recursive = FALSE
+    recursive = FALSE,
+    ignore.case = TRUE
   )
 
   if (length(all_files) == 0) {
-    warning("No CSV files found within the subfolders.")
+    warning("No .rdata files found within the subfolders.")
     return(invisible(NULL))
   }
 
@@ -973,18 +975,49 @@ merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
 
     if (verbose) message("Processing: ", filename)
 
-    # Read and combine using do.call(rbind, ...)
-    # lapply replaces map(); read.csv is the base equivalent to read_csv
-    list_of_dfs <- lapply(paths, read.csv, stringsAsFactors = FALSE)
-    combined_df <- do.call(rbind, list_of_dfs)
+    # read and combine
+    list_of_dfs <- lapply(paths, function(path) {
 
-    # save to parent folder
-    out_path <- file.path(parent_path, filename)
-    write.csv(combined_df, out_path, row.names = FALSE)
+      # Try reading as a standard .Rdata file first
+      result <- tryCatch({
+        tmp_env <- new.env()
+        load(path, envir = tmp_env)
+        obj_name <- ls(tmp_env)[1]
+        tmp_env[[obj_name]]
+      }, error = function(e) {
+        # If load fails, try reading as an RDS file
+        tryCatch({
+          readRDS(path)
+        }, error = function(e2) {
+          message("Failed to read: ", path, " - File may be corrupted or wrong format.")
+          return(NULL)
+        })
+      })
+
+      return(result)
+    })
+
+    # Remove any NULLs from failed reads before combining
+    list_of_dfs <- list_of_dfs[!sapply(list_of_dfs, is.null)]
+
+    if (length(list_of_dfs) > 0) {
+      combined_df <- do.call(rbind, list_of_dfs)}
+
+    # write
+    base_name <- gsub("\\.[Rr]data$", "", filename)
+    csv_out <- file.path(parent_path, paste0(base_name, ".csv"))
+    rdata_out <- file.path(parent_path, paste0(base_name, ".rdata"))
+
+
+    write.csv(combined_df, csv_out, row.names = FALSE)
+
+
+    assign(base_name, combined_df)
+    save(list = base_name, file = rdata_out)
+
+    if (verbose) message("Saved CSV and RData for: ", base_name)
   })
-
 }
-
 
 
 
@@ -992,6 +1025,7 @@ merge_subfolder_csvs <- function(parent_path, verbose = TRUE) {
 #'
 #' @param parent_path String. The path to a parent directory with subfolders within for merging.
 #' @param verbose Logical. If TRUE, prints progress messages.
+#' @export
 merge_subfolder <- function(parent_path, verbose = TRUE) {
 
  # read in all subfolder rdata

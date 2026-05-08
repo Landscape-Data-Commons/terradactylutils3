@@ -30,62 +30,70 @@ geofiles <- function(path_foringest,
                      verbose = FALSE,
                      digits = 6){
 
-  if (is.null(ingestion_date)){
-    ingestion_date <- format(x = Sys.time(),
-                             "%m/%d/%Y")
+  # continuous issue with rdata reading in - making a
+  # smart reader
+  # This tries multiple extensions and both R binary formats
+  smart_read <- function(base_path, base_filename) {
+    # Extensions to check in order
+    exts <- c(".rdata", ".Rdata", ".RDATA", ".csv", ".CSV")
+
+    for (ext in exts) {
+      full_path <- file.path(base_path, paste0(base_filename, ext))
+
+      if (file.exists(full_path)) {
+        if (grepl("\\.csv$", ext, ignore.case = TRUE)) {
+          return(read.csv(full_path, stringsAsFactors = FALSE))
+        } else {
+          # Try readRDS first (modern single-object format)
+          res <- tryCatch({
+            readRDS(full_path)
+          }, error = function(e) {
+            # If readRDS fails, try load() (workspace image format)
+            tmp_env <- new.env()
+            load(full_path, envir = tmp_env)
+            tmp_env[[ls(tmp_env)[1]]] # Return the first object found
+          })
+          return(res)
+        }
+      }
+    }
+    return(NULL) # If no version of the file exists
   }
 
-  if (verbose) {
-    message("Reading in headers.")
+  if (is.null(ingestion_date)) {
+    ingestion_date <- format(x = Sys.time(), "%m/%d/%Y")
   }
+
+  if (verbose) message("Reading in headers.")
+
   # Read in the headers because these will be used to filter the incoming data
   # by PrimaryKey before indicators are calculated.
-  header <- readRDS(file = file.path(path_tall, "header.Rdata"))
+  header_data <- smart_read(path_tall, "header")
+  if (is.null(header_data)) stop("Could not find header file in any supported format.")
 
-  # These are the assumed base filenames (with the extension .Rdata) that
-  # correspond to the data types.
-  tall_filenames <- c("lpi_tall",
-                      "gap_tall",
-                      "height_tall",
-                      "species_inventory_tall",
-                      "soil_stability_tall",
+  tall_filenames <- c("lpi_tall", "gap_tall", "height_tall",
+                      "species_inventory_tall", "soil_stability_tall",
                       "rangelandhealth_tall")
 
-  if (verbose) {
-    message("Reading in tall data.")
-  }
+  if (verbose) message("Reading in tall data.")
   # Try to read in the data if the file exists.
   # If the file doesn't exist or if the file contains no data corresponding to
   # PrimaryKey values in header this'll return NULL.
-  data <- lapply(X = tall_filenames,
-                 path_tall = path_tall,
-                 header = header,
-                 FUN = function(X, path_tall, header){
-                   # Create the assumed filepath.
-                   current_filepath <- file.path(path_tall,
-                                                 paste0(X, ".Rdata"))
+  data <- lapply(X = tall_filenames, function(X) {
+    current_data <- smart_read(path_tall, X)
 
-                   if (file.exists(current_filepath)) {
-                     # Read in and filter data
-                     current_data <- readRDS(file = current_filepath) |>
-                       # Remove invalid records which may happen depending on
-                       # how the Rdata was exported.
-                       dplyr::filter(.data = _,
-                                     PrimaryKey %in% header$PrimaryKey)
-                     # Solving the issue of empty data frames not being handled
-                     # by lpi_calc()
-                     if (nrow(current_data) > 0) {
-                       current_data
-                     } else {
-                       NULL
-                     }
-                   } else {
-                     NULL
-                   }
-                 }) |>
-    # Setting the names of the data in the list for ease of reference later.
-    setNames(object = _,
-             nm = tall_filenames)
+    if (!is.null(current_data)) {
+      # Remove invalid records which may happen depending on
+      # how the Rdata was exported.
+      current_data <- current_data |>
+        dplyr::filter(PrimaryKey %in% header_data$PrimaryKey)
+      # Solving the issue of empty data frames not being handled
+      # by lpi_calc()
+      if (nrow(current_data) > 0) return(current_data)
+    }
+    return(NULL)
+  }) |>
+    setNames(nm = tall_filenames)
 
   # Keep only data, removing the NULLs.
   data <- data[!sapply(X = data,
@@ -343,62 +351,70 @@ geofiles_nri <- function(path_foringest,
                      verbose = FALSE,
                      digits = 6){
 
-  if (is.null(ingestion_date)){
-    ingestion_date <- format(x = Sys.time(),
-                             "%m/%d/%Y")
+  # continuous issue with rdata reading in - making a
+  # smart reader
+  # This tries multiple extensions and both R binary formats
+  smart_read <- function(base_path, base_filename) {
+    # Extensions to check in order
+    exts <- c(".rdata", ".Rdata", ".RDATA", ".csv", ".CSV")
+
+    for (ext in exts) {
+      full_path <- file.path(base_path, paste0(base_filename, ext))
+
+      if (file.exists(full_path)) {
+        if (grepl("\\.csv$", ext, ignore.case = TRUE)) {
+          return(read.csv(full_path, stringsAsFactors = FALSE))
+        } else {
+          # Try readRDS first (modern single-object format)
+          res <- tryCatch({
+            readRDS(full_path)
+          }, error = function(e) {
+            # If readRDS fails, try load() (workspace image format)
+            tmp_env <- new.env()
+            load(full_path, envir = tmp_env)
+            tmp_env[[ls(tmp_env)[1]]] # Return the first object found
+          })
+          return(res)
+        }
+      }
+    }
+    return(NULL) # If no version of the file exists
   }
 
-  if (verbose) {
-    message("Reading in headers.")
+  if (is.null(ingestion_date)) {
+    ingestion_date <- format(x = Sys.time(), "%m/%d/%Y")
   }
+
+  if (verbose) message("Reading in headers.")
+
   # Read in the headers because these will be used to filter the incoming data
   # by PrimaryKey before indicators are calculated.
-  header <- readRDS(file = file.path(path_tall, "header.rdata"))
+  header_data <- smart_read(path_tall, "header")
+  if (is.null(header_data)) stop("Could not find header file in any supported format.")
 
-  # These are the assumed base filenames (with the extension .Rdata) that
-  # correspond to the data types.
-  tall_filenames <- c("lpi_tall",
-                      "gap_tall",
-                      "height_tall",
-                      "species_inventory_tall",
-                      "soil_stability_tall",
+  tall_filenames <- c("lpi_tall", "gap_tall", "height_tall",
+                      "species_inventory_tall", "soil_stability_tall",
                       "rangelandhealth_tall")
 
-  if (verbose) {
-    message("Reading in tall data.")
-  }
+  if (verbose) message("Reading in tall data.")
   # Try to read in the data if the file exists.
   # If the file doesn't exist or if the file contains no data corresponding to
   # PrimaryKey values in header this'll return NULL.
-  data <- lapply(X = tall_filenames,
-                 path_tall = path_tall,
-                 header = header,
-                 FUN = function(X, path_tall, header){
-                   # Create the assumed filepath.
-                   current_filepath <- file.path(path_tall,
-                                                 paste0(X, ".rdata"))
+  data <- lapply(X = tall_filenames, function(X) {
+    current_data <- smart_read(path_tall, X)
 
-                   if (file.exists(current_filepath)) {
-                     # Read in and filter data
-                     current_data <- readRDS(file = current_filepath) |>
-                       # Remove invalid records which may happen depending on
-                       # how the Rdata was exported.
-                       dplyr::filter(.data = _,
-                                     PrimaryKey %in% header$PrimaryKey)
-                     # Solving the issue of empty data frames not being handled
-                     # by lpi_calc()
-                     if (nrow(current_data) > 0) {
-                       current_data
-                     } else {
-                       NULL
-                     }
-                   } else {
-                     NULL
-                   }
-                 }) |>
-    # Setting the names of the data in the list for ease of reference later.
-    setNames(object = _,
-             nm = tall_filenames)
+    if (!is.null(current_data)) {
+      # Remove invalid records which may happen depending on
+      # how the Rdata was exported.
+      current_data <- current_data |>
+        dplyr::filter(PrimaryKey %in% header_data$PrimaryKey)
+      # Solving the issue of empty data frames not being handled
+      # by lpi_calc()
+      if (nrow(current_data) > 0) return(current_data)
+    }
+    return(NULL)
+  }) |>
+    setNames(nm = tall_filenames)
 
   # Keep only data, removing the NULLs.
   data <- data[!sapply(X = data,
