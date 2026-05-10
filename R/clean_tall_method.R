@@ -518,12 +518,14 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
       # Update your list
       tall_files_list[[list_name]] <- dat_obj
 
-      # Define the file path
-      file_path <- file.path(output_dir, paste0(obj_name, ".rdata"))
+      # 1. Update extension to .rds
+      file_path <- file.path(output_dir, paste0(obj_name, ".rds"))
 
-      # Save as RData
-      # We use list = obj_name so it saves the object WITH its name
-      save(list = obj_name, file = file_path)
+      # 2. Use saveRDS instead of save()
+      # This saves the data directly without the 'obj_name' wrapper
+      saveRDS(dat_obj, file = file_path)
+
+      if (verbose) message("Saved RDS for: ", obj_name)
     }
   }
   return(tall_files_list)

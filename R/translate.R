@@ -440,11 +440,20 @@ translate_coremethods <- function(path_tall, path_foringest, path_schema, verbos
   if (!file.exists(path_schema)) stop("Schema file not found.")
   schema <- read.csv(path_schema, stringsAsFactors = FALSE)
 
-  # convert "_tall" to "data"
+  # convert "_tall" to "data" and handle specific acronyms like LPI
   name_to_ldc <- function(filename) {
     clean_name <- gsub("\\.csv$|_tall", "", filename)
     parts <- unlist(strsplit(clean_name, "_"))
-    camel_case <- paste0(toupper(substring(parts, 1, 1)), substring(parts, 2))
+
+    # Capitalize parts
+    camel_case <- sapply(parts, function(x) {
+      if (tolower(x) == "lpi") {
+        return("LPI")  # Force uppercase for LPI
+      } else {
+        return(paste0(toupper(substring(x, 1, 1)), substring(x, 2)))
+      }
+    })
+
     return(paste0("data", paste(camel_case, collapse = "")))
   }
 
@@ -503,7 +512,7 @@ translate_coremethods <- function(path_tall, path_foringest, path_schema, verbos
     }
 
     # schema translation
-    if (!(ldc_datatype %in% schema$table)) {
+    if (!(ldc_datatype %in% schema$Table)) {
       warning(paste("Datatype", ldc_datatype, "not found in schema. Saving without translation."))
       write.csv(dat, file.path(path_foringest, paste0(ldc_datatype, ".csv")), row.names = FALSE)
     } else {
@@ -518,5 +527,4 @@ translate_coremethods <- function(path_tall, path_foringest, path_schema, verbos
       write.csv(data_translated, file.path(path_foringest, paste0(ldc_datatype, ".csv")), row.names = FALSE)
     }
   }
-
 }

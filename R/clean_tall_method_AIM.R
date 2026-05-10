@@ -11,69 +11,52 @@
 #' @return cleaned, in LDC format, tall lpi to the path_tall
 #'
 #' @export
-clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader){
+clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader) {
 
-header <- dataHeader
-pkeys <- dataHeader$PrimaryKey
-dropcols_lpi <- tall_lpi %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] %>%
-  dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
+  message("Starting AIM LPI cleaning...")
 
-# Set classes #can we just add this to terra?
-## date fields
-lpi <- tall_lpi
-if (any(class(lpi) %in% c("POSIXct", "POSIXt"))) {
-  change_vars <- names(lpi)[do.call(rbind, vapply(lpi,
-                                                  class))[, 1] %in% c("POSIXct", "POSIXt")]
-  lpi <- dplyr::mutate_at(lpi, dplyr::vars(change_vars),
-                          dplyr::funs(as.character))
+  # 1. Immediate Join & Filter
+  # Instead of multiple match() calls, join once to get all needed header info
+  header_subset <- dataHeader %>%
+    dplyr::select(PrimaryKey, DBKey, ProjectKey) %>%
+    dplyr::distinct()
+
+  lpi <- tall_lpi %>%
+    dplyr::inner_join(header_subset, by = "PrimaryKey") %>%
+    dplyr::filter(!is.na(code)) %>%
+    dplyr::mutate(code = toupper(trimws(code)))
+
+  # 2. Handle POSIX dates efficiently
+  lpi <- lpi %>%
+    dplyr::mutate(across(where(~any(class(.x) %in% c("POSIXct", "POSIXt"))), as.character))
+
+  # 3. Drop rows with no meaningful data
+  lpi <- lpi %>%
+    dplyr::filter(!(is.na(LineKey) & is.na(layer) & is.na(code) & is.na(PointNbr)))
+
+  # 4. SINGLE-PASS Duplication Removal
+  # Consolidating all your 'duplicated' checks into one efficient step
+  # We exclude the high-variance/internal keys that cause false 'uniques'
+  message("Removing duplicates...")
+  lpi <- lpi %>%
+    dplyr::select(-any_of(c("rid", "DateModified", "SpeciesList"))) %>%
+    dplyr::distinct() %>%
+    terradactylutils3::tdact_remove_duplicates() %>%
+    terradactylutils3::tdact_remove_empty(datatype = "lpi")
+
+  # 5. Final Metadata Assignment
+  # Vectorized assignment is much faster than transform()
+  lpi$source <- "BLM_AIM"
+  lpi$DateLoadedInDb <- Sys.Date()
+  lpi$ShowCheckbox <- NA
+
+  # 6. Save as RDS
+  output_file <- file.path(path_tall, "lpi_tall.rds")
+  saveRDS(lpi, output_file)
+
+  message(paste("Successfully saved:", output_file))
+  return(lpi)
 }
-## text field
-# reorder so that primary key is leftmost column
-# adding DBKey
-lpi$DBKey <- header$DBKey[match(lpi$PrimaryKey,header$PrimaryKey)] # adding outside of terra
-
-
-lpi <- lpi %>%
-  dplyr::select(PrimaryKey, DBKey, LineKey, tidyselect::everything())
-
-# Drop rows with no data
-lpi <- lpi %>%
-  dplyr::filter(!(is.na(LineKey) &
-                    is.na(layer) &
-                    is.na(code) &
-                    is.na(ShrubShape) &
-                    is.na(PointNbr)))
-
-
-lpi <- lpi %>% tdact_remove_duplicates() %>% tdact_remove_empty(datatype = "lpi")
-
-
-tall_lpi <- lpi
-
-#dropcols_lpi <- tall_lpi  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-# we want to keep the DBKey and DateLoadedInDb
-dropcols_lpi <- tall_lpi  %>% dplyr::select_if(!(names(.) %in% c( "rid", "DateModified", "SpeciesList")))
-pkeys <- dataHeader$PrimaryKey
-tall_lpi <- tall_lpi[which(!duplicated(dropcols_lpi)),] %>%
-  dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
-
-tall_lpi <- tall_lpi |>
-  transform(
-    source         = "BLM_AIM",
-    ProjectKey     = "BLM_AIM",
-    DateLoadedInDb = Sys.Date(),
-    # Pulling State from header based on PrimaryKey
-    #SpeciesState   = header$State[match(PrimaryKey, header$PrimaryKey)],
-    DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)],
-    ShowCheckbox   = NA,
-    code           = trimws(code)
-  )
-saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
-#write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
-
-}
-
 
 
 ###################################

@@ -19,5 +19,6 @@ Imports:
     readr,
     future,
     vroom,
-    furrr
+    furrr,
+    data.table
 RoxygenNote: 7.3.3
