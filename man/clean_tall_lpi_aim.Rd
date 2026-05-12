@@ -4,10 +4,10 @@
 \alias{clean_tall_lpi_aim}
 \title{Clean Tall LPI AIM}
 \usage{
-clean_tall_lpi_aim(tall_lpi, path_tall, dataHeader)
+clean_tall_lpi_aim(lpi, path_tall, dataHeader)
 }
 \arguments{
-\item{tall_lpi}{as a data.frame, the tall_lpi file}
+\item{lpi}{as a data.frame, the tall_lpi file}
 
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
 

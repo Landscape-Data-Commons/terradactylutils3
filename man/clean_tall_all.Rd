@@ -10,7 +10,8 @@ clean_tall_all(
   dataHeader,
   path_tall,
   subset_to_filter = NULL,
-  data_list = NULL
+  data_list = NULL,
+  verbose = TRUE
 )
 }
 \arguments{

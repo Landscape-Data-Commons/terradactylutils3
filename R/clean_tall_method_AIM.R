@@ -4,39 +4,36 @@
 #'
 #'after gathering lpi, this function makes adjustments to the tall table that are necessary to produce geofiles and the data prepared for the LDC
 #'
-#' @param tall_lpi as a data.frame, the tall_lpi file
+#' @param lpi as a data.frame, the tall_lpi file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader dataHeader as dataframe
 #'
 #' @return cleaned, in LDC format, tall lpi to the path_tall
 #'
 #' @export
-clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader) {
+clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader) {
 
   message("Starting AIM LPI cleaning...")
 
-  # 1. Immediate Join & Filter
-  # Instead of multiple match() calls, join once to get all needed header info
+  # join to get missing vals
   header_subset <- dataHeader %>%
     dplyr::select(PrimaryKey, DBKey, ProjectKey) %>%
     dplyr::distinct()
-
-  lpi <- tall_lpi %>%
+# some cleaning to make sure code matches species list
+  lpi <- lpi %>%
     dplyr::inner_join(header_subset, by = "PrimaryKey") %>%
     dplyr::filter(!is.na(code)) %>%
     dplyr::mutate(code = toupper(trimws(code)))
 
-  # 2. Handle POSIX dates efficiently
+  # posit to char to avoid future date issues
   lpi <- lpi %>%
     dplyr::mutate(across(where(~any(class(.x) %in% c("POSIXct", "POSIXt"))), as.character))
 
-  # 3. Drop rows with no meaningful data
+  # drop rows without meanigful data
   lpi <- lpi %>%
     dplyr::filter(!(is.na(LineKey) & is.na(layer) & is.na(code) & is.na(PointNbr)))
 
-  # 4. SINGLE-PASS Duplication Removal
-  # Consolidating all your 'duplicated' checks into one efficient step
-  # We exclude the high-variance/internal keys that cause false 'uniques'
+  # remove duplicates
   message("Removing duplicates...")
   lpi <- lpi %>%
     dplyr::select(-any_of(c("rid", "DateModified", "SpeciesList"))) %>%
@@ -44,13 +41,12 @@ clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader) {
     terradactylutils3::tdact_remove_duplicates() %>%
     terradactylutils3::tdact_remove_empty(datatype = "lpi")
 
-  # 5. Final Metadata Assignment
-  # Vectorized assignment is much faster than transform()
+  # add missing cols
   lpi$source <- "BLM_AIM"
   lpi$DateLoadedInDb <- Sys.Date()
   lpi$ShowCheckbox <- NA
 
-  # 6. Save as RDS
+  # save
   # output_file <- file.path(path_tall, "lpi_tall.rds")
   # saveRDS(lpi, output_file)
 
