@@ -78,6 +78,7 @@ tdact_remove_duplicates <- function(indata) {
 #'@noRd
 #'
 #'@examples tdact_remove_empty(indata = tall_lpi, datatype = "lpi")
+#'@export
 tdact_remove_empty <- function(indata, datatype){
 
   # Create vector to select which fields are essential
