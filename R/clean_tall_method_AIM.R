@@ -50,7 +50,7 @@ clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader) {
   # output_file <- file.path(path_tall, "lpi_tall.rds")
   # saveRDS(lpi, output_file)
 
-  message(paste("Successfully saved:", output_file))
+  #message(paste("Successfully saved:", output_file))
   return(lpi)
 }
 
@@ -148,7 +148,7 @@ header <- dataHeader
   }
 
 
-  saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
+  #saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
   #write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
 
 return(tall_soil_stability)
