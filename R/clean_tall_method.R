@@ -445,10 +445,13 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
       # Using data.table::fread for speed
       dat <- data.table::fread(file_path)
 
-      # Base R / data.table filtering logic
-      if (!is.null(subset_to_filter) && "subset_nbr" %in% names(dat)) {
+
+      # Now perform the filtering
+      if (!is.null(subset_to_filter)) {
+        # Using .SD and column reference to ensure data.table scope
         dat <- dat[as.numeric(subset_nbr) == as.numeric(subset_to_filter), ]
       }
+      # -------------------------------
 
       loaded_data[[file_name]] <- dat
 
