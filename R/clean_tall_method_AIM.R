@@ -51,8 +51,8 @@ clean_tall_lpi_aim <- function(tall_lpi, path_tall, dataHeader) {
   lpi$ShowCheckbox <- NA
 
   # 6. Save as RDS
-  output_file <- file.path(path_tall, "lpi_tall.rds")
-  saveRDS(lpi, output_file)
+  # output_file <- file.path(path_tall, "lpi_tall.rds")
+  # saveRDS(lpi, output_file)
 
   message(paste("Successfully saved:", output_file))
   return(lpi)
@@ -97,7 +97,7 @@ clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,  tblGapHeader = 
       Notes          = NA,
       DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)]
     )
-  saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
+  # saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
  # write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
   return(tall_gap)
 }
@@ -203,7 +203,7 @@ header <- dataHeader
 
 
 
-  saveRDS(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.rdata"))
+  # saveRDS(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.rdata"))
   #write.csv(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
 
 return(tall_speciesinventory)
@@ -243,7 +243,7 @@ header <- dataHeader
       DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)],
       ShowCheckbox   = NA
     )
-  saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
+  # saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
   #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
 return(tall_height)
 

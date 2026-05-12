@@ -413,93 +413,104 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 #'
 #' @return saves CSVs of cleaned, LDC vars present, tall files to subset folders. if one subset, saved to subset_0
 #' @export
-clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL) {
+clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE) {
 
+  start_total <- Sys.time()
   tall_files_list <- list()
 
-  # Define the unique output directory
-  if (!is.null(subset_to_filter)) {
-    output_dir <- file.path(path_tall, "subset", paste0("subset_", subset_to_filter))
+  # output path
+  output_dir <- if (!is.null(subset_to_filter)) {
+    file.path(path_tall, "subset", paste0("subset_", subset_to_filter))
   } else {
-    output_dir <- path_tall
+    path_tall
   }
 
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-  # 1. Load and Filter Data
-  # Added back horizontalflux and dustdeposition to the loading list
+  # load data
   tall_file_names <- c("lpi_tall", "height_tall", "gap_tall", "species_inventory_tall",
                        "soil_stability_tall", "rangelandhealth_tall", "header", "soil_horizons_tall",
                        "horizontalflux_tall", "dustdeposition_tall")
 
+
+  loaded_data <- list()
+
   for (file_name in tall_file_names) {
     file_path <- file.path(gathered_data, paste0(file_name, ".csv"))
-    if (file.exists(file_path)) {
-      dat <- vroom::vroom(file_path, show_col_types = FALSE)
 
+    if (file.exists(file_path)) {
+      message("Reading: ", file_name, "...")
+      load_start <- Sys.time()
+
+      # Using data.table::fread for speed
+      dat <- data.table::fread(file_path)
+
+      # Base R / data.table filtering logic
       if (!is.null(subset_to_filter) && "subset_nbr" %in% names(dat)) {
-        dat <- dat %>% dplyr::filter(as.numeric(subset_nbr) == as.numeric(subset_to_filter))
+        dat <- dat[as.numeric(subset_nbr) == as.numeric(subset_to_filter), ]
       }
 
-      assign(file_name, dat, envir = .GlobalEnv)
-      assign(file_name, dat)
+      loaded_data[[file_name]] <- dat
+
+      load_end <- Sys.time()
+      message("  Finished loading ", file_name, " in ", round(difftime(load_end, load_start, units = "secs"), 2), "s")
     }
   }
 
-  # 2. Suffix Logic
-  s_suffix <- case_when(
-    data_source == "NRI" ~ "_nri",
-    data_source == "BLM_AIM" ~ "_aim",
-    TRUE ~ ""
+  # get correct suffix based on source
+  s_suffix <- data.table::fcase(
+    data_source == "NRI", "_nri",
+    data_source == "BLM_AIM", "_aim",
+    default = ""
   )
 
-  # 3. Dynamic Process Runner
+  # dynamically process based on source
   run_process <- function(protocol, ...) {
     func_name <- paste0("clean_tall_", protocol, s_suffix)
 
     if (exists(func_name, where = asNamespace("terradactylutils3"), mode = "function")) {
       actual_func <- getExportedValue("terradactylutils3", func_name)
+      message("Running cleanup: ", func_name)
       return(do.call(actual_func, list(...)))
     } else {
+      message("Skipping: ", func_name, " (Function not found)")
       return(NULL)
     }
   }
 
-  # 4. Standardized arguments
+  # standard args
   standard_args <- list(dataHeader = dataHeader, path_tall = output_dir)
 
   # --- Method-Specific Calls ---
 
   # LPI
-  if (exists("lpi_tall")) {
-    tall_files_list$lpi <- do.call(run_process, c(list(protocol = "lpi", lpi = lpi_tall), standard_args))
+  if (!is.null(loaded_data$lpi_tall)) {
+    tall_files_list$lpi <- do.call(run_process, c(list(protocol = "lpi", lpi = loaded_data$lpi_tall), standard_args))
   }
 
   # Gap
   gap_header <- if(s_suffix %in% c("_nri", "_aim")) NULL else data_list$tblGapHeader
-  if (exists("gap_tall")) {
-    tall_files_list$gap <- do.call(run_process, c(list(protocol = "gap", tall_gap = gap_tall, tblGapHeader = gap_header), standard_args))
+  if (!is.null(loaded_data$gap_tall)) {
+    tall_files_list$gap <- do.call(run_process, c(list(protocol = "gap", tall_gap = loaded_data$gap_tall, tblGapHeader = gap_header), standard_args))
   }
 
   # Height
   lpi_header <- if(s_suffix %in% c("_nri", "_aim")) NULL else data_list$tblLPIHeader
-  if (exists("height_tall")) {
-    tall_files_list$height <- do.call(run_process, c(list(protocol = "height", tall_height = height_tall, tblLPIHeader = lpi_header), standard_args))
+  if (!is.null(loaded_data$height_tall)) {
+    tall_files_list$height <- do.call(run_process, c(list(protocol = "height", tall_height = loaded_data$height_tall, tblLPIHeader = lpi_header), standard_args))
   }
 
   # Soil Stability
-  if (exists("soil_stability_tall")) {
-    tall_files_list$soil_stability <- do.call(run_process, c(list(protocol = "soil_stability", tall_soil_stability = soil_stability_tall), standard_args))
+  if (!is.null(loaded_data$soil_stability_tall)) {
+    tall_files_list$soil_stability <- do.call(run_process, c(list(protocol = "soil_stability", tall_soil_stability = loaded_data$soil_stability_tall), standard_args))
   }
 
   # Species
-  if (exists("species_inventory_tall")) {
-    tall_files_list$species_inventory <- do.call(run_process, c(list(protocol = "species_inventory", tall_species = species_inventory_tall), standard_args))
+  if (!is.null(loaded_data$species_inventory_tall)) {
+    tall_files_list$species_inventory <- do.call(run_process, c(list(protocol = "species_inventory", tall_species = loaded_data$species_inventory_tall), standard_args))
   }
 
-  # 5. Handle Direct-Save Tables (Range Health, MWAC, DDT, Soil Horizons)
-  # These tables are subsetted but usually don't have a unique 'clean_tall' function
-
+  # files without cleaning, directly saved to Tall
   direct_save_map <- list(
     rangehealth = "rangelandhealth_tall",
     soil_horizons = "soil_horizons_tall",
@@ -510,23 +521,18 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
 
   for (list_name in names(direct_save_map)) {
     obj_name <- direct_save_map[[list_name]]
+    dat_obj <- loaded_data[[obj_name]]
 
-    if (exists(obj_name)) {
-      # Get the actual data object
-      dat_obj <- get(obj_name)
-
-      # Update your list
-      tall_files_list[[list_name]] <- dat_obj
-
-      # 1. Update extension to .rds
-      file_path <- file.path(output_dir, paste0(obj_name, ".rds"))
-
-      # 2. Use saveRDS instead of save()
-      # This saves the data directly without the 'obj_name' wrapper
-      saveRDS(dat_obj, file = file_path)
-
-      if (verbose) message("Saved RDS for: ", obj_name)
-    }
+  #   if (!is.null(dat_obj)) {
+  #     tall_files_list[[list_name]] <- dat_obj
+  #     file_path <- file.path(output_dir, paste0(obj_name, ".rds"))
+  #     saveRDS(dat_obj, file = file_path)
+  #    message("Saved RDS for: ", obj_name)
+  #   }
   }
+
+  end_total <- Sys.time()
+  message("Total process completed in: ", round(difftime(end_total, start_total, units = "mins"), 2), " mins")
+
   return(tall_files_list)
 }
