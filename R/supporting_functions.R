@@ -859,9 +859,9 @@ assign_subset_nbr <- function(gathered_data, path_tall) {
   for (f in csv_files) {
     fname <- basename(f)
 
-    # Skip the header file if it exists in the gathered_data folder
-    # and skip directories or empty files
-    if (fname == "header.csv" || file.info(f)$isdir || file.info(f)$size == 0) next
+
+    # skip directories or empty files
+    if (file.info(f)$isdir || file.info(f)$size == 0) next
 
     # Start timing for the file
     start_time <- Sys.time()
