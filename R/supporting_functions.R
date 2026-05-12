@@ -830,18 +830,20 @@ assign_subset_nbr <- function(gathered_data, path_tall) {
   output_root <- file.path(gathered_data, "subset")
   if (!dir.exists(output_root)) dir.create(output_root, recursive = TRUE)
 
-
   # Use 'select' to keep memory usage to the absolute minimum
   header_path <- file.path(path_tall, "header.csv")
   if (!file.exists(header_path)) stop("header.csv not found in path_tall")
 
+  # Use fread and immediately setDT to fix the 'cedta()' / awareness error
   h_dt <- data.table::fread(header_path, select = "PrimaryKey")
+  data.table::setDT(h_dt)
 
   # Create unique mapping
   keys_assigned <- unique(h_dt, by = "PrimaryKey")
 
   # Assign subset numbers - right now only doing 4 at a time
-  keys_assigned[, subset_nbr := dplyr::ntile(1:.N, 4)]
+  # Replaced dplyr::ntile with base/DT logic to avoid namespace overhead
+  keys_assigned[, subset_nbr := as.integer(cut(seq_len(.N), breaks = 4, labels = FALSE))]
 
   # Set key for lightning-fast join
   data.table::setkey(keys_assigned, PrimaryKey)
@@ -861,8 +863,12 @@ assign_subset_nbr <- function(gathered_data, path_tall) {
     # and skip directories or empty files
     if (fname == "header.csv" || file.info(f)$isdir || file.info(f)$size == 0) next
 
-    # Read current file
+    # Start timing for the file
+    start_time <- Sys.time()
+
+    # Read current file and ensure DT awareness
     current_dt <- data.table::fread(f)
+    data.table::setDT(current_dt)
 
     if ("PrimaryKey" %in% names(current_dt)) {
       # In-place join: adds subset_nbr column without copying the table
@@ -870,11 +876,15 @@ assign_subset_nbr <- function(gathered_data, path_tall) {
 
       # Write updated file
       data.table::fwrite(current_dt, file.path(output_root, fname))
+
+      # Timing message
+      end_time <- Sys.time()
+      message("  Finished ", fname, " in ", round(difftime(end_time, start_time, units = "secs"), 2), "s")
     }
 
     # Force memory release for this file before moving to the next
     rm(current_dt)
-    if (runif(1) > 0.8) gc() # Occasional garbage collection to keep RAM stable
+    gc(full = FALSE) # Keeping RAM stable so Windows doesn't freak out
   }
 
 }
