@@ -173,8 +173,8 @@ return(tall_soil_stability)
 clean_tall_species_inventory_aim <- function(tall_species, path_tall, dataHeader){
 header <- dataHeader
   #stop rempving DateLoadedInDb and DBKey if add on terra ?
-  dropcols_speciesinventory <- tall_sr  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-  tall_speciesinventory <- tall_sr[which(!duplicated(dropcols_speciesinventory)),] %>%
+  dropcols_speciesinventory <- tall_species  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+  tall_speciesinventory <- tall_species[which(!duplicated(dropcols_speciesinventory)),] %>%
     dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
   tall_speciesinventory <- tall_speciesinventory |>
     transform(
