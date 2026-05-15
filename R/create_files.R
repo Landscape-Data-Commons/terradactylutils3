@@ -280,8 +280,9 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
   }else{
+    gathered_data <- paste0(path_parent,"/gathered_data")
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
-                                                   by_species_key = FALSE)
+                                                   gathered_data = gathered_data,by_species_key = FALSE)
   }
 
   # assign to global environment

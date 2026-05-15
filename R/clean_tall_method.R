@@ -238,11 +238,12 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
 #' @param path_schema path to LDC schema plan
 #' @param gathered_data file path where gathered data, not yet cleaned, will be saved
 #' @param dsn if BLM_AIM dsn to gdb
+#' @param dima_data_list if BLM_AIM dsn to gdb
 #'
 #' @return saves CSV and RDS file of terradactyl gathered files to path gathered_data
 #'
 #' @export
-gather_all <- function(source, path_original_files = NULL, gathered_data, path_tall, path_schema, dsn) {
+gather_all <- function(source, path_original_files = NULL, gathered_data, path_tall, path_schema, dsn = NULL, dima_data_list = NULL) {
   # Initialize a list to store the data frames
   tall_files_list <- list()
 
@@ -259,7 +260,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
   } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && nrow(dima_data_list[["tblLPIHeader"]]) > 0) {
     message("Found DIMA LPI data; processing")
 
-    lpi <- terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
+    lpi <- terradactyl::gather_lpi(source = source, tblLPIDetail = dima_data_list[["tblLPIDetail"]], tblLPIHeader = dima_data_list[["tblLPIHeader"]])
     write.csv(lpi, paste0(gathered_data, "/lpi_tall.csv"))
     tall_files_list$lpi_tall <- lpi
   } else if (source == "BLM_AIM") {
@@ -280,10 +281,11 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tall_files_list$gap_tall <- gap_tall
   } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblGapHeader"]]) && nrow(dima_data_list[["tblGapHeader"]]) > 0) {
     message("Found DIMA gap data; processing")
+    tblGapDetail <- dima_data_list[["tblGapDetail"]]
     tblGapDetail2 <- tblGapDetail %>% mutate(LineKey = NULL)
     tblGapDetail2 <- tblGapDetail2 %>% mutate(FormDate = NULL)
 
-    tall_gap <- terradactyl::gather_gap(source = "DIMA", tblGapHeader = tblGapHeader, tblGapDetail = tblGapDetail2) %>% dplyr::filter(PrimaryKey %in% pkeys)
+    tall_gap <- terradactyl::gather_gap(source = "DIMA", tblGapHeader = dima_data_list[["tblGapHeader"]], tblGapDetail = tblGapDetail2) %>% dplyr::filter(PrimaryKey %in% pkeys)
     write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
     tall_files_list$gap_tall <- tall_gap
   } else if (source == "BLM_AIM") {
@@ -302,7 +304,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tall_files_list$soil_stability_tall <- soilstab_tall
   } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblSoilStabHeader"]]) && nrow(dima_data_list[["tblSoilStabHeader"]]) > 0) {
     message("Found DIMA soil stability data; processing")
-    tall_soil_stability <- terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = tblSoilStabDetail, tblSoilStabHeader = tblSoilStabHeader)
+    tall_soil_stability <- terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = dima_data_list[["tblSoilStabDetail"]], tblSoilStabHeader = dima_data_list[["tblSoilStabHeader"]])
     write.csv(tall_soil_stability, paste0(gathered_data, "/soil_stability_tall.csv"))
     tall_files_list$soil_stability_tall <- tall_soil_stability
   } else if (source == "BLM_AIM") {
@@ -321,8 +323,9 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tall_files_list$species_inventory_tall <- species_inventory_tall
   } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblSpecRichHeader"]]) && nrow(dima_data_list[["tblSpecRichHeader"]]) > 0) {
     message("Found DIMA species richness data; processing")
+    tblSpecRichHeader <- dima_data_list[["tblSpecRichHeader"]]
     tblSpecRichHeader$RecKey <- as.character(tblSpecRichHeader$RecKey)
-    tall_species <- terradactyl::gather_species_inventory(source = source, tblSpecRichDetail = tblSpecRichDetail, tblSpecRichHeader = tblSpecRichHeader)
+    tall_species <- terradactyl::gather_species_inventory(source = source, tblSpecRichDetail = dima_data_list[["tblSpecRichDetail"]], tblSpecRichHeader = tblSpecRichHeader)
     write.csv(tall_species, paste0(gathered_data, "/species_inventory_tall.csv"))
     tall_files_list$species_inventory_tall <- tall_species
   } else if (source == "BLM_AIM") {
@@ -340,7 +343,9 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     write.csv(height_tall, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- height_tall
   } else if (exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && sum(dima_data_list[["tblLPIDetail"]][["HeightHerbaceous"]], na.rm = T) > 0) {
+    tblLPIHeader <- dima_data_list[["tblLPIHeader"]]
     tblLPIHeader$RecKey <- as.character(tblLPIHeader$RecKey)
+    tblLPIDetail <- dima_data_list[["tblLPIDetail"]]
     tblLPIDetail$RecKey <- as.character(tblLPIDetail$RecKey)
     tblLPIDetail$SpeciesLowerHerb <- as.character(tblLPIDetail$SpeciesLowerHerb)
 
@@ -449,7 +454,7 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
       # Now perform the filtering
       if (!is.null(subset_to_filter)) {
         # Using .SD and column reference to ensure data.table scope
-        dat <- dat[as.numeric(subset_nbr) == as.numeric(subset_to_filter), ]
+        dat <- dat[as.numeric(get("subset_nbr")) == as.numeric(subset_to_filter), ]
       }
       # -------------------------------
 
