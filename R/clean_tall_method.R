@@ -127,9 +127,14 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
   #tall_soil_stability$DateVisited <- as.character(tall_soil_stability$DateVisited)
   #rename
   tall_soil_stability <- tall_soil_stability |>
-    rename(
-      ProjectKey = project
+    transform(
+      # Pulling from dataHeader
+
+      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+
+
     )
+
   saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
   #write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
   return(tall_soil_stability)
@@ -161,8 +166,12 @@ clean_tall_species_inventory <- function(tall_species, dataHeader, path_tall){
   tall_species$Direction <- tblSpecRichHeader$Direction[match(tall_species$PrimaryKey, tblSpecRichHeader$PrimaryKey)]
   #tall_species$DateVisited <- as.character(tall_species$DateVisited)
   tall_species <- tall_species |>
-    rename(
-      ProjectKey = project
+    transform(
+      # Pulling from dataHeader
+
+      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+
+
     )
 
   saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
