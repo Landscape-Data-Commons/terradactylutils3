@@ -55,7 +55,7 @@ clean_tall_lpi <- function(lpi, dataHeader, path_tall){
   tall_lpi$ProjectKey <- dataHeader$ProjectKey[match(tall_lpi$PrimaryKey, dataHeader$PrimaryKey)]
 
 
-  saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rdata"))
+  saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rds"))
   #write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
 
   return(tall_lpi)
@@ -93,7 +93,7 @@ clean_tall_gap <- function(tall_gap, dataHeader, path_tall, tblGapHeader){
       DateVisited = tblGapHeader$DateVisited[match(PrimaryKey, tblGapHeader$PrimaryKey)],
       Direction   = tblGapHeader$Direction[match(PrimaryKey, tblGapHeader$PrimaryKey)]
     )
-  saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
+  saveRDS(tall_gap, file.path(path_tall, "gap_tall.rds"))
   #write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
   return(tall_gap)
 }
@@ -134,8 +134,7 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
 
 
     )
-
-  saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
+  saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rds"))
   #write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
   return(tall_soil_stability)
 }
@@ -174,8 +173,7 @@ clean_tall_species_inventory <- function(tall_species, dataHeader, path_tall){
 
     )
 
-  saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rdata"))
-  #write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
+  saveRDS(tall_species, file.path(path_tall, "species_inventory_tall.rds"))  #write.csv(tall_species, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
 
   return(tall_species)
 }
@@ -218,8 +216,8 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
       source         = "DIMA",
       DateLoadedInDb = Sys.Date()
     )
-
   saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
+
   #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
 
   return(tall_height)
