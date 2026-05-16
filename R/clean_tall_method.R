@@ -130,7 +130,7 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
     transform(
       # Pulling from dataHeader
 
-      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)]
 
 
     )
@@ -169,7 +169,7 @@ clean_tall_species_inventory <- function(tall_species, dataHeader, path_tall){
     transform(
       # Pulling from dataHeader
 
-      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
+      ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)]
 
 
     )
