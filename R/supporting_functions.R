@@ -823,9 +823,10 @@ subset_tall_files <- function(gathered_data, path_tall) {
 #' Assign Subset Numbers to gathered data
 #' @param gathered_data Path to the folder containing your CSV files.
 #' @param path_tall Path to the folder containing the 'header.csv' file.
+#' @import data.table
 #' @export
 assign_subset_nbr <- function(gathered_data, path_tall) {
-
+  .N <- subset_nbr <- i.subset_nbr <- PrimaryKey <- NULL
   # output is within gathered data
   output_root <- file.path(gathered_data, "subset")
   if (!dir.exists(output_root)) dir.create(output_root, recursive = TRUE)
@@ -872,8 +873,8 @@ assign_subset_nbr <- function(gathered_data, path_tall) {
 
     if ("PrimaryKey" %in% names(current_dt)) {
       # In-place join: adds subset_nbr column without copying the table
-      current_dt[keys_assigned, subset_nbr := i.subset_nbr, on = .(PrimaryKey)]
-
+      #current_dt[keys_assigned, subset_nbr := i.subset_nbr, on = .(PrimaryKey)]
+      current_dt[keys_assigned, subset_nbr := i.subset_nbr, on = c(PrimaryKey = "PrimaryKey")]
       # Write updated file
       data.table::fwrite(current_dt, file.path(output_root, fname))
 

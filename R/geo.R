@@ -634,6 +634,8 @@ geofiles_nri <- function(path_foringest,
 #' @param path_schema Character. Path to the schema file.
 #' @param tall_header Data frame. The header data containing \code{ProjectKey} and \code{subset_nbr}.
 #' @param doGSP Logical. If \code{TRUE}, processes and merges GeoSpecies files. Default is \code{FALSE}.
+#' @importFrom dplyr filter bind_rows
+#' @importFrom magrittr %>%
 #'
 #' @return Generates CSV files in the \code{path_foringest} directory.
 #' @export
@@ -644,7 +646,8 @@ geofiles_from_subsets_nri <- function(path_foringest,
                                       path_schema,
                                       tall_header,
                                       doGSP = FALSE) {
-
+  # Prevent R CMD check notes for unquoted variables
+  ProjectKey <- subset_nbr <- NULL
   # 1. Validation and Repair of subset_nbr
   if (!"subset_nbr" %in% colnames(tall_header)) {
     message("Warning: 'subset_nbr' not found in tall_header. Creating column and setting to 100.")
@@ -665,7 +668,7 @@ geofiles_from_subsets_nri <- function(path_foringest,
   path_ingest_subset_root <- file.path(path_foringest, "subset")
   if (!dir.exists(path_ingest_subset_root)) dir.create(path_ingest_subset_root, recursive = TRUE)
 
-  # use projectkey and subset_nbr to run geoind
+    # use projectkey and subset_nbr to run geoind
   lapply(subset_indices, function(s_nbr) {
 
     message("--- Generating GeoFiles for Subset: ", s_nbr, " ---")
@@ -680,15 +683,12 @@ geofiles_from_subsets_nri <- function(path_foringest,
     subset_header <- tall_header %>%
       dplyr::filter(as.character(subset_nbr) == as.character(s_nbr))
 
-    # geofiles_nri uses readRDS(), so we MUST use saveRDS()
-    temp_header_path <- file.path(current_path_tall, "header.rdata")
+    # geofiles uses readRDS(), so we MUST use saveRDS()
+    temp_header_path <- file.path(current_path_tall, "header.Rdata")
 
-    # Ensure the folder exists before saving (if path_tall is empty)
+    # Ensure the folder exists before saving
     if (!dir.exists(current_path_tall)) dir.create(current_path_tall, recursive = TRUE)
     saveRDS(subset_header, file = temp_header_path)
-
-    # delete temp file
-    on.exit(if (file.exists(temp_header_path)) file.remove(temp_header_path))
 
     for (projkey in projectkey) {
       # Only run if the project actually exists in this subset
@@ -696,40 +696,63 @@ geofiles_from_subsets_nri <- function(path_foringest,
 
       path_specieslist <- paste0(path_species, projkey, ".csv")
 
-      # Run the core NRI geofiles function
-      geofiles_nri(
+      # assign doGSP for each subset dynamically
+      run_gsp_this_subset <- doGSP
+      if (doGSP) {
+        lpi_path <- file.path(current_path_tall, "lpi_tall.csv")
+        spec_path <- file.path(current_path_tall, "species_inventory_tall.csv")
+
+        # If neither file exists, or if they exist but are empty, we can't run doGSP
+        has_lpi <- file.exists(lpi_path) && file.info(lpi_path)$size > 10
+        has_spec <- file.exists(spec_path) && file.info(spec_path)$size > 10
+
+        if (!has_lpi && !has_spec) {
+          message("  Notice: No LPI or Species Inventory data found for Subset ", s_nbr, ". Disabling doGSP for this loop.")
+          run_gsp_this_subset <- FALSE
+        }
+      }
+
+      # Run the core geofiles function
+      geofiles(
         path_foringest   = current_path_ingest,
         path_tall        = current_path_tall,
         header           = subset_header,
         path_specieslist = path_specieslist,
         template         = template,
         path_schema      = path_schema,
-        doGSP            = doGSP,
+        doGSP            = run_gsp_this_subset,
         verbose          = TRUE,
         calculate_dead   = FALSE,
         digits           = 6
       )
 
-      # renaming
+      # renaming - explicit environment masking with .data$ to prevent evaluation failures
       geo_file <- file.path(current_path_ingest, "geoIndicators.csv")
       if (file.exists(geo_file)) {
-        geoind <- read.csv(geo_file) %>% dplyr::filter(ProjectKey == projkey)
+        geoind <- read.csv(geo_file) %>%
+          dplyr::filter(.data$ProjectKey == !!projkey)
+
         new_name <- file.path(current_path_ingest, paste0("geoIndicators_", projkey, "_sub", s_nbr, ".csv"))
         write.csv(geoind, new_name, row.names = FALSE)
         file.remove(geo_file)
       }
 
       # geosp
-      if (doGSP) {
+      if (run_gsp_this_subset) {
         spec_file <- file.path(current_path_ingest, "geoSpecies.csv")
         if (file.exists(spec_file)) {
-          geosp <- read.csv(spec_file) %>% dplyr::filter(ProjectKey == projkey)
+          geosp <- read.csv(spec_file) %>%
+            dplyr::filter(.data$ProjectKey == !!projkey)
+
           new_spec_name <- file.path(current_path_ingest, paste0("geoSpecies_", projkey, "_sub", s_nbr, ".csv"))
           write.csv(geosp, new_spec_name, row.names = FALSE)
           file.remove(spec_file)
         }
       }
     }
+
+    # clean up the temp file per subset loop
+    if (file.exists(temp_header_path)) file.remove(temp_header_path)
   })
 
   # merge files to end up with one geo file
@@ -755,10 +778,12 @@ geofiles_from_subsets_nri <- function(path_foringest,
       master_spec <- lapply(all_spec_files, read.csv) %>% dplyr::bind_rows()
       write.csv(master_spec, file.path(path_foringest, "geoSpecies.csv"), row.names = FALSE)
       file.remove(all_spec_files)
+    } else {
+      message("Notice: No subset geoSpecies files were generated to merge.")
     }
   }
-
 }
+
 
 
 #' Generate and Merge GeoFiles from Data Subsets

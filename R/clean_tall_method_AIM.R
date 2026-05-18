@@ -47,8 +47,8 @@ clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader) {
   lpi$ShowCheckbox <- NA
 
   # save
-  # output_file <- file.path(path_tall, "lpi_tall.rds")
-  # saveRDS(lpi, output_file)
+  output_file <- file.path(path_tall, "lpi_tall.rds")
+  saveRDS(lpi, output_file)
 
   #message(paste("Successfully saved:", output_file))
   return(lpi)
@@ -68,36 +68,49 @@ clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader) {
 #' @return cleaned, in LDC format, tall gap file to path_tall
 #'
 #' @export
-clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,  tblGapHeader = NULL){
-  header <- dataHeader
-  dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-  #dropcols_gap <- tall_gap  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "rid", "DateModified", "SpeciesList")))
+#' @export
+clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader, tblGapHeader = NULL) {
+
   pkeys <- dataHeader$PrimaryKey
-  tall_gap <- tall_gap[which(!duplicated(dropcols_gap)),] %>%
-    dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
-  #tall_gap$DBKey.y <- NULL
-  #colnames(tall_gap)[colnames(tall_gap) == 'DBKey.x'] <- 'DBKey'
-  tall_gap <- tall_gap |>
-    # Perform the grouped sum (Equivalent to group_by + mutate)
-    transform(
-      sumCanCat1 = ave(Gap, PrimaryKey, LineKey, RecType, FUN = \(x) sum(x, na.rm = TRUE))
-    ) |>
-    # Assign all other metadata
-    transform(
-      ProjectKey     = "BLM_AIM",
-      chckbox        = NA,
-      DateVisited    = as.Date(FormDate, format = "%Y-%m-%d"),
-      FormType       = "Gap",
-      DateLoadedInDb = Sys.Date(),
-      source         = "BLM_AIM",
-      Notes          = NA,
-      DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)]
-    )
-  # saveRDS(tall_gap, file.path(path_tall, "gap_tall.rdata"))
- # write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = F)
+
+  # remove duplicates and certain cols immediately
+  ignore_cols <- c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")
+  keep_indices <- !duplicated(tall_gap[, !names(tall_gap) %in% ignore_cols, drop = FALSE]) &
+    (tall_gap$PrimaryKey %in% pkeys)
+
+  tall_gap <- tall_gap[keep_indices, , drop = FALSE]
+
+  # calc ave for gap groups
+  # Create a combined interaction factor key
+  group_factor <- paste(tall_gap$PrimaryKey, tall_gap$LineKey, tall_gap$RecType, sep = "_")
+
+  # Calculate sums using rowsum which is apparently faster than ave
+  gap_sums <- rowsum(tall_gap$Gap, group_factor, na.rm = TRUE)
+
+  # Map back to the original rows
+  tall_gap$sumCanCat1 <- gap_sums[group_factor, 1]
+
+  # map dbkey
+  header_lookup <- dataHeader$DBKey
+  names(header_lookup) <- dataHeader$PrimaryKey
+
+  # Metadata Assignment
+  tall_gap$ProjectKey     <- "BLM_AIM"
+  tall_gap$chckbox        <- NA
+  tall_gap$DateVisited    <- as.Date(tall_gap$FormDate, format = "%Y-%m-%d")
+  tall_gap$FormType       <- "Gap"
+  tall_gap$DateLoadedInDb <- Sys.Date()
+  tall_gap$source         <- "BLM_AIM"
+  tall_gap$Notes          <- NA
+  tall_gap$DBKey          <- header_lookup[tall_gap$PrimaryKey]
+
+  # write Files
+  if (!dir.exists(path_tall)) dir.create(path_tall, recursive = TRUE)
+  saveRDS(tall_gap, file.path(path_tall, "gap_tall.rds"))
+  write.csv(tall_gap, file.path(path_tall, "gap_tall.csv"), row.names = FALSE)
+
   return(tall_gap)
 }
-
 
 ###################################
 #' Clean Tall soil stability AIM
@@ -107,54 +120,63 @@ clean_tall_gap_aim <- function(tall_gap, path_tall, dataHeader,  tblGapHeader = 
 #' @param tall_soil_stability as a data.frame, the tall_gap file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader dataframe dataHeader
-#'
+#' @importFrom dplyr select_if filter %>%
+#' @importFrom rlang .data
 #' @return updated tall file written to path_tall
 #'
 #' @export
-clean_tall_soil_stability_aim <- function(tall_soil_stability, path_tall, dataHeader){
-header <- dataHeader
-  #dropcols_soilstability <- tall_soilstability  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+#' @export
+clean_tall_soil_stability_aim <- function(tall_soil_stability, path_tall, dataHeader, tblGapHeader = NULL) {
 
-  dropcols_soilstability <- tall_soil_stability  %>% dplyr::select_if(!(names(.) %in% c( "rid", "DateModified", "SpeciesList")))
+  # immediately by filtering to relevant Primary Keys
   pkeys <- dataHeader$PrimaryKey
-  tall_soil_stability <- tall_soil_stability[which(!duplicated(dropcols_soilstability)),] %>%
-    dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
 
-  tall_soil_stability <- tall_soil_stability |>
-    transform(
-      ProjectKey         = "BLM_AIM",
-      DateVisited        = as.Date(FormDate, format = "%Y-%m-%d"),
-      FormType           = "SoilStability",
-      source             = "BLM_AIM",
-      Notes              = NA,
-      DBKey              = header$DBKey[match(PrimaryKey, header$PrimaryKey)],
-      # New columns added below
-      LineKey            = NA,
-      SoilStabSubSurface = NA,
-      Line               = NA,
-      Pos                = NA
-    )  # add DBKey and DateLoadedInDb?
-  # missing cols from schema
-  schema_ss <- read.csv(path_schema)
+  # immediately remove duplicates and unnecessary cols
+  ignore_cols <- c("rid", "DateModified", "SpeciesList")
+  dup_check_data <- tall_soil_stability[, !names(tall_soil_stability) %in% ignore_cols, drop = FALSE]
 
-  schema_ss <- schema_ss %>% dplyr::filter(Table == "dataSoilStability")
-  missing_cols <- setdiff(schema_ss$Field, names(tall_soil_stability))
+  # filter rows before doing mutations
+  tall_soil_stability <- tall_soil_stability[!duplicated(dup_check_data) & tall_soil_stability$PrimaryKey %in% pkeys, ]
 
+  # assign dbkey
+  header_lookup <- dataHeader$DBKey
+  names(header_lookup) <- dataHeader$PrimaryKey
 
+  # Metadata assignment
+  tall_soil_stability$ProjectKey         <- "BLM_AIM"
+  tall_soil_stability$DateVisited        <- as.Date(tall_soil_stability$FormDate, format = "%Y-%m-%d")
+  tall_soil_stability$FormType           <- "SoilStability"
+  tall_soil_stability$source             <- "BLM_AIM"
+  tall_soil_stability$Notes              <- NA
+  tall_soil_stability$DBKey              <- header_lookup[tall_soil_stability$PrimaryKey]
+  tall_soil_stability$LineKey            <- NA
+  tall_soil_stability$SoilStabSubSurface <- NA
+  tall_soil_stability$Line               <- NA
+  tall_soil_stability$Pos                <- NA
 
-  # missing columns with NA
-  for (col in missing_cols) {
-    tall_soil_stability[[col]] <- NA
+  # hardcoded schema column matching rather than reading a schema and adding a new var
+  schema_cols <- c(
+    "ProjectKey", "PrimaryKey", "LineKey", "RecKey",
+    "DateVisited", "FormDate", "FormType", "SoilStabSubSurface",
+    "Line", "Position", "Pos", "Veg",
+    "Rating", "Hydro", "Notes", "DBKey",
+    "DateLoadedInDb", "source"
+  )
+
+  missing_cols <- setdiff(schema_cols, names(tall_soil_stability))
+
+  # vectorized column creation - allocates all missing columns at once
+  if (length(missing_cols) > 0) {
+    tall_soil_stability[, missing_cols] <- NA
   }
 
+  # save
+  if (!dir.exists(path_tall)) dir.create(path_tall, recursive = TRUE)
+  saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rds"))
+  #write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = FALSE)
 
-  #saveRDS(tall_soil_stability, file.path(path_tall, "soil_stability_tall.rdata"))
-  #write.csv(tall_soil_stability, file.path(path_tall, "soil_stability_tall.csv"), row.names = F)
-
-return(tall_soil_stability)
-
+  return(tall_soil_stability)
 }
-
 
 
 
@@ -170,40 +192,65 @@ return(tall_soil_stability)
 #' @return updated tall file written to path_tall
 #'
 #' @export
-clean_tall_species_inventory_aim <- function(tall_species, path_tall, dataHeader){
-header <- dataHeader
-  #stop rempving DateLoadedInDb and DBKey if add on terra ?
-  dropcols_speciesinventory <- tall_species  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-  tall_speciesinventory <- tall_species[which(!duplicated(dropcols_speciesinventory)),] %>%
-    dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
-  tall_speciesinventory <- tall_speciesinventory |>
-    transform(
-      ProjectKey     = "BLM_AIM",
-      DateVisited    = as.Date(FormDate, format = "%Y-%m-%d"),
-      DENSITY        = NA,
-      FormType       = "SpeciesInventory",
-      DateLoadedInDb = Sys.Date(),
-      Notes          = NA,
-      source         = "BLM_AIM",
-      DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)]
-    )
-  schema_spr <- read.csv(path_schema)
+#' @export
+clean_tall_species_inventory_aim <- function(tall_species, path_tall, dataHeader, tblGapHeader = NULL) {
 
-  schema_spr <- schema_spr %>% dplyr::filter(Table == "dataSpeciesInventory")
-  missing_cols <- setdiff(schema_spr$Field, names(tall_speciesinventory))
+  # immediately by filter to relevant Primary Keys
+  pkeys <- dataHeader$PrimaryKey
 
-  # missing columns with NA
-  for (col in missing_cols) {
-    tall_speciesinventory[[col]] <- NA
+  # remove dups and unnecessary cols
+  ignore_cols <- c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")
+  dup_check_data <- tall_species[, !names(tall_species) %in% ignore_cols, drop = FALSE]
+
+  # filter rows before doing mutations
+  tall_species_inventory <- tall_species[!duplicated(dup_check_data) & tall_species$PrimaryKey %in% pkeys, ]
+
+  # 3assign dbkey
+  header_lookup <- dataHeader$DBKey
+  names(header_lookup) <- dataHeader$PrimaryKey
+
+  # Metadata assignment
+  tall_species_inventory$ProjectKey     <- "BLM_AIM"
+  tall_species_inventory$DateVisited    <- as.Date(tall_species_inventory$FormDate, format = "%Y-%m-%d")
+  tall_species_inventory$DENSITY        <- NA
+  tall_species_inventory$FormType       <- "SpeciesInventory"
+  tall_species_inventory$DateLoadedInDb <- Sys.Date()
+  tall_species_inventory$Notes          <- NA
+  tall_species_inventory$source         <- "BLM_AIM"
+  tall_species_inventory$DBKey          <- header_lookup[tall_species_inventory$PrimaryKey]
+
+  # hardcoded schema column filtering
+  schema_cols <- c(
+    "ProjectKey",          "PrimaryKey",          "LineKey",             "RecKey",
+    "DateVisited",         "FormDate",            "Species",             "DENSITY",
+    "FormType",            "SpecRichMethod",      "SpecRichMeasure",     "SpecRichNbrSubPlots",
+    "SpecRich1Container",  "SpecRich1Shape",      "SpecRich1Dim1",       "SpecRich1Dim2",
+    "SpecRich1Area",       "SpecRich2Container",  "SpecRich2Shape",      "SpecRich2Dim1",
+    "SpecRich2Dim2",       "SpecRich2Area",       "SpecRich3Container",  "SpecRich3Shape",
+    "SpecRich3Dim1",       "SpecRich3Dim2",       "SpecRich3Area",       "SpecRich4Container",
+    "SpecRich4Shape",      "SpecRich4Dim1",       "SpecRich4Dim2",       "SpecRich4Area",
+    "SpecRich5Container",  "SpecRich5Shape",      "SpecRich5Dim1",       "SpecRich5Dim2",
+    "SpecRich5Area",       "SpecRich6Container",  "SpecRich6Shape",      "SpecRich6Dim1",
+    "SpecRich6Dim2",       "SpecRich6Area",       "Notes",               "DBKey",
+    "DateLoadedInDb",      "source"
+  )
+
+  missing_cols <- setdiff(schema_cols, names(tall_species_inventory))
+
+  # Vectorized column creation - allocates all missing columns simultaneously
+  if (length(missing_cols) > 0) {
+    tall_species_inventory[, missing_cols] <- NA
   }
 
+  #save
+  if (!dir.exists(path_tall)) dir.create(path_tall, recursive = TRUE)
+  saveRDS(tall_species_inventory, file.path(path_tall, "species_inventory_tall.rds"))
+  #write.csv(tall_species_inventory, file.path(path_tall, "species_inventory_tall.csv"), row.names = FALSE)
 
-
-  # saveRDS(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.rdata"))
-  #write.csv(tall_speciesinventory, file.path(path_tall, "species_inventory_tall.csv"), row.names = F)
-
-return(tall_speciesinventory)
+  return(tall_species_inventory)
 }
+
+
 
 
 
@@ -221,26 +268,35 @@ return(tall_speciesinventory)
 #' @return cleaned, in LDC format, file to path_tall
 #'
 #' @export
-clean_tall_height_aim <- function(tall_height, dataHeader, tblLPIHeader,  path_tall){
-header <- dataHeader
-  #dropcols_height <- tall_height  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-  # keep DBKey and DateLoadedInDb if change on terra ?
-  dropcols_height <- tall_height  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
-  pkeys <- dataHeader$PrimaryKey
-  tall_height <- tall_height[which(!duplicated(dropcols_height)),] %>%
-    dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
-  tall_height <- tall_height |>
-    transform(
-      ProjectKey     = "BLM_AIM",
-      FormType       = "LPI",
-      source         = "BLM_AIM",
-      DateVisited    = as.Date(FormDate, format = "%Y-%m-%d"),
-      DateLoadedInDb = Sys.Date(),
-      DBKey          = header$DBKey[match(PrimaryKey, header$PrimaryKey)],
-      ShowCheckbox   = NA
-    )
-  # saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
-  #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
-return(tall_height)
+clean_tall_height_aim <- function(tall_height, path_tall, dataHeader, tblLPIHeader = NULL) {
 
+  # immediately filter to relevant Primary Keys
+  pkeys <- dataHeader$PrimaryKey
+
+  # removes dups and unnecessary cols
+  ignore_cols <- c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")
+  dup_check_data <- tall_height[, !names(tall_height) %in% ignore_cols, drop = FALSE]
+
+  # Filter rows before doing mutations
+  tall_height <- tall_height[!duplicated(dup_check_data) & tall_height$PrimaryKey %in% pkeys, ]
+
+  # assign dbkey
+  header_lookup <- dataHeader$DBKey
+  names(header_lookup) <- dataHeader$PrimaryKey
+
+  # Metadata
+  tall_height$ProjectKey     <- "BLM_AIM"
+  tall_height$FormType       <- "LPI"
+  tall_height$source         <- "BLM_AIM"
+  tall_height$DateVisited    <- as.Date(tall_height$FormDate, format = "%Y-%m-%d")
+  tall_height$DateLoadedInDb <- Sys.Date()
+  tall_height$DBKey          <- header_lookup[tall_height$PrimaryKey]
+  tall_height$ShowCheckbox   <- NA
+
+  # save
+  if (!dir.exists(path_tall)) dir.create(path_tall, recursive = TRUE)
+  saveRDS(tall_height, file.path(path_tall, "height_tall.rds"))
+  #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = FALSE)
+
+  return(tall_height)
 }

@@ -4,7 +4,12 @@
 \alias{clean_tall_soil_stability_aim}
 \title{Clean Tall soil stability AIM}
 \usage{
-clean_tall_soil_stability_aim(tall_soil_stability, path_tall, dataHeader)
+clean_tall_soil_stability_aim(
+  tall_soil_stability,
+  path_tall,
+  dataHeader,
+  tblGapHeader = NULL
+)
 }
 \arguments{
 \item{tall_soil_stability}{as a data.frame, the tall_gap file}

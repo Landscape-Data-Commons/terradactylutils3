@@ -422,7 +422,9 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 #' @param subset_to_filter number or numbers to process
 #' @param gathered_data file path where gathered data, not yet cleaned, will be saved
 #' @param data_list list of original fies
-#'
+#' @importFrom dplyr filter select mutate group_by ungroup
+#' @importFrom magrittr %>%
+#' @importFrom rlang .data !!
 #' @return saves CSVs of cleaned, LDC vars present, tall files to subset folders. if one subset, saved to subset_0
 #' @export
 clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE) {

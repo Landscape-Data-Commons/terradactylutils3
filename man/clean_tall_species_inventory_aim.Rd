@@ -4,7 +4,12 @@
 \alias{clean_tall_species_inventory_aim}
 \title{Clean Tall species richness AIM}
 \usage{
-clean_tall_species_inventory_aim(tall_species, path_tall, dataHeader)
+clean_tall_species_inventory_aim(
+  tall_species,
+  path_tall,
+  dataHeader,
+  tblGapHeader = NULL
+)
 }
 \arguments{
 \item{tall_species}{as a data.frame, the tall_gap file}

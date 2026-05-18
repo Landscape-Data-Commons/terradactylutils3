@@ -10,7 +10,8 @@ gather_all(
   gathered_data,
   path_tall,
   path_schema,
-  dsn
+  dsn = NULL,
+  dima_data_list = NULL
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ gather_all(
 \item{path_schema}{path to LDC schema plan}
 
 \item{dsn}{if BLM_AIM dsn to gdb}
+
+\item{dima_data_list}{if BLM_AIM dsn to gdb}
 }
 \value{
 saves CSV and RDS file of terradactyl gathered files to path gathered_data

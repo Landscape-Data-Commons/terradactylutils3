@@ -4,16 +4,16 @@
 \alias{clean_tall_height_aim}
 \title{Clean Tall height AIM}
 \usage{
-clean_tall_height_aim(tall_height, dataHeader, tblLPIHeader, path_tall)
+clean_tall_height_aim(tall_height, path_tall, dataHeader, tblLPIHeader = NULL)
 }
 \arguments{
 \item{tall_height}{as a data.frame, the tall_height file}
 
+\item{path_tall}{where all tall files from terradactyl::gather_... were saved}
+
 \item{dataHeader}{as data frame dataHeader}
 
 \item{tblLPIHeader}{for aim this remains NULL}
-
-\item{path_tall}{where all tall files from terradactyl::gather_... were saved}
 }
 \value{
 cleaned, in LDC format, file to path_tall
