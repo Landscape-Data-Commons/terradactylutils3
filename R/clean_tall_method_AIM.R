@@ -35,11 +35,14 @@ clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader) {
 
   # remove duplicates
   message("Removing duplicates...")
-  lpi <- lpi %>%
-    dplyr::select(-any_of(c("rid", "DateModified", "SpeciesList"))) %>%
-    dplyr::distinct() %>%
-    terradactylutils3::tdact_remove_duplicates() %>%
-    terradactylutils3::tdact_remove_empty(datatype = "lpi")
+  lpi <- as.data.frame(lpi)
+  pkeys <- dataHeader$PrimaryKey
+
+  lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
+
+  dropcols_lpi <- lpi  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+  lpi <- lpi[which(!duplicated(dropcols_lpi)),]|>
+    dplyr::filter(PrimaryKey %in% pkeys) |> unique()
 
   # add missing cols
   lpi$source <- "BLM_AIM"
