@@ -239,7 +239,7 @@ create_geoind <- function(path_schema, path_parent){
 #' @return a dataHeader that is in the expected LDC format to the tall file path
 #'
 #' @export
-create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL, gathered_data, by_species_key = by_species_key){
+create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL, gathered_data, by_species_key){
   if(source == "NRI"){
     dataHeader <- terradactyl::gather_header_nri(dsn = path_original_files, point_path = "POINT.csv", speciesstate = "NRI")
     dataHeader$LocationStatus <- "Obscured"
