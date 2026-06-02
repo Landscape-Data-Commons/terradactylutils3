@@ -1268,8 +1268,12 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
   }
 
   # 3. Output and Save block (RDS and CSV)
-  output_dir <- path_tall
-  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+  # output path tracking for downstream tools
+  output_dir <- if (!is.null(subset_to_filter)) {
+    file.path(path_tall, "subset", paste0("subset_", subset_to_filter))
+  } else {
+    path_tall
+  }
 
   lapply(names(tall_files_list_final), function(name) {
     df <- tall_files_list_final[[name]]
