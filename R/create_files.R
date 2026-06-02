@@ -127,7 +127,7 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
 #'
 #' @examples create_header(path_tall = file.path(path_parent, "Tall"), tblPlots = tblPlots, todaysDate = format(Sys.Date(), "%m/%d/%Y"), source = "DIMA", by_species_key = FALSE)
 #' @export
-create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key, gathered_data){
+create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key = FALSE, gathered_data){
   problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
   tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
   dataHeader <- tblPlots |>
@@ -233,12 +233,13 @@ create_geoind <- function(path_schema, path_parent){
 #' @param gathered_data path where gathered data will be stored
 #' @param path_tall where tall data will be saved
 #' @param dsn dsn for AIM data only
+#' @param by_species_key whether SpeciesState is by state for DIMA data
 
 #'
 #' @return a dataHeader that is in the expected LDC format to the tall file path
 #'
 #' @export
-create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL, gathered_data){
+create_header_all <- function(source, path_original_files = NULL, path_tall, dsn = NULL, gathered_data, by_species_key = by_species_key){
   if(source == "NRI"){
     dataHeader <- terradactyl::gather_header_nri(dsn = path_original_files, point_path = "POINT.csv", speciesstate = "NRI")
     dataHeader$LocationStatus <- "Obscured"
@@ -282,7 +283,7 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
   }else{
     gathered_data <- paste0(path_parent,"/gathered_data")
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
-                                                   gathered_data = gathered_data,by_species_key = FALSE)
+                                                   gathered_data = gathered_data,by_species_key = by_species_key)
   }
 
   # assign to global environment
