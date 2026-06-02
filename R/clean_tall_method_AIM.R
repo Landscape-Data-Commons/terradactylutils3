@@ -38,7 +38,11 @@ clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader) {
   lpi <- as.data.frame(lpi)
   pkeys <- dataHeader$PrimaryKey
 
-  lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
+  #lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
+  lpi <- lpi |>
+    dplyr::as_tibble() |>
+    tdact_remove_duplicates() |>
+    tdact_remove_empty(datatype = "lpi")
 
   dropcols_lpi <- lpi  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
   lpi <- lpi[which(!duplicated(dropcols_lpi)),]|>

@@ -1180,3 +1180,120 @@ filter_data_by_schema <- function(data_list, path_schema) {
     message("All list elements successfully processed against the schema.")
     return(updated_list)
   }
+
+
+
+
+#' Process and save "clean" tall files
+#'
+#' @param gathered_data_list list of gathered data files
+#' @param dataHeader dataHeader as data frame
+#' @param source data type
+#' @param path_tall path_tall folder path
+#' @export
+process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_tall) {
+
+  # 1. Verification Check
+  if (is.null(dataHeader) || !is.data.frame(dataHeader)) {
+    stop("dataHeader must be a valid data frame in the environment.")
+  }
+  if (!"PrimaryKey" %in% names(dataHeader)) {
+    stop("dataHeader must contain a 'PrimaryKey' column to perform subsetting.")
+  }
+
+  # 2. Determine Subsetting Logic based on observation count (> 10,000)
+  total_rows <- nrow(dataHeader)
+
+  if (total_rows > 10000) {
+    message("Observation count (", total_rows, ") exceeds 10,000. Splitting into 4 subsets...")
+
+    # Generate an assignment vector (1 to 4) repeated to match dataHeader rows
+    # Using a repeating sequence ensures an even distribution across the 4 subsets
+    set.seed(123) # Optional: for reproducible splits if row order changes
+    subset_vector <- rep(1:4, length.out = total_rows)
+
+    # Map PrimaryKeys to their respective group (1 through 4)
+    pk_groups <- split(dataHeader$PrimaryKey, subset_vector)
+
+    # Process each subset group
+    results_by_subset <- lapply(1:4, function(s_nbr) {
+      message("--- Processing Subset Group: ", s_nbr, "/4 ---")
+
+      # Grab the specific PrimaryKeys belonging to this subset chunk
+      current_pks <- pk_groups[[s_nbr]]
+
+      # Create a subsetted version of dataHeader
+      sub_dataHeader <- dataHeader %>% filter(PrimaryKey %in% current_pks)
+
+      # Subset every data frame inside gathered_data_list that contains PrimaryKey
+      sub_gathered_data_list <- lapply(gathered_data_list, function(df) {
+        if (is.data.frame(df) && "PrimaryKey" %in% names(df)) {
+          return(df %>% filter(PrimaryKey %in% current_pks))
+        }
+        return(df) # Return untouched if it doesn't have a PrimaryKey
+      })
+
+      # Call clean_tall_all directly using the subsetted structures in memory
+      # Note: data_list is now fed our subsetted in-memory list
+      result <- clean_tall_all(
+        data_source      = source,
+        gathered_data    = NULL, # Set to NULL or ignore if your clean_tall_all accepts data_list
+        dataHeader       = sub_dataHeader,
+        path_tall        = path_tall,
+        subset_to_filter = s_nbr,
+        data_list        = sub_gathered_data_list
+      )
+
+      return(result)
+    })
+
+    # Recombine (transpose and bind) the split lists back into a single unified list
+    message("Recombining all processed subsets...")
+    tall_files_list_final <- results_by_subset %>%
+      purrr::list_transpose() %>%
+      lapply(function(table_list) {
+        dplyr::bind_rows(table_list[!sapply(table_list, is.null)])
+      })
+
+  } else {
+    # If rows <= 10,000, skip subsetting completely and run directly on the data
+    message("Observation count (", total_rows, ") is <= 10,000. Processing whole dataset at once...")
+
+    tall_files_list_final <- clean_tall_all(
+      data_source      = source,
+      gathered_data    = NULL,
+      dataHeader       = dataHeader,
+      path_tall        = path_tall,
+      subset_to_filter = NULL,
+      data_list        = gathered_data_list
+    )
+
+    # Handle case where clean_tall_all returns a single item vs a named list structure
+    if (!is.list(tall_files_list_final) || is.data.frame(tall_files_list_final)) {
+      stop("clean_tall_all must return a named list of data frames.")
+    }
+  }
+
+  # 3. Output and Save block (RDS and CSV)
+  output_dir <- path_tall
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  lapply(names(tall_files_list_final), function(name) {
+    df <- tall_files_list_final[[name]]
+    if (is.null(df)) return(NULL)
+
+    # Standardize names ending in _tall
+    clean_name <- if(grepl("_tall$", name)) name else paste0(name, "_tall")
+
+    # Save as RDS
+    saveRDS(df, file = file.path(output_dir, paste0(clean_name, ".rds")))
+
+    # Save as CSV
+    write.csv(df, file = file.path(output_dir, paste0(clean_name, ".csv")), row.names = FALSE)
+
+    message(paste("Successfully saved final data asset:", clean_name))
+  })
+
+  message("--- Processing Complete! ---")
+  return(invisible(tall_files_list_final))
+}

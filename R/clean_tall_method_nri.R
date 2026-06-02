@@ -38,8 +38,11 @@ clean_tall_lpi_nri <- function(lpi, dataHeader, path_tall){
   ### remove duplicates and empty rows
 
 
-  lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
-
+  #lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
+  lpi <- lpi |>
+    dplyr::as_tibble() |>
+    tdact_remove_duplicates() |>
+    tdact_remove_empty(datatype = "lpi")
 
   tall_lpi <- lpi
 tall_lpi <- tall_lpi[!is.na(tall_lpi$code),]
