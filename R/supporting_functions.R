@@ -1104,3 +1104,74 @@ merge_subfolder <- function(parent_path, verbose = TRUE) {
     if (verbose) message("Saved CSV and RData for: ", base_name)
   })
 }
+
+
+
+
+
+#' Filter data to only keep schema columns
+#'
+#' @param gathered_data Path to terradactyl gathered data
+#' @param path_schema Path to LDC schema plan
+#' @export
+filter_data_by_schema <- function(gathered_data, path_schema) {
+  # 1. Verification checks
+  if (!file.exists(path_schema)) {
+    stop("The schema file path provided does not exist: ", path_schema)
+  }
+  if (!dir.exists(gathered_data)) {
+    stop("The gathered data directory does not exist: ", gathered_data)
+  }
+
+  # 2. Read the schema
+  schema <- read.csv(path_schema)
+
+  # 3. Get files excluding header
+  all_files <- list.files(gathered_data, pattern = "\\.csv$", full.names = TRUE)
+  target_files <- all_files[!str_detect(all_files, "header\\.csv")]
+
+  if (length(target_files) == 0) {
+    message("No matching target CSV files found in: ", gathered_data)
+    return(invisible(NULL))
+  }
+
+  # 4. Internal processing function
+  process_and_filter <- function(file_path, schema_df) {
+    fname <- basename(file_path)
+
+    # --- DYNAMIC FILENAME TO SCHEMA TABLE TRANSFORMATION ---
+    clean_name <- str_remove(fname, "_tall\\.csv")
+
+    table_name <- clean_name %>%
+      str_replace_all("(^|_)([a-z])", function(x) toupper(str_remove(x, "_"))) %>%
+      str_replace("Lpi", "LPI") %>%
+      paste0("data", .)
+
+    # fields from schema for each table
+    valid_fields <- schema_df %>%
+      filter(Table == table_name) %>%
+      { c(.$Field, .$terradactylAlias) } %>%
+      unique() %>%
+      na.omit()
+
+    if (length(valid_fields) == 0) {
+      warning(paste("No schema fields found for table:", table_name, "(from file:", fname, ")"))
+      return(NULL)
+    }
+
+    # subset schema by Table
+    df <- read_csv(file_path, show_col_types = FALSE)
+    cols_to_keep <- names(df)[names(df) %in% c(valid_fields, "PrimaryKey")]
+
+    df_filtered <- df %>% select(all_of(cols_to_keep))
+
+    # overwrite prev files
+    write_csv(df_filtered, file_path)
+    message(paste("Successfully updated", fname, "using schema Table:", table_name))
+  }
+
+  # 5. Execute the loop over target files
+  walk(target_files, ~process_and_filter(.x, schema))
+
+  message("All files successfully processed against the schema.")
+}
