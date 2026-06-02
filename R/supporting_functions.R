@@ -1115,13 +1115,6 @@ merge_subfolder <- function(parent_path, verbose = TRUE) {
 #' @param path_schema Path to LDC schema plan
 #' @export
 filter_data_by_schema <- function(data_list, path_schema) {
-    # 1. Verification checks
-    if (!file.exists(path_schema)) {
-      stop("The schema file path provided does not exist: ", path_schema)
-    }
-    if (!is.list(data_list) || length(data_list) == 0) {
-      stop("The data_list provided is empty or not a valid list.")
-    }
 
     # 2. Read the schema
     schema <- read.csv(path_schema)
