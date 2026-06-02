@@ -429,7 +429,7 @@ clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_t
   tall_files_list <- list()
 
   # output path tracking for downstream tools
-  output_dir <- if (!is.path(subset_to_filter) && !is.null(subset_to_filter)) {
+  output_dir <- if (!is.null(subset_to_filter)) {
     file.path(path_tall, "subset", paste0("subset_", subset_to_filter))
   } else {
     path_tall
