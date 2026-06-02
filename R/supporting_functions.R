@@ -1111,67 +1111,72 @@ merge_subfolder <- function(parent_path, verbose = TRUE) {
 
 #' Filter data to only keep schema columns
 #'
-#' @param gathered_data Path to terradactyl gathered data
+#' @param data_list list of gathered data
 #' @param path_schema Path to LDC schema plan
 #' @export
-filter_data_by_schema <- function(gathered_data, path_schema) {
-  # 1. Verification checks
-  if (!file.exists(path_schema)) {
-    stop("The schema file path provided does not exist: ", path_schema)
-  }
-  if (!dir.exists(gathered_data)) {
-    stop("The gathered data directory does not exist: ", gathered_data)
-  }
-
-  # 2. Read the schema
-  schema <- read.csv(path_schema)
-
-  # 3. Get files excluding header
-  all_files <- list.files(gathered_data, pattern = "\\.csv$", full.names = TRUE)
-  target_files <- all_files[!str_detect(all_files, "header\\.csv")]
-
-  if (length(target_files) == 0) {
-    message("No matching target CSV files found in: ", gathered_data)
-    return(invisible(NULL))
-  }
-
-  # 4. Internal processing function
-  process_and_filter <- function(file_path, schema_df) {
-    fname <- basename(file_path)
-
-    # --- DYNAMIC FILENAME TO SCHEMA TABLE TRANSFORMATION ---
-    clean_name <- str_remove(fname, "_tall\\.csv")
-
-    table_name <- clean_name %>%
-      str_replace_all("(^|_)([a-z])", function(x) toupper(str_remove(x, "_"))) %>%
-      str_replace("Lpi", "LPI") %>%
-      paste0("data", .)
-
-    # fields from schema for each table
-    valid_fields <- schema_df %>%
-      filter(Table == table_name) %>%
-      { c(.$Field, .$terradactylAlias) } %>%
-      unique() %>%
-      na.omit()
-
-    if (length(valid_fields) == 0) {
-      warning(paste("No schema fields found for table:", table_name, "(from file:", fname, ")"))
-      return(NULL)
+filter_data_by_schema <- function(data_list, path_schema) {
+    # 1. Verification checks
+    if (!file.exists(path_schema)) {
+      stop("The schema file path provided does not exist: ", path_schema)
+    }
+    if (!is.list(data_list) || length(data_list) == 0) {
+      stop("The data_list provided is empty or not a valid list.")
     }
 
-    # subset schema by Table
-    df <- read_csv(file_path, show_col_types = FALSE)
-    cols_to_keep <- names(df)[names(df) %in% c(valid_fields, "PrimaryKey")]
+    # 2. Read the schema
+    schema <- read.csv(path_schema)
 
-    df_filtered <- df %>% select(all_of(cols_to_keep))
+    # 3. Filter out the header if it exists in the list
+    # (Equivalent to your previous target_files step)
+    list_names <- names(data_list)
+    target_keys <- list_names[list_names != "header" & list_names != "header_tall"]
 
-    # overwrite prev files
-    write_csv(df_filtered, file_path)
-    message(paste("Successfully updated", fname, "using schema Table:", table_name))
+    if (length(target_keys) == 0) {
+      message("No target data frames found in the list to process.")
+      return(data_list)
+    }
+
+    # 4. Process each data frame in the list
+    # we use map() here so we can return the updated list
+    updated_list <- data_list
+
+    for (key in target_keys) {
+      df <- data_list[[key]]
+
+      # Ensure it's actually a data frame/tibble before processing
+      if (!is.data.frame(df)) next
+
+      # --- DYNAMIC LIST KEY TO SCHEMA TABLE TRANSFORMATION ---
+      # Drop "_tall" from the list element name if it's there
+      clean_name <- str_remove(key, "_tall")
+
+      # Capitalize first letter and any letter after an underscore, remove underscores
+      table_name <- clean_name %>%
+        str_replace_all("(^|_)([a-z])", function(x) toupper(str_remove(x, "_"))) %>%
+        str_replace("Lpi", "LPI") %>%
+        paste0("data", .)
+
+      # Get fields from schema for this specific table
+      valid_fields <- schema %>%
+        filter(Table == table_name) %>%
+        { c(.$Field, .$terradactylAlias) } %>%
+        unique() %>%
+        na.omit()
+
+      if (length(valid_fields) == 0) {
+        warning(paste("No schema fields found for table:", table_name, "(from list key:", key, ")"))
+        next
+      }
+
+      # Filter columns
+      cols_to_keep <- names(df)[names(df) %in% c(valid_fields, "PrimaryKey")]
+
+      # Update the data frame inside our new list
+      updated_list[[key]] <- df %>% select(all_of(cols_to_keep))
+
+      message(paste("Successfully filtered list element [", key, "] using schema Table:", table_name))
+    }
+
+    message("All list elements successfully processed against the schema.")
+    return(updated_list)
   }
-
-  # 5. Execute the loop over target files
-  walk(target_files, ~process_and_filter(.x, schema))
-
-  message("All files successfully processed against the schema.")
-}
