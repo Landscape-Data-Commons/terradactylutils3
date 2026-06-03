@@ -938,9 +938,6 @@ geofiles_from_subsets <- function(path_foringest,
 #' @param tall_files_list List. Optional in-memory list of tall datasets.
 #'
 #' @export
-#' Generate and Merge GeoIndicators from Data Subsets or Lists
-#'
-#' @export
 generate_geoIndicators <- function(path_foringest,
                                    path_tall,
                                    path_species,
