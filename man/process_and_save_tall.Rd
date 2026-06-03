@@ -4,7 +4,13 @@
 \alias{process_and_save_tall}
 \title{Process and save "clean" tall files}
 \usage{
-process_and_save_tall(gathered_data_list, dataHeader, source, path_tall)
+process_and_save_tall(
+  gathered_data_list,
+  dataHeader,
+  source,
+  path_tall,
+  nonvasc_codes
+)
 }
 \arguments{
 \item{gathered_data_list}{list of gathered data files}
@@ -14,6 +20,8 @@ process_and_save_tall(gathered_data_list, dataHeader, source, path_tall)
 \item{source}{data type}
 
 \item{path_tall}{path_tall folder path}
+
+\item{nonvasc_codes}{list of nonvascular codes}
 }
 \description{
 Process and save "clean" tall files

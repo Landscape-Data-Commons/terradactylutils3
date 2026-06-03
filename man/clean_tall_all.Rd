@@ -11,7 +11,8 @@ clean_tall_all(
   path_tall,
   subset_to_filter = NULL,
   data_list = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  nonvasc_codes
 )
 }
 \arguments{
@@ -26,6 +27,8 @@ clean_tall_all(
 \item{subset_to_filter}{number or numbers to process (used to adjust internal paths)}
 
 \item{data_list}{list of original files in memory (optional)}
+
+\item{nonvasc_codes}{list of nonvascular codes in the LPI data}
 }
 \description{
 clean all data from list or file paths

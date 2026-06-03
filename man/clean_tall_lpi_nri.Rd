@@ -4,7 +4,7 @@
 \alias{clean_tall_lpi_nri}
 \title{Clean Tall LPI NRI}
 \usage{
-clean_tall_lpi_nri(lpi, dataHeader, path_tall)
+clean_tall_lpi_nri(lpi, dataHeader, path_tall, nonvasc_codes)
 }
 \arguments{
 \item{lpi}{as a data.frame, the tall_lpi file}
@@ -12,6 +12,8 @@ clean_tall_lpi_nri(lpi, dataHeader, path_tall)
 \item{dataHeader}{as a data.frame, the dataHeader file produced from terradactylutils2::create_header()}
 
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
+
+\item{nonvasc_codes}{list of nonvascular codes in the dataset}
 }
 \value{
 updated tall file written to path_tall and a tall_lpi data frame in the console (unless saved to an object)
