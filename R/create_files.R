@@ -276,6 +276,13 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader <- dataHeader[which(!duplicated(dataHeader)),]
     dataHeader$DBKey <- gsub('.{15}$', '', dataHeader$DateVisited)
     dataHeader$ProjectKey <- "BLM_AIM"
+    if(by_species_key == TRUE){
+      dataHeader$SpeciesState <- dataHeader$State
+    }
+
+    if(by_species_key == FALSE){
+      dataHeader$SpeciesState <- dataHeader$ProjectKey
+    }
     write.csv(dataHeader, file.path(path_tall, "header.csv"), row.names = F)
     saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
     write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)

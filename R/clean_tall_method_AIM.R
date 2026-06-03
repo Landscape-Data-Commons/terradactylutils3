@@ -7,11 +7,12 @@
 #' @param lpi as a data.frame, the tall_lpi file
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
 #' @param dataHeader dataHeader as dataframe
+#' @param nonvasc_codes list of nonvascular codes in the data
 #'
 #' @return cleaned, in LDC format, tall lpi to the path_tall
 #'
 #' @export
-clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader) {
+clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader, nonvasc_codes) {
 
   message("Starting AIM LPI cleaning...")
 
@@ -52,6 +53,33 @@ clean_tall_lpi_aim <- function(lpi, path_tall, dataHeader) {
   lpi$source <- "BLM_AIM"
   lpi$DateLoadedInDb <- Sys.Date()
   lpi$ShowCheckbox <- NA
+
+  lpi <- lpi %>%
+    group_by(PrimaryKey, LineKey, PointNbr) %>%
+
+    # Flag if ANY of the bad codes are in the TopCanopy for this group
+    mutate(has_bad_top = any(layer == "TopCanopy" & code %in% nonvasc_codes)) %>%
+
+    # Mutate the layers for flagged groups
+    mutate(
+      layer = case_when(
+        !has_bad_top ~ layer,                   # Do nothing if no bad code on top
+        layer == "SoilSurface" ~ layer,          # Do nothing to SoilSurface
+        layer == "TopCanopy" ~ "Lower1",         # Bad code (TopCanopy) becomes Lower1
+
+        # Shift LowerX layers down by 1
+        str_detect(layer, "Lower") ~ {
+          old_num <- as.numeric(str_extract(layer, "\\d+"))
+          paste0("Lower", old_num + 1)
+        },
+
+        TRUE ~ layer
+      )
+    ) %>%
+    # Filter out remaining TopCanopy rows for flagged groups
+    filter(!(has_bad_top & layer == "TopCanopy")) %>%
+    select(-has_bad_top) %>%
+    ungroup()
 
   # save
   output_file <- file.path(path_tall, "lpi_tall.rds")

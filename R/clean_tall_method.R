@@ -9,12 +9,12 @@
 #' @param lpi as a data.frame, the tall_lpi file
 #' @param dataHeader as a data.frame, the dataHeader file produced from terradactylutils2::create_header()
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
-#'
+#' @param nonvasc_codes list of nonvascular codes in the LPI data
 #' @return updated tall file written to path_tall and a tall_lpi data frame in the console (unless saved to an object)
 #'
 #' @examples clean_tall_lpi(lpi = terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
 #' @export
-clean_tall_lpi <- function(lpi, dataHeader, path_tall){
+clean_tall_lpi <- function(lpi, dataHeader, path_tall, nonvasc_codes){
   if (any(class(lpi) %in% c("POSIXct", "POSIXt"))) {
     change_vars <- names(lpi)[do.call(rbind, vapply(lpi,
                                                     class))[, 1] %in% c("POSIXct", "POSIXt")]
@@ -57,6 +57,33 @@ clean_tall_lpi <- function(lpi, dataHeader, path_tall){
   tall_lpi$code <- toupper(tall_lpi$code)
   tall_lpi$ProjectKey <- dataHeader$ProjectKey[match(tall_lpi$PrimaryKey, dataHeader$PrimaryKey)]
 
+
+  lpi <- lpi %>%
+    group_by(PrimaryKey, LineKey, PointNbr) %>%
+
+    # Flag if ANY of the bad codes are in the TopCanopy for this group
+    mutate(has_bad_top = any(layer == "TopCanopy" & code %in% nonvasc_codes)) %>%
+
+    # Mutate the layers for flagged groups
+    mutate(
+      layer = case_when(
+        !has_bad_top ~ layer,                   # Do nothing if no bad code on top
+        layer == "SoilSurface" ~ layer,          # Do nothing to SoilSurface
+        layer == "TopCanopy" ~ "Lower1",         # Bad code (TopCanopy) becomes Lower1
+
+        # Shift LowerX layers down by 1
+        str_detect(layer, "Lower") ~ {
+          old_num <- as.numeric(str_extract(layer, "\\d+"))
+          paste0("Lower", old_num + 1)
+        },
+
+        TRUE ~ layer
+      )
+    ) %>%
+    # Filter out remaining TopCanopy rows for flagged groups
+    filter(!(has_bad_top & layer == "TopCanopy")) %>%
+    select(-has_bad_top) %>%
+    ungroup()
 
   saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rds"))
   #write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
@@ -422,8 +449,9 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 #' @param subset_to_filter number or numbers to process (used to adjust internal paths)
 #' @param gathered_data file path where gathered data CSVs are stored (used if data_list is NULL)
 #' @param data_list list of original files in memory (optional)
+#' @param nonvasc_codes list of nonvascular codes in the LPI data
 #' @export
-clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE) {
+clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE, nonvasc_codes) {
 
   start_total <- Sys.time()
   tall_files_list <- list()
@@ -510,7 +538,7 @@ clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_t
 
   # LPI
   if (!is.null(loaded_data$lpi_tall)) {
-    tall_files_list$lpi <- do.call(run_process, c(list(protocol = "lpi", lpi = loaded_data$lpi_tall), standard_args))
+    tall_files_list$lpi <- do.call(run_process, c(list(protocol = "lpi", lpi = loaded_data$lpi_tall, nonvasc_codes = nonvasc_codes), standard_args))
   }
 
   # Gap

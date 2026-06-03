@@ -923,3 +923,124 @@ geofiles_from_subsets <- function(path_foringest,
   }
 
 }
+
+
+
+
+#' Generate and Merge GeoIndicators from Data Subsets or Lists
+#'
+#' @param path_foringest Character. Path where the final merged geoIndicators.csv will be saved.
+#' @param path_tall Character. Path to the directory containing subset folders (used if tall_files_list is NULL).
+#' @param path_species Character. Base path/prefix for species list CSVs.
+#' @param template Character. Path to the Excel template file.
+#' @param path_schema Character. Path to the schema file.
+#' @param tall_header Data frame. The header data containing \code{ProjectKey} and \code{subset_nbr}.
+#' @param tall_files_list List. Optional in-memory list of tall datasets.
+#'
+#' @export
+#' Generate and Merge GeoIndicators from Data Subsets or Lists
+#'
+#' @export
+generate_geoIndicators <- function(path_foringest,
+                                   path_tall,
+                                   path_species,
+                                   template,
+                                   path_schema,
+                                   tall_header,
+                                   tall_files_list = NULL) {
+
+  message("=== Starting Geo-Indicators Processing ===")
+
+  projectkey <- unique(tall_header$ProjectKey)
+
+  # --- CHECK DISK FOR SUBSETS ---
+  has_subsets <- dir.exists(file.path(path_tall, "subset"))
+
+  if (has_subsets) {
+    if ("subset_nbr" %in% colnames(tall_header))
+      subset_indices <- unique(tall_header$subset_nbr)
+    path_ingest_subset_root <- file.path(path_foringest, "subset_indicators")
+    if (!dir.exists(path_ingest_subset_root)) dir.create(path_ingest_subset_root, recursive = TRUE)
+
+    message("Found subset directories. Processing chunks...")
+  } else {
+    # No subsets exist. Run the entire dataset as a single pass.
+    subset_indices <- "root"
+    message("No subset directory found. Processing directly from root path_tall...")
+    path_ingest_subset_root <- path_foringest
+  }
+
+  lapply(subset_indices, function(s_nbr) {
+
+    if (s_nbr == "root") {
+      current_path_tall   <- path_tall
+      current_path_ingest <- file.path(path_ingest_subset_root, "root_run")
+      subset_header       <- tall_header
+      message("--- Generating Indicators for Global Dataset ---")
+    } else {
+      current_path_tall   <- file.path(path_tall, "subset", paste0("subset_", s_nbr))
+      current_path_ingest <- file.path(path_ingest_subset_root, paste0("subset_", s_nbr))
+      subset_header       <- tall_header %>% dplyr::filter(as.character(subset_nbr) == as.character(s_nbr))
+      message("--- Generating Indicators for Subset: ", s_nbr, " ---")
+    }
+
+    if (!dir.exists(current_path_ingest)) dir.create(current_path_ingest, recursive = TRUE)
+
+    if (s_nbr != "root") {
+      temp_header_path <- file.path(current_path_tall, "header.Rdata")
+      if (!dir.exists(current_path_tall)) dir.create(current_path_tall, recursive = TRUE)
+      saveRDS(subset_header, file = temp_header_path)
+      eval(substitute(on.exit(if (file.exists(P)) file.remove(P), add = TRUE), list(P = temp_header_path)))
+    }
+
+    for (projkey in projectkey) {
+      if (!(projkey %in% subset_header$ProjectKey)) next
+      path_specieslist <- paste0(path_species, projkey, ".csv")
+
+      geofiles(
+        path_foringest   = current_path_ingest,
+        path_tall        = current_path_tall,
+        header           = subset_header,
+        path_specieslist = path_specieslist,
+        template         = template,
+        path_schema      = path_schema,
+        doGSP            = FALSE,
+        verbose          = TRUE,
+        calculate_dead   = FALSE,
+        digits           = 6
+      )
+
+      geo_file <- file.path(current_path_ingest, "geoIndicators.csv")
+      if (file.exists(geo_file)) {
+        geoind <- read.csv(geo_file) %>% dplyr::filter(ProjectKey == projkey)
+
+        suffix <- if(s_nbr == "root") "" else paste0("_sub", s_nbr)
+        new_name <- file.path(current_path_ingest, paste0("geoIndicators_", projkey, suffix, ".csv"))
+
+        write.csv(geoind, new_name, row.names = FALSE)
+        file.remove(geo_file)
+      }
+    }
+  })
+
+  message("\nMerging outputs into master file...")
+  all_geo_files <- list.files(path_ingest_subset_root, pattern = "geoIndicators_.*\\.csv", recursive = TRUE, full.names = TRUE)
+
+  if (length(all_geo_files) > 0) {
+    master_geo <- lapply(all_geo_files, read.csv) %>% dplyr::bind_rows()
+    write.csv(master_geo, file.path(path_foringest, "geoIndicators.csv"), row.names = FALSE)
+
+    # --- SAFE CLEANUP FIX ---
+    if (has_subsets) {
+      # Safe to delete the temporary wrapper folder
+      unlink(path_ingest_subset_root, recursive = TRUE)
+    } else {
+      # ONLY delete the nested "root_run" folder, leaving your path_foringest pristine!
+      unlink(file.path(path_foringest, "root_run"), recursive = TRUE)
+    }
+  }
+}
+
+
+
+

@@ -1183,8 +1183,9 @@ filter_data_by_schema <- function(data_list, path_schema) {
 #' @param dataHeader dataHeader as data frame
 #' @param source data type
 #' @param path_tall path_tall folder path
+#' @param nonvasc_codes list of nonvascular codes
 #' @export
-process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_tall) {
+process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_tall, nonvasc_codes) {
 
   # 1. Verification Check
   if (is.null(dataHeader) || !is.data.frame(dataHeader)) {
@@ -1234,7 +1235,8 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
         dataHeader       = sub_dataHeader,
         path_tall        = path_tall,
         subset_to_filter = s_nbr,
-        data_list        = sub_gathered_data_list
+        data_list        = sub_gathered_data_list,
+        nonvasc_codes    = nonvasc_codes
       )
 
       return(result)
