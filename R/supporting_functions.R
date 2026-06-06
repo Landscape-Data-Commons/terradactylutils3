@@ -1292,3 +1292,69 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
   message("--- Processing Complete! ---")
   return(invisible(tall_files_list_final))
 }
+
+
+#' Filter Projects for Nonvascular Growth Habit
+#'
+#' Loops through a vector of project keys, reads their corresponding species CSV files,
+#' and filters the data for rows where `GrowthHabitSub` matches "nonvascular"
+#' (including variations like "Non-Vascular", "non_vascular", etc.).
+#'
+#' @param project_keys A character vector of project identifiers.
+#' @param path_species A character string specifying the base directory path where
+#'   the CSV files are located. Should end with a slash (e.g., "path/to/data/").
+#' @param file_extension A character string specifying the file extension. Defaults to ".csv".
+#'
+#' @return A named list of data frames. Each element in the list corresponds to a
+#'   project key and contains the filtered data frame. If a file is missing,
+#'   the list element will be `NULL`.
+#' @export
+#'
+#' @examples
+#' nonvascular_data <- filter_nonvascular_projects(my_keys, species_path)
+filter_nonvascular_projects <- function(project_keys, path_species, file_extension = ".csv") {
+
+  # Ensure the output list is initialized
+  filtered_projects_list <- list()
+
+  # Define the regex pattern for nonvascular variations
+  # ^non     -> starts with "non"
+  # [-_]?    -> optional hyphen or underscore
+  # vascular -> followed by "vascular"
+  # $        -> ends there
+  regex_pattern <- "^non[-_]?vascular$"
+
+  for (proj in project_keys) {
+
+    # Construct the full file path
+    file_path <- paste0(path_species, proj, file_extension)
+
+    # Safely check if the file exists before reading
+    if (file.exists(file_path)) {
+
+      # Read the data
+      df <- read.csv(file_path, stringsAsFactors = FALSE)
+
+      # Check if the target column actually exists in this file
+      if ("GrowthHabitSub" %in% names(df)) {
+
+        # Match pattern while ignoring case (handles NONVASCULAR, Non-Vascular, etc.)
+        match_mask <- grepl(regex_pattern, df$GrowthHabitSub, ignore_case = TRUE)
+        filtered_df <- df[match_mask, ]
+
+        # Store the result
+        filtered_projects_list[[proj]] <- filtered_df
+
+      } else {
+        warning(paste0("Column 'GrowthHabitSub' not found in file: ", file_path))
+        filtered_projects_list[[proj]] <- data.frame() # Return empty df if column missing
+      }
+
+    } else {
+      warning(paste("File not found:", file_path))
+      filtered_projects_list[[proj]] <- NULL
+    }
+  }
+
+  return(filtered_projects_list)
+}
