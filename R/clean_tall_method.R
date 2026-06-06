@@ -451,7 +451,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 #' @param data_list list of original files in memory (optional)
 #' @param nonvasc_codes list of nonvascular codes in the LPI data
 #' @export
-clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE, nonvasc_codes) {
+clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE, nonvasc_codes = NULL) {
 
   start_total <- Sys.time()
   tall_files_list <- list()
@@ -537,8 +537,16 @@ clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_t
   # --- Method-Specific Calls (Extracting Headers dynamically from list or standard args) ---
 
   # LPI
+  # Inside clean_tall_all, right before processing LPI:
   if (!is.null(loaded_data$lpi_tall)) {
-    tall_files_list$lpi <- do.call(run_process, c(list(protocol = "lpi", lpi = loaded_data$lpi_tall, nonvasc_codes = nonvasc_codes), standard_args))
+
+    # Safeguard: if it's NULL, convert it to character(0) so %in% doesn't complain downstream
+    passed_codes <- if (is.null(nonvasc_codes)) character(0) else nonvasc_codes
+
+    tall_files_list$lpi <- do.call(
+      run_process,
+      c(list(protocol = "lpi", lpi = loaded_data$lpi_tall, nonvasc_codes = passed_codes), standard_args)
+    )
   }
 
   # Gap

@@ -12,7 +12,7 @@ clean_tall_all(
   subset_to_filter = NULL,
   data_list = NULL,
   verbose = TRUE,
-  nonvasc_codes
+  nonvasc_codes = NULL
 )
 }
 \arguments{

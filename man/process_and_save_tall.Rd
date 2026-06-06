@@ -9,7 +9,7 @@ process_and_save_tall(
   dataHeader,
   source,
   path_tall,
-  nonvasc_codes
+  nonvasc_codes = NULL
 )
 }
 \arguments{
