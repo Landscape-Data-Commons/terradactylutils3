@@ -1318,10 +1318,6 @@ filter_nonvascular <- function(project_keys, path_species, file_extension = ".cs
   filtered_projects_list <- list()
 
   # Define the regex pattern for nonvascular variations
-  # ^non     -> starts with "non"
-  # [-_]?    -> optional hyphen or underscore
-  # vascular -> followed by "vascular"
-  # $        -> ends there
   regex_pattern <- "^non[-_]?vascular$"
 
   for (proj in project_keys) {
@@ -1338,16 +1334,16 @@ filter_nonvascular <- function(project_keys, path_species, file_extension = ".cs
       # Check if the target column actually exists in this file
       if ("GrowthHabitSub" %in% names(df)) {
 
-        # Match pattern while ignoring case (handles NONVASCULAR, Non-Vascular, etc.)
-        match_mask <- grepl(regex_pattern, df$GrowthHabitSub, ignore_case = TRUE)
+        # FIX: Changed ignore_case to ignore.case
+        match_mask <- grepl(regex_pattern, df$GrowthHabitSub, ignore.case = TRUE)
         filtered_df <- df[match_mask, ]
 
-        # Store the result
+        # Store the result (Will be an empty 0-row df if no matches are found)
         filtered_projects_list[[proj]] <- filtered_df
 
       } else {
         warning(paste0("Column 'GrowthHabitSub' not found in file: ", file_path))
-        filtered_projects_list[[proj]] <- data.frame() # Return empty df if column missing
+        filtered_projects_list[[proj]] <- data.frame()
       }
 
     } else {
