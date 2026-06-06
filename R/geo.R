@@ -1047,10 +1047,6 @@ generate_geoIndicators <- function(path_foringest,
 #' @param template Character. Path to the Excel template file.
 #' @param path_schema Character. Path to the schema file.
 #' @param tall_header Data frame. The header data containing \code{ProjectKey} and \code{subset_nbr}.
-#'
-#' @export
-#' Generate and Merge GeoSpecies from Data Subsets or Lists (Inline Processing)
-#'
 #' @export
 generate_geoSpecies <- function(path_foringest,
                                 path_tall,
