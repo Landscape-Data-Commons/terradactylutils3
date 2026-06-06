@@ -1312,7 +1312,7 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
 #'
 #' @examples
 #' nonvascular_data <- filter_nonvascular_projects(my_keys, species_path)
-filter_nonvascular_projects <- function(project_keys, path_species, file_extension = ".csv") {
+filter_nonvascular <- function(project_keys, path_species, file_extension = ".csv") {
 
   # Ensure the output list is initialized
   filtered_projects_list <- list()
