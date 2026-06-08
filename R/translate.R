@@ -437,7 +437,6 @@ for(proj in projectkey) {
 translate_coremethods <- function(path_tall, path_foringest, path_schema, verbose = FALSE) {
 
   # ldc schema
-  if (!file.exists(path_schema)) stop("Schema file not found.")
   schema <- read.csv(path_schema, stringsAsFactors = FALSE)
 
   # convert "_tall" to "data" and handle specific acronyms like LPI
