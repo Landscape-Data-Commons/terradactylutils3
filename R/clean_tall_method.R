@@ -246,7 +246,7 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
       source         = "DIMA",
       DateLoadedInDb = Sys.Date()
     )
-  saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
+  saveRDS(tall_height, file.path(path_tall, "height_tall.rds"))
 
   #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
 

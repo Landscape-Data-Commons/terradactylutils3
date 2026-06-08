@@ -9,6 +9,7 @@ process_and_save_tall(
   dataHeader,
   source,
   path_tall,
+  save_dir = path_tall,
   nonvasc_codes = NULL,
   data_list = NULL
 )

@@ -1186,7 +1186,7 @@ filter_data_by_schema <- function(data_list, path_schema) {
 #' @param nonvasc_codes list of nonvascular codes
 #' @param data_list list of original files for DIMA
 #' @export
-process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_tall, nonvasc_codes = NULL, data_list = NULL) {
+process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_tall, save_dir = path_tall, nonvasc_codes = NULL, data_list = NULL) {
 
   # 1. Verification Check
   if (is.null(dataHeader) || !is.data.frame(dataHeader)) {
@@ -1202,57 +1202,44 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
   if (total_rows > 10000) {
     message("Observation count (", total_rows, ") exceeds 10,000. Splitting into 4 subsets...")
 
-    # Generate an assignment vector (1 to 4) repeated to match dataHeader rows
-    # Using a repeating sequence ensures an even distribution across the 4 subsets
-    set.seed(123) # Optional: for reproducible splits if row order changes
+    set.seed(123)
     subset_vector <- rep(1:4, length.out = total_rows)
-
-    # Map PrimaryKeys to their respective group (1 through 4)
     pk_groups <- split(dataHeader$PrimaryKey, subset_vector)
 
-    # Process each subset group
     results_by_subset <- lapply(1:4, function(s_nbr) {
       message("--- Processing Subset Group: ", s_nbr, "/4 ---")
-
-      # Grab the specific PrimaryKeys belonging to this subset chunk
       current_pks <- pk_groups[[s_nbr]]
 
-      # Create a subsetted version of dataHeader
       sub_dataHeader <- dataHeader %>% filter(PrimaryKey %in% current_pks)
 
-      # Subset every data frame inside gathered_data_list that contains PrimaryKey
       sub_gathered_data_list <- lapply(gathered_data_list, function(df) {
         if (is.data.frame(df) && "PrimaryKey" %in% names(df)) {
           return(df %>% filter(PrimaryKey %in% current_pks))
         }
-        return(df) # Return untouched if it doesn't have a PrimaryKey
+        return(df)
       })
 
-      # Subset every data frame inside gathered_data_list that contains PrimaryKey
       sub_data_list <- lapply(data_list, function(df) {
         if (is.data.frame(df) && "PrimaryKey" %in% names(df)) {
           return(df %>% filter(PrimaryKey %in% current_pks))
         }
-        return(df) # Return untouched if it doesn't have a PrimaryKey
+        return(df)
       })
 
-      # Call clean_tall_all directly using the subsetted structures in memory
-      # Note: data_list is now fed our subsetted in-memory list
       result <- clean_tall_all(
-        data_source      = source,
-        gathered_data    = NULL, # Set to NULL or ignore if your clean_tall_all accepts data_list
-        dataHeader       = sub_dataHeader,
-        path_tall        = path_tall,
-        subset_to_filter = s_nbr,
-        gathered_data_list        = sub_gathered_data_list,
-        data_list = sub_data_list,
-        nonvasc_codes    = nonvasc_codes
+        data_source        = source,
+        gathered_data      = NULL,
+        dataHeader         = sub_dataHeader,
+        path_tall          = path_tall, # Keeps project subfolder context for processing
+        subset_to_filter   = s_nbr,
+        gathered_data_list = sub_gathered_data_list,
+        data_list          = sub_data_list,
+        nonvasc_codes      = nonvasc_codes
       )
 
       return(result)
     })
 
-    # Recombine (transpose and bind) the split lists back into a single unified list
     message("Recombining all processed subsets...")
     tall_files_list_final <- results_by_subset %>%
       purrr::list_transpose() %>%
@@ -1261,43 +1248,49 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
       })
 
   } else {
-    # If rows <= 10,000, skip subsetting completely and run directly on the data
     message("Observation count (", total_rows, ") is <= 10,000. Processing whole dataset at once...")
 
     tall_files_list_final <- clean_tall_all(
-      data_source      = source,
-      gathered_data    = NULL,
-      dataHeader       = dataHeader,
-      path_tall        = path_tall,
-      subset_to_filter = NULL,
-      data_list        = data_list,
-      gathered_data_list = gathered_data_list
+      data_source        = source,
+      gathered_data      = NULL,
+      dataHeader         = dataHeader,
+      path_tall          = path_tall, # Keeps project subfolder context for processing
+      subset_to_filter   = NULL,
+      data_list          = data_list,
+      gathered_data_list = gathered_data_list,
+      nonvasc_codes      = nonvasc_codes
     )
 
-    # Handle case where clean_tall_all returns a single item vs a named list structure
     if (!is.list(tall_files_list_final) || is.data.frame(tall_files_list_final)) {
       stop("clean_tall_all must return a named list of data frames.")
     }
   }
 
   # 3. Output and Save block (RDS and CSV)
-  output_dir <- path_tall
+  # CHANGED: Now uses save_dir instead of path_tall for the file outputs
+  output_dir <- save_dir
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-  lapply(names(tall_files_list_final), function(name) {
+  list_names <- names(tall_files_list_final)
+  if (is.null(list_names)) {
+    warning("The returned list from clean_tall_all was unnamed. Defaulting generic names.")
+    list_names <- paste0("dataset_", seq_along(tall_files_list_final))
+    names(tall_files_list_final) <- list_names
+  }
+
+  lapply(list_names, function(name) {
     df <- tall_files_list_final[[name]]
     if (is.null(df)) return(NULL)
 
-    # Standardize names ending in _tall
     clean_name <- if(grepl("_tall$", name)) name else paste0(name, "_tall")
 
-    # Save as RDS
-    saveRDS(df, file = file.path(output_dir, paste0(clean_name, ".rds")))
+    rds_path <- file.path(output_dir, paste0(clean_name, ".rds"))
+    csv_path <- file.path(output_dir, paste0(clean_name, ".csv"))
 
-    # Save as CSV
-    write.csv(df, file = file.path(output_dir, paste0(clean_name, ".csv")), row.names = FALSE)
+    saveRDS(df, file = rds_path)
+    write.csv(df, file = csv_path, row.names = FALSE)
 
-    message(paste("Successfully saved final data asset:", clean_name))
+    message(paste("Successfully saved final data asset to directory:", rds_path))
   })
 
   message("--- Processing Complete! ---")
@@ -1305,6 +1298,81 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
 }
 
 
+#' Combine Project CSV Files Across Subfolders
+#'
+#' @description
+#' Scans a root directory for subfolders containing processed project CSV files,
+#' groups files by their common base name (e.g., `lpi_tall.csv`), combines
+#' them by stacking their rows, and saves the consolidated datasets back into
+#' the root directory as both CSV and RDS files.
+#'
+#' @param path_tall Character. The absolute or relative path to the root
+#'   directory containing the project subfolders.
+#'
+#' @return Invisible `NULL`. The function is called for its side effect of
+#'   writing combined CSV and RDS files to disk.
+#'
+#' @importFrom dplyr bind_rows
+#' @importFrom magrittr %>%
+#'
+#' @export
+combine_project_csvs <- function(path_tall) {
+
+  # 1. Sanity Check: Ensure the root directory actually exists
+  if (!dir.exists(path_tall)) {
+    stop("The provided path_tall directory does not exist: ", path_tall)
+  }
+
+  message("\n--- Beginning Post-Processing: Combining Project Files ---")
+
+  # 2. Find all CSV files inside the project subfolders (recursive = TRUE)
+  all_subfolder_files <- list.files(
+    path        = path_tall,
+    pattern     = "\\.csv$",
+    recursive   = TRUE,
+    full.names  = TRUE
+  )
+
+  # 3. Filter out any CSVs that might already live in the root path_tall directory
+  # We use normalizePath to ensure trailing slashes or formatting don't break the comparison
+  root_dir_normalized <- normalizePath(path_tall, mustWork = FALSE)
+  subfolder_csvs <- all_subfolder_files[normalizePath(dirname(all_subfolder_files), mustWork = FALSE) != root_dir_normalized]
+
+  if (length(subfolder_csvs) == 0) {
+    warning("No subfolder CSV files found to combine. Check your directory structure.")
+    return(invisible(NULL))
+  }
+
+  # 4. Group files by their base name (e.g., "lpi_tall.csv")
+  file_base_names   <- basename(subfolder_csvs)
+  unique_file_types <- unique(file_base_names)
+
+  # 5. Loop through each unique file type, read, stack, and save
+  lapply(unique_file_types, function(file_type) {
+    message("Combining asset: ", file_type)
+
+    # Isolate paths matching this specific file type across all subfolders
+    matching_files <- subfolder_csvs[file_base_names == file_type]
+
+    # Read and combine all data frames into one
+    combined_df <- matching_files %>%
+      lapply(read.csv, stringsAsFactors = FALSE) %>%
+      dplyr::bind_rows()
+
+    # Define destination paths in the main root folder
+    target_csv <- file.path(path_tall, file_type)
+    target_rds <- file.path(path_tall, gsub("\\.csv$", ".rds", file_type))
+
+    # Save consolidated outputs
+    write.csv(combined_df, file = target_csv, row.names = FALSE)
+    saveRDS(combined_df, file = target_rds)
+
+    message("Successfully saved combined asset to: ", target_csv)
+  })
+
+  message("--- All project data combined and saved to root path_tall! ---")
+  return(invisible(NULL))
+}
 #' Filter Projects for Nonvascular Growth Habit
 #'
 #' Loops through a vector of project keys, reads their corresponding species CSV files,
