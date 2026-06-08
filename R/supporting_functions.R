@@ -1184,8 +1184,9 @@ filter_data_by_schema <- function(data_list, path_schema) {
 #' @param source data type
 #' @param path_tall path_tall folder path
 #' @param nonvasc_codes list of nonvascular codes
+#' @param data_list list of original files for DIMA
 #' @export
-process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_tall, nonvasc_codes = NULL) {
+process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_tall, nonvasc_codes = NULL, data_list = NULL) {
 
   # 1. Verification Check
   if (is.null(dataHeader) || !is.data.frame(dataHeader)) {
@@ -1227,6 +1228,14 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
         return(df) # Return untouched if it doesn't have a PrimaryKey
       })
 
+      # Subset every data frame inside gathered_data_list that contains PrimaryKey
+      sub_data_list <- lapply(data_list, function(df) {
+        if (is.data.frame(df) && "PrimaryKey" %in% names(df)) {
+          return(df %>% filter(PrimaryKey %in% current_pks))
+        }
+        return(df) # Return untouched if it doesn't have a PrimaryKey
+      })
+
       # Call clean_tall_all directly using the subsetted structures in memory
       # Note: data_list is now fed our subsetted in-memory list
       result <- clean_tall_all(
@@ -1235,7 +1244,8 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
         dataHeader       = sub_dataHeader,
         path_tall        = path_tall,
         subset_to_filter = s_nbr,
-        data_list        = sub_gathered_data_list,
+        gathered_data_list        = sub_gathered_data_list,
+        data_list = sub_data_list,
         nonvasc_codes    = nonvasc_codes
       )
 
@@ -1260,7 +1270,8 @@ process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_t
       dataHeader       = dataHeader,
       path_tall        = path_tall,
       subset_to_filter = NULL,
-      data_list        = gathered_data_list
+      data_list        = data_list,
+      gathered_data_list = gathered_data_list
     )
 
     # Handle case where clean_tall_all returns a single item vs a named list structure

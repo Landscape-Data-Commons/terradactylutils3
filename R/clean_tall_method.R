@@ -449,9 +449,10 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 #' @param subset_to_filter number or numbers to process (used to adjust internal paths)
 #' @param gathered_data file path where gathered data CSVs are stored (used if data_list is NULL)
 #' @param data_list list of original files in memory (optional)
+#' @param gathered_data_list list of gathered files if not putting to gathered_data file path
 #' @param nonvasc_codes list of nonvascular codes in the LPI data
 #' @export
-clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE, nonvasc_codes = NULL) {
+clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE, nonvasc_codes = NULL, gathered_data_list = NULL) {
 
   start_total <- Sys.time()
   tall_files_list <- list()
@@ -477,10 +478,10 @@ clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_t
     dat <- NULL
 
     # Method A: Check if it exists in the provided in-memory list
-    if (!is.null(data_list) && !is.null(data_list[[file_name]])) {
+    if (!is.null(gathered_data_list) && !is.null(gathered_data_list[[file_name]])) {
       message("Processing in-memory element: ", file_name, "...")
       load_start <- Sys.time()
-      dat <- data.table::as.data.table(data_list[[file_name]])
+      dat <- data.table::as.data.table(gathered_data_list[[file_name]])
       load_end <- Sys.time()
       message("   Finished processing ", file_name, " from list in ", round(difftime(load_end, load_start, units = "secs"), 2), "s")
 
