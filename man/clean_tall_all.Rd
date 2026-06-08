@@ -12,7 +12,8 @@ clean_tall_all(
   subset_to_filter = NULL,
   data_list = NULL,
   verbose = TRUE,
-  nonvasc_codes = NULL
+  nonvasc_codes = NULL,
+  gathered_data_list = NULL
 )
 }
 \arguments{
@@ -29,6 +30,8 @@ clean_tall_all(
 \item{data_list}{list of original files in memory (optional)}
 
 \item{nonvasc_codes}{list of nonvascular codes in the LPI data}
+
+\item{gathered_data_list}{list of gathered files if not putting to gathered_data file path}
 }
 \description{
 clean all data from list or file paths

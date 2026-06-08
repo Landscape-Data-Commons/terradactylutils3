@@ -9,7 +9,8 @@ process_and_save_tall(
   dataHeader,
   source,
   path_tall,
-  nonvasc_codes = NULL
+  nonvasc_codes = NULL,
+  data_list = NULL
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ process_and_save_tall(
 \item{path_tall}{path_tall folder path}
 
 \item{nonvasc_codes}{list of nonvascular codes}
+
+\item{data_list}{list of original files for DIMA}
 }
 \description{
 Process and save "clean" tall files
