@@ -1433,3 +1433,137 @@ filter_nonvascular <- function(project_keys, path_species, file_extension = ".cs
 
   return(filtered_projects_list)
 }
+
+
+
+#' Map DIMA Primary Keys to a Assigned Identifier
+#'
+#' @description
+#' Scans all data frames inside a list to build a master crosswalk mapping
+#' the current `PrimaryKey` to a target identifier column (e.g., `plotVisitKey`).
+#' It then updates the `PrimaryKey` column across all data frames using this map.
+#' If an observation does not have a matching target key, it retains its original
+#' `PrimaryKey` value, and a detailed warning is generated specifying which keys
+#' were missing and which data frames they were found in.
+#'
+#' @param data_list A named list of data frames to be processed.
+#' @param source Character. The data source identifier. The mapping logic will
+#'   only execute if this equals `"DIMA"`.
+#' @param pkey_assigned Character. The name of the unique identifier column
+#'   used to overwrite `PrimaryKey` (e.g., `"plotVisitKey"`).
+#'
+#' @return A list of data frames with updated `PrimaryKey` columns.
+#'
+#' @importFrom dplyr bind_rows left_join distinct filter
+#' @importFrom magrittr %>%
+#'
+#' @export
+map_dima_primary_keys <- function(data_list, source, pkey_assigned) {
+
+  # 1. Early exit checks
+  if (is.null(source) || source != "DIMA") {
+    return(data_list)
+  }
+  if (is.null(pkey_assigned)) {
+    return(data_list)
+  }
+  if (!is.list(data_list) || is.data.frame(data_list)) {
+    stop("data_list must be a valid list of data frames.")
+  }
+
+  message("Source is DIMA: Building master key translation crosswalk using '", pkey_assigned, "'...")
+
+  # --- STEP 2: Build the Master Translation Crosswalk ---
+  crosswalk_list <- lapply(data_list, function(df) {
+    if (is.data.frame(df) && "PrimaryKey" %in% names(df) && pkey_assigned %in% names(df)) {
+      return(df[, c("PrimaryKey", pkey_assigned), drop = FALSE])
+    }
+    return(NULL)
+  })
+
+  master_crosswalk <- dplyr::bind_rows(crosswalk_list) %>%
+    unique() %>%
+    dplyr::filter(!is.na(PrimaryKey) & !is.na(.data[[pkey_assigned]]) & .data[[pkey_assigned]] != "")
+
+  if (nrow(master_crosswalk) == 0) {
+    warning("Could not build a crosswalk. No tables contained both 'PrimaryKey' and '", pkey_assigned, "' with valid values.")
+    return(data_list)
+  }
+
+  if (any(duplicated(master_crosswalk$PrimaryKey))) {
+    warning("Some PrimaryKey values map to multiple '", pkey_assigned, "' values. Keeping the first match.")
+    master_crosswalk <- master_crosswalk %>%
+      dplyr::distinct(PrimaryKey, .keep_all = TRUE)
+  }
+
+  # --- STEP 3: Map and Track Failures by Data Frame ---
+  unmapped_registry <- list()
+
+  df_names <- names(data_list)
+  if (is.null(df_names)) df_names <- paste0("df_index_", seq_along(data_list))
+
+  for (i in seq_along(data_list)) {
+    df <- data_list[[i]]
+    df_name <- df_names[i]
+
+    if (is.data.frame(df) && "PrimaryKey" %in% names(df)) {
+
+      # Keep a backup copy of the original PrimaryKey column
+      df$ORIGINAL_PRIMARY_KEY_BACKUP <- df$PrimaryKey
+
+      # Perform left join to bring in the translation map column
+      df_mapped <- df %>%
+        dplyr::left_join(master_crosswalk, by = "PrimaryKey", suffix = c("", "_crosswalk"))
+
+      # Define exactly what counts as a "successful match"
+      has_valid_match <- !is.na(df_mapped[[pkey_assigned]]) & df_mapped[[pkey_assigned]] != ""
+
+      # Identify rows that completely missed finding a match
+      failed_rows <- !has_valid_match & !is.na(df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP) & df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP != ""
+
+      # Log failures into registry
+      if (any(failed_rows)) {
+        missing_keys_in_df <- unique(df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP[failed_rows])
+        unmapped_registry[[df_name]] <- missing_keys_in_df
+      }
+
+      # Assignment Guard: Only update matching rows
+      if (any(has_valid_match)) {
+        df_mapped$PrimaryKey[has_valid_match] <- df_mapped[[pkey_assigned]][has_valid_match]
+      }
+
+      # Fallback: Force failed rows to retain their backup snapshot
+      if (any(!has_valid_match)) {
+        df_mapped$PrimaryKey[!has_valid_match] <- df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP[!has_valid_match]
+      }
+
+      # Clean Up temporary metadata columns
+      df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP <- NULL
+
+      # Clean up target assignment column depending on table origin
+      if (!(pkey_assigned %in% names(df))) {
+        df_mapped[[pkey_assigned]] <- NULL
+      } else {
+        df_mapped[[pkey_assigned]] <- df[[pkey_assigned]]
+      }
+
+      data_list[[i]] <- df_mapped
+    }
+  }
+
+  # --- STEP 4: Produce Detailed Warning Report ---
+  if (length(unmapped_registry) > 0) {
+    warning_report <- sapply(names(unmapped_registry), function(name) {
+      paste0("  - [", name, "]: ", paste(unmapped_registry[[name]], collapse = ", "))
+    }) %>% paste(collapse = "\n")
+
+    warning(
+      "The following PrimaryKey observations did not have a matching '", pkey_assigned, "' value and retained their original PrimaryKey:\n",
+      warning_report
+    )
+  } else {
+    message("Success: All encountered PrimaryKeys successfully mapped to '", pkey_assigned, "'.")
+  }
+
+  return(data_list)
+}
