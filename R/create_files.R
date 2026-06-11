@@ -682,7 +682,7 @@ write.csv(test, path_specieslist)
 #' @importFrom dplyr mutate across
 #' @importFrom readr write_csv
 #' @importFrom utils head
-create_species_list_RW <- function(dsn, projectkey, output_dir = "C:/Users/bwheeler/Documents/species_lists") {
+create_species_list_RW <- function(dsn, projectkey, output_dir) {
   library(sf)
   library(dplyr)
   library(readr)
