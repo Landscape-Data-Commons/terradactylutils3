@@ -130,14 +130,35 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
 create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key = FALSE, gathered_data){
   problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
   tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
-  dataHeader <- tblPlots |>
-    rename(
-      ProjectKey = project,
-      DBKey = dbname,
-      Latitude_NAD83 = Latitude,
-      Longitude_NAD83 = Longitude,
-      EcologicalSiteId = EcolSite
-    )
+  # 1. Define your target map (New_Name = "Old_Name")
+  rename_map <- c(
+    ProjectKey       = "project",
+    DBKey            = "dbname",
+    Latitude_NAD83   = "Latitude",
+    Longitude_NAD83  = "Longitude",
+    EcologicalSiteId = "EcolSite"
+  )
+
+  # 2. Start with your base dataframe
+  dataHeader <- tblPlots
+
+  # 3. Loop through and apply renames conditionally
+  for (new_name in names(rename_map)) {
+    old_name <- rename_map[[new_name]]
+
+    # Check if the old column exists to be renamed
+    if (old_name %in% names(dataHeader)) {
+
+      # Check if the new name is already taken
+      if (new_name %in% names(dataHeader)) {
+        warning(paste0("ProjectKey already exists; not replacing ", old_name))
+      } else {
+        # Rename safely using base bracket notation to avoid tidyverse overhead in a loop
+        names(dataHeader)[names(dataHeader) == old_name] <- new_name
+      }
+
+    }
+  }
   dataHeader$SiteID <- tblSites$SiteID[match(dataHeader$SiteKey, tblSites$SiteKey)]
   dataHeader$RecKey <- dataHeader$PlotKey
 
