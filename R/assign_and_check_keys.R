@@ -764,7 +764,7 @@ check_pk_and_visit_dates <- function(all_dimas_pks, unique_pks, path_qc) {
 
   # 2. Join tblPlots to unique data observations and pivot wider to map presence
   pk_date_check <- all_dimas_pks$tblPlots %>%
-    dplyr::select(PlotKey, PrimaryKey, DateVisited, dbname, project) %>%
+    dplyr::select(PlotKey, PrimaryKey, DateVisited) %>%
     dplyr::mutate(method = "tblPlots") %>%
     dplyr::distinct() %>%
     dplyr::bind_rows(unique_pks) %>%
