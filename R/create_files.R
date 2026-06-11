@@ -662,3 +662,238 @@ write.csv(test, path_specieslist)
 
 }
 
+
+
+#' Create Species List from National Species List Layer RW
+#'
+#' @description Extracts and formats the national species list layer from an AIM Wetland
+#' geodatabase, appends project-specific metadata and dummy attributes, and writes the
+#' output to a standard local CSV file directory.
+#'
+#' @param dsn Character. The Data Source Name (typically a path to a File Geodatabase `.gdb`).
+#' @param projectkey Character. The unique identifier code for the target project/state.
+#' @param output_dir Character. The base directory path where the generated CSV should be saved.
+#' Defaults to `"C:/Users/bwheeler/Documents/species_lists"`.
+#'
+#' @return An invisible `data.frame` containing the formatted species list data.
+#' @export
+#'
+#' @importFrom sf st_read
+#' @importFrom dplyr mutate across
+#' @importFrom readr write_csv
+#' @importFrom utils head
+create_species_list_RW <- function(dsn, projectkey, output_dir = "C:/Users/bwheeler/Documents/species_lists") {
+  library(sf)
+  library(dplyr)
+  library(readr)
+
+  # Read in species list layer
+  sp <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__S_NationalSpeciesList", quiet = TRUE)
+
+  # Streamline column additions using mutate and across
+  sp <- sp %>%
+    dplyr::mutate(
+      SpeciesCode        = Symbol,
+      UpdatedSpeciesCode = Symbol,
+      CurrentPLANTSCode  = Symbol,
+      SpeciesState       = projectkey,
+      # Safely initialize the non-existent columns to NA
+      Noxious            = NA,
+      Invasive           = NA,
+      HigherTaxon        = NA,
+      Nonnative          = NA,
+      SpecialStatus      = NA,
+      Photosynthesis     = NA,
+      PJ                 = NA
+    )
+
+  # Ensure export directory exists safely
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+
+  readr::write_csv(sp, file.path(output_dir, "species_BLM_AIM_RW.csv"))
+
+  return((sp))
+}
+
+
+#' Create DIMA-Compatible Tables from RW DSN
+#'
+#' @description Reads Line Point Intercept (LPI) and Species Richness layers from an
+#' AIM Wetland Geodatabase, transforms spatial coordinates, cleans tracking metrics,
+#' validates plot keys, and outputs formatted DIMA and Tall relational tables.
+#'
+#' @param dsn Character. The Data Source Name (typically a path to a File Geodatabase `.gdb`).
+#' @param projectkey Character. The unique identifier code for the target project/state.
+#' @param path_dimatables Character. Directory path where the DIMA export CSVs will be saved.
+#' @param path_tall Character. Directory path where the processed "tall" layout CSV and RDS headers will be saved.
+#'
+#' @return An invisible `data.frame` containing rows from `tblLines` where the `PlotKey`
+#' does not successfully match an entry in `tblPlots` (empty if data integrity is clean).
+#' @export
+#'
+#' @importFrom sf st_read st_as_sf st_transform st_coordinates st_drop_geometry st_geometry
+#' @importFrom dplyr mutate select rename distinct bind_rows anti_join any_of
+#' @importFrom stringr str_sub
+#' @importFrom utils write.csv
+create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
+  # ==========================================
+  # 1. READ IN SPECIFIC NECESSARY LAYERS
+  # ==========================================
+  tblLPIDetail       <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__F_LPIDetail", quiet = TRUE)
+  tblLPIHeader       <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__F_LPI", quiet = TRUE)
+  tblSpecRichHeader  <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__F_SpeciesInventory", quiet = TRUE)
+  tblSpecRichDetail  <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__F_SpecRichDetail", quiet = TRUE)
+
+  # ==========================================
+  # 2. LPI & PLOT PROCESSING
+  # ==========================================
+  lpi <- tblLPIHeader %>%
+    dplyr::mutate(
+      State                 = projectkey,
+      PrimaryKey            = EvaluationID,
+      Date                  = as.character(DateFormat),
+      DateVisited           = as.Date(Date, format = "%Y-%m-%d"),
+      FormDate              = DateVisited,
+      Measure               = 1,
+      LineLengthAmount      = LineLength,
+      SpacingIntervalAmount = interval,
+      SpacingType           = "cm",
+      HeightOption          = "height",
+      HeightUOM             = htinterval,
+      ShowCheckbox          = "FALSE",
+      CheckboxLabel         = "",
+      source                = "DIMA",
+      ProjectKey            = projectkey,
+      SpeciesKey            = paste0("sp_", projectkey),
+      DateLoadedInDb        = Sys.Date()
+    )
+
+  # Coordinate transformations using active geometry validation
+  lpi <- sf::st_as_sf(lpi)
+  sf::st_geometry(lpi) <- sf::st_geometry(lpi)
+
+  lpi <- sf::st_transform(lpi, 4326)
+  lpi <- sf::st_transform(lpi, 4269)
+
+  # Extract coordinates safely from sf matrix layout
+  coords <- sf::st_coordinates(lpi)
+
+  lpi <- lpi %>%
+    dplyr::mutate(
+      Latitude_NAD83  = coords[, "Y"],
+      Longitude_NAD83 = coords[, "X"],
+      unique_key      = paste0(PrimaryKey, "_", LineKey)
+    )
+
+  # Deduplicate LPI records
+  lpi <- lpi[!duplicated(lpi$unique_key), ]
+
+  lpi <- lpi %>%
+    dplyr::mutate(
+      PlotKey = PlotID,
+      LineID  = LineNumber
+    )
+
+  # ==========================================
+  # 3. EXPORT TBLPLOTS & HEADER
+  # ==========================================
+  # Strip sf tracking properties to convert to a flat dataframe for tabular files
+  tblPlots <- lpi %>%
+    sf::st_drop_geometry() %>%
+    dplyr::select(
+      ProjectKey, PrimaryKey, PlotKey, PlotID, DateVisited, Latitude_NAD83, Longitude_NAD83,
+      DateLoadedInDb, source, State
+    )
+
+  tblPlots <- tblPlots[!duplicated(tblPlots$PrimaryKey), ]
+
+  tblPlots <- tblPlots %>%
+    dplyr::mutate(
+      SpeciesState            = projectkey,
+      wkb_geometry            = NA,
+      EcologicalSiteId        = NA,
+      PercentCoveredByEcoSite = NA,
+      SiteKey                 = projectkey
+    )
+
+  utils::write.csv(tblPlots, file.path(path_dimatables, "tblPlots.csv"), row.names = FALSE)
+
+  header <- tblPlots %>% dplyr::mutate(PlotKey = NULL)
+  header <- header[!duplicated(header$PrimaryKey), ]
+
+  utils::write.csv(header, file.path(path_tall, "header.csv"), row.names = FALSE)
+  saveRDS(header, file.path(path_tall, "header.rdata"))
+
+  # ==========================================
+  # 4. EXPORT SITES & LPI TABLES
+  # ==========================================
+  tblSites <- data.frame(
+    SiteKey = projectkey,
+    SiteID  = projectkey,
+    stringsAsFactors = FALSE
+  )
+  utils::write.csv(tblSites, file.path(path_dimatables, "tblSites.csv"), row.names = FALSE)
+
+  colnames(tblLPIDetail)[colnames(tblLPIDetail) == 'EvaluationID'] <- 'PrimaryKey'
+  utils::write.csv(tblLPIDetail, file.path(path_dimatables, "tblLPIDetail.csv"), row.names = FALSE)
+
+  tblLPIHeader <- lpi %>%
+    sf::st_drop_geometry() %>%
+    dplyr::mutate(
+      CheckboxLabel = "",
+      RecKey        = NA,
+      chckbox       = NA,
+      ShrubShape    = NA
+    )
+  utils::write.csv(tblLPIHeader, file.path(path_dimatables, "tblLPIHeader.csv"), row.names = FALSE)
+
+  # ==========================================
+  # 5. EXPORT SPECIES RICHNESS TABLES
+  # ==========================================
+  tblSpecRichHeader <- tblSpecRichHeader %>% sf::st_drop_geometry()
+  colnames(tblSpecRichHeader)[colnames(tblSpecRichHeader) == 'EvaluationID'] <- 'PrimaryKey'
+  tblSpecRichHeader$LineKey <- tblSpecRichHeader$PrimaryKey
+  utils::write.csv(tblSpecRichHeader, file.path(path_dimatables, "tblSpecRichHeader.csv"), row.names = FALSE)
+
+  tblSpecRichDetail <- tblSpecRichDetail %>% sf::st_drop_geometry()
+  colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'EvaluationID'] <- 'PrimaryKey'
+  colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'abundance']   <- 'DENSITY'
+  tblSpecRichDetail$DENSITY <- as.integer(tblSpecRichDetail$DENSITY)
+  utils::write.csv(tblSpecRichDetail, file.path(path_dimatables, "tblSpecRichDetail.csv"), row.names = FALSE)
+
+  # ==========================================
+  # 6. TBLLINES PROCESSING & INTEGRITY CHECK
+  # ==========================================
+  tblLines <- lpi %>%
+    sf::st_drop_geometry() %>%
+    dplyr::select(PlotKey, LineKey, LineID, Azimuth)
+
+  lines_spin <- tblSpecRichHeader %>%
+    dplyr::distinct(PrimaryKey) %>%
+    dplyr::rename(LineKey = PrimaryKey) %>%
+    dplyr::mutate(
+      LineID  = LineKey,
+      PlotKey = stringr::str_sub(LineKey, start = 1, end = -12)
+    )
+
+  lines_spin <- lines_spin %>%
+    dplyr::select(dplyr::any_of(base::intersect(names(lines_spin), names(tblLines))))
+
+  tblLines <- tblLines %>% dplyr::bind_rows(lines_spin)
+
+  # Integrity check verification matching
+  missing_plots <- tblLines %>% dplyr::anti_join(tblPlots, by = "PlotKey")
+
+  if (nrow(missing_plots) == 0) {
+    message("Every PlotKey in tblLines exists in tblPlots.")
+  } else {
+    warning(paste("Found", nrow(missing_plots), "rows with missing PlotKeys.These PlotKeys must be added to tblPlots before proceeding."))
+  }
+
+  utils::write.csv(tblLines, file.path(path_dimatables, "tblLines.csv"), row.names = FALSE)
+
+  return(invisible(missing_plots))
+}
+
