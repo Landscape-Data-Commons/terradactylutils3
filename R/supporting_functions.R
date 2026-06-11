@@ -1567,3 +1567,56 @@ map_dima_primary_keys <- function(data_list, source, pkey_assigned) {
 
   return(data_list)
 }
+
+#' Smart Date Parsing
+#'
+#' @description
+#' `safe_parse_date` attempts to parse a vector of dates cleanly. It first
+#' leverages fast ISO-8601 parsing for standard formats (e.g., "YYYY-MM-DD").
+#' If any values fail and turn into `NA`, it automatically drops into a robust,
+#' multi-order fallback parser to rescue non-standard or messy date strings.
+#'
+#' @param date_vec A vector of dates to be parsed. Can be character strings,
+#' factors, numerics, or mixed formats.
+#'
+#' @details
+#' The function operates in two stages to maximize speed and accuracy:
+#' 1. It forces the input to character format and runs [lubridate::as_date()],
+#'    which instantly handles standard formats like `"2026-06-11"` or `"2026-06-11 00:00:00"`.
+#' 2. For any rows that resolve to `NA` (but were not originally `NA` in the raw input),
+#'    it applies [lubridate::parse_date_time()] using a wide net of specific
+#'    orders: `"ymd"`, `"mdy"`, `"dmy"`, and their variations containing hours, minutes, and seconds.
+#'
+#' @return A vector of class `Date` in standard `YYYY-MM-DD` format, preserving
+#' original `NA` values where parsing was impossible.
+#'
+#' @importFrom lubridate as_date parse_date_time
+#' @export
+#'
+#' @examples
+#' # Handling a mixture of perfect ISO dates and messy Excel formats:
+#' messy_dates <- c("2026-06-11", "06/11/2026 14:30", "11-Jun-26", NA, "broken_string")
+#' safe_parse_date(messy_dates)
+#'
+safe_parse_date <- function(date_vec) {
+  # Convert factor/numeric to character safely
+  date_char <- as.character(date_vec)
+
+  # Try basic ISO parsing first (handles "2026-06-11", "2026-06-11 00:00:00", etc.)
+  parsed_dates <- lubridate::as_date(date_char)
+
+  # Find any records that failed (turned into NA) and were NOT originally NA
+  failed_indices <- which(is.na(parsed_dates) & !is.na(date_vec))
+
+  if (length(failed_indices) > 0) {
+    # Run the messy parser ONLY on the failed rows
+    messy_parsed <- lubridate::parse_date_time(
+      date_char[failed_indices],
+      orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM")
+    )
+    # Inject the rescued dates back into the main vector
+    parsed_dates[failed_indices] <- lubridate::as_date(messy_parsed)
+  }
+
+  return(parsed_dates)
+}

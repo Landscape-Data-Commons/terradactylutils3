@@ -13,7 +13,7 @@
 #'
 #' @examples assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "%m/%d/%Y", noteformat = "%m/%d/%Y",nonlineformat = "%m/%d/%Y",non_line_tables = c("tblPlots", "tblLines", "tblSites") )
 #' @export
-assign_keys <- function(path_project, non_line_tables){
+assign_keys <- function(path_project, non_line_tables = non_line_table_list){
   # get list of all export files
   dima_export_files <- data.frame(file_path = list.files(path = path_project,
                                                          pattern = ".csv",
@@ -67,9 +67,9 @@ assign_keys <- function(path_project, non_line_tables){
                             # if there is already a PlotKey, no need to do anything, otherwise we need to join PlotKey to the table via tblLines
                             if(!"PlotKey" %in% names(X)){
                               data_pk <- dplyr::left_join(
-                                X |> dplyr::mutate(LineKey = as.double(LineKey)),
+                                X |> dplyr::mutate(LineKey = as.character(LineKey)),
                                 all_dimas$tblLines |>
-                                  dplyr::mutate(LineKey = as.double(LineKey)) |>
+                                  dplyr::mutate(LineKey = as.character(LineKey)) |>
                                   dplyr::select(PlotKey, LineKey, project, dbname) |>
                                   dplyr::distinct(),
                                 relationship = "many-to-one")
@@ -77,13 +77,12 @@ assign_keys <- function(path_project, non_line_tables){
                               data_pk <- X
                             }
                             # Now generate Primarykey based on PlotKey and FormDate
+                            # Now generate Primarykey based on PlotKey and FormDate
                             data_pk <- data_pk |>
                               dplyr::mutate(
-                                DateVisited = lubridate::parse_date_time(FormDate,
-                                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM")),
-                                DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
-                                PrimaryKey = paste0(PlotKey, DateVisited),
-                                FormDate = DateVisited # Keeping them synced
+                                DateVisited = safe_parse_date(FormDate), # Uses the new smart parser
+                                PrimaryKey  = paste0(PlotKey, DateVisited),
+                                FormDate    = DateVisited
                               )
                           })
 
@@ -104,11 +103,11 @@ assign_keys <- function(path_project, non_line_tables){
         data_pk <- dplyr::left_join(
           # Force RecKey to character in the Detail table
           tblDetail %>%
-            dplyr::mutate(RecKey = as.double(RecKey)),
+            dplyr::mutate(RecKey = as.character(RecKey)),
 
           # Force RecKey to character in the Header table
           tblHeader %>%
-            dplyr::mutate(RecKey = as.double(RecKey)) %>%
+            dplyr::mutate(RecKey = as.character(RecKey)) %>%
             dplyr::select_if(names(.) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
 
           relationship = "many-to-one"
@@ -296,13 +295,36 @@ assign_keys <- function(path_project, non_line_tables){
   plots_pks <- lapply(X = table_plots,
                       function(X){
                         print(X)
-                        data <- data_no_lines[[X]] |>
-                          dplyr::left_join(unique_pks |>
-                                             # remove method
-                                             dplyr::select(-method) |>
-                                             dplyr::distinct(),
-                                           relationship = "many-to-many")
+
+                        # Safely capture the target dataframe
+                        current_df <- data_no_lines[[X]]
+
+                        # Standardize DateVisited to a real Date object if it exists
+                        if ("DateVisited" %in% names(current_df)) {
+                          current_df <- current_df |>
+                            dplyr::mutate(
+                              DateVisited = safe_parse_date(DateVisited) # Uses the new smart parser
+                            )
+                        }
+
+                        # DYNAMIC KEY SELECTION:
+                        # Only join on columns that actually exist in BOTH tables
+                        all_possible_keys <- c("PrimaryKey", "PlotKey", "DateVisited", "project", "dbname")
+                        available_keys <- base::intersect(names(current_df), all_possible_keys)
+
+                        # Execute the join safely using the dynamically discovered keys
+                        data <- current_df |>
+                          dplyr::left_join(
+                            unique_pks |>
+                              dplyr::select(-method) |>
+                              dplyr::distinct(),
+                            by = available_keys,
+                            relationship = "many-to-many"
+                          )
+
+                        return(data)
                       })
+
   names(plots_pks) <- table_plots
 
 
@@ -417,6 +439,11 @@ assign_keys <- function(path_project, non_line_tables){
   }
 
 }
+
+
+###############################################
+
+
 
 
 ###############################################

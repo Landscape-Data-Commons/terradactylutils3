@@ -4,19 +4,14 @@
 \alias{create_species_list_RW}
 \title{Create Species List from National Species List Layer RW}
 \usage{
-create_species_list_RW(
-  dsn,
-  projectkey,
-  output_dir = "C:/Users/bwheeler/Documents/species_lists"
-)
+create_species_list_RW(dsn, projectkey, output_dir)
 }
 \arguments{
 \item{dsn}{Character. The Data Source Name (typically a path to a File Geodatabase `.gdb`).}
 
 \item{projectkey}{Character. The unique identifier code for the target project/state.}
 
-\item{output_dir}{Character. The base directory path where the generated CSV should be saved.
-Defaults to `"C:/Users/bwheeler/Documents/species_lists"`.}
+\item{output_dir}{Character. The base directory path where the generated CSV should be saved.}
 }
 \value{
 An invisible `data.frame` containing the formatted species list data.
