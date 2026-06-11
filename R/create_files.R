@@ -819,11 +819,11 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
 
   utils::write.csv(tblPlots, file.path(path_dimatables, "tblPlots.csv"), row.names = FALSE)
 
-  header <- tblPlots %>% dplyr::mutate(PlotKey = NULL)
-  header <- header[!duplicated(header$PrimaryKey), ]
-
-  utils::write.csv(header, file.path(path_tall, "header.csv"), row.names = FALSE)
-  saveRDS(header, file.path(path_tall, "header.rdata"))
+  # header <- tblPlots %>% dplyr::mutate(PlotKey = NULL)
+  # header <- header[!duplicated(header$PrimaryKey), ]
+  #
+  # utils::write.csv(header, file.path(path_tall, "header.csv"), row.names = FALSE)
+  # saveRDS(header, file.path(path_tall, "header.rdata"))
 
   # ==========================================
   # 4. EXPORT SITES & LPI TABLES
