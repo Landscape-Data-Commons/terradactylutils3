@@ -851,7 +851,12 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   # ==========================================
   # 5. EXPORT SPECIES RICHNESS TABLES
   # ==========================================
-  tblSpecRichHeader <- tblSpecRichHeader %>% sf::st_drop_geometry()
+  tblSpecRichHeader <- tblSpecRichHeader %>%
+    sf::st_drop_geometry() %>%
+    dplyr::mutate(
+      RecKey = EvaluationID # Added RecKey matching EvaluationID
+    )
+
   colnames(tblSpecRichHeader)[colnames(tblSpecRichHeader) == 'EvaluationID'] <- 'PrimaryKey'
   tblSpecRichHeader$LineKey <- tblSpecRichHeader$PrimaryKey
   utils::write.csv(tblSpecRichHeader, file.path(path_dimatables, "tblSpecRichHeader.csv"), row.names = FALSE)
@@ -869,7 +874,11 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
     sf::st_drop_geometry() %>%
     dplyr::select(PlotKey, LineKey, LineID, Azimuth) %>%
     # Replace NA Azimuths with a dummy code (999) representing "Entire Plot"
-    dplyr::mutate(Azimuth = dplyr::if_else(is.na(Azimuth), 999, as.numeric(Azimuth)))
+    # Added RecKey equal to LineKey
+    dplyr::mutate(
+      Azimuth = dplyr::if_else(is.na(Azimuth), 999, as.numeric(Azimuth)),
+      RecKey  = LineKey
+    )
 
   lines_spin <- tblSpecRichHeader %>%
     dplyr::distinct(PrimaryKey) %>%
@@ -877,7 +886,8 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
     dplyr::mutate(
       LineID  = LineKey,
       PlotKey = stringr::str_sub(LineKey, start = 1, end = -12),
-      Azimuth = 999 # Also assign 999 to the species-richness lines generated here
+      Azimuth = 999,
+      RecKey  = LineKey # Added RecKey to match the layout of tblLines
     )
 
   lines_spin <- lines_spin %>%
@@ -887,17 +897,17 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   tblLines <- tblLines %>%
     dplyr::bind_rows(lines_spin) %>%
     dplyr::distinct(LineKey, LineID, PlotKey, .keep_all = TRUE)
+
   # Integrity check verification matching
   missing_plots <- tblLines %>% dplyr::anti_join(tblPlots, by = "PlotKey")
 
   if (nrow(missing_plots) == 0) {
     message("Every PlotKey in tblLines exists in tblPlots.")
   } else {
-    warning(paste("Found", nrow(missing_plots), "rows with missing PlotKeys.These PlotKeys must be added to tblPlots before proceeding."))
+    warning(paste("Found", nrow(missing_plots), "rows with missing PlotKeys. These PlotKeys must be added to tblPlots before proceeding."))
   }
 
   utils::write.csv(tblLines, file.path(path_dimatables, "tblLines.csv"), row.names = FALSE)
 
   return(invisible(missing_plots))
 }
-
