@@ -861,7 +861,11 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   tblSpecRichHeader$LineKey <- tblSpecRichHeader$PrimaryKey
   utils::write.csv(tblSpecRichHeader, file.path(path_dimatables, "tblSpecRichHeader.csv"), row.names = FALSE)
 
-  tblSpecRichDetail <- tblSpecRichDetail %>% sf::st_drop_geometry()
+  tblSpecRichDetail <- tblSpecRichDetail %>%
+    sf::st_drop_geometry() %>%
+    dplyr::mutate(
+      RecKey = EvaluationID # Added RecKey matching EvaluationID to detail table
+    )
   colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'EvaluationID'] <- 'PrimaryKey'
   colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'abundance']   <- 'DENSITY'
   tblSpecRichDetail$DENSITY <- as.integer(tblSpecRichDetail$DENSITY)
