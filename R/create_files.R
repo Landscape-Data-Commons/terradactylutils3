@@ -781,8 +781,8 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
 
   lpi <- lpi %>%
     dplyr::mutate(
-      Latitude_NAD83  = coords[, "Y"],
-      Longitude_NAD83 = coords[, "X"],
+      Latitude  = coords[, "Y"],
+      Longitude = coords[, "X"],
       unique_key      = paste0(PrimaryKey, "_", LineKey)
     )
 
@@ -802,7 +802,7 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   tblPlots <- lpi %>%
     sf::st_drop_geometry() %>%
     dplyr::select(
-      ProjectKey, PrimaryKey, PlotKey, PlotID, DateVisited, Latitude_NAD83, Longitude_NAD83,
+      ProjectKey, PrimaryKey, PlotKey, PlotID, DateVisited, Latitude, Longitude,
       DateLoadedInDb, source, State
     )
 
