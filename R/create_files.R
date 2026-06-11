@@ -854,7 +854,9 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   tblSpecRichHeader <- tblSpecRichHeader %>%
     sf::st_drop_geometry() %>%
     dplyr::mutate(
-      RecKey = EvaluationID # Added RecKey matching EvaluationID
+      RecKey       = EvaluationID,
+      # Convert DateFormat string to true standard Date object tracking
+      DateVisited  = as.Date(as.character(DateFormat), format = "%Y-%m-%d")
     )
 
   colnames(tblSpecRichHeader)[colnames(tblSpecRichHeader) == 'EvaluationID'] <- 'PrimaryKey'
@@ -864,8 +866,9 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   tblSpecRichDetail <- tblSpecRichDetail %>%
     sf::st_drop_geometry() %>%
     dplyr::mutate(
-      RecKey = EvaluationID # Added RecKey matching EvaluationID to detail table
+      RecKey = EvaluationID
     )
+
   colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'EvaluationID'] <- 'PrimaryKey'
   colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'abundance']   <- 'DENSITY'
   tblSpecRichDetail$DENSITY <- as.integer(tblSpecRichDetail$DENSITY)
@@ -876,22 +879,23 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   # ==========================================
   tblLines <- lpi %>%
     sf::st_drop_geometry() %>%
-    dplyr::select(PlotKey, LineKey, LineID, Azimuth) %>%
-    # Replace NA Azimuths with a dummy code (999) representing "Entire Plot"
-    # Added RecKey equal to LineKey
+    # Explicitly selected PrimaryKey and DateVisited for schema validation
+    dplyr::select(PlotKey, LineKey, LineID, Azimuth, PrimaryKey, DateVisited) %>%
     dplyr::mutate(
       Azimuth = dplyr::if_else(is.na(Azimuth), 999, as.numeric(Azimuth)),
       RecKey  = LineKey
     )
 
   lines_spin <- tblSpecRichHeader %>%
-    dplyr::distinct(PrimaryKey) %>%
+    dplyr::distinct(PrimaryKey, DateVisited) %>%
     dplyr::rename(LineKey = PrimaryKey) %>%
     dplyr::mutate(
-      LineID  = LineKey,
-      PlotKey = stringr::str_sub(LineKey, start = 1, end = -12),
-      Azimuth = 999,
-      RecKey  = LineKey # Added RecKey to match the layout of tblLines
+      LineID      = LineKey,
+      PlotKey     = stringr::str_sub(LineKey, start = 1, end = -12),
+      Azimuth     = 999,
+      RecKey      = LineKey,
+      # Populate tracking keys using local metadata fallbacks
+      PrimaryKey  = LineKey
     )
 
   lines_spin <- lines_spin %>%
