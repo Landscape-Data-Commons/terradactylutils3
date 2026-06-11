@@ -673,7 +673,6 @@ write.csv(test, path_specieslist)
 #' @param dsn Character. The Data Source Name (typically a path to a File Geodatabase `.gdb`).
 #' @param projectkey Character. The unique identifier code for the target project/state.
 #' @param output_dir Character. The base directory path where the generated CSV should be saved.
-#' Defaults to `"C:/Users/bwheeler/Documents/species_lists"`.
 #'
 #' @return An invisible `data.frame` containing the formatted species list data.
 #' @export
@@ -868,21 +867,26 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   # ==========================================
   tblLines <- lpi %>%
     sf::st_drop_geometry() %>%
-    dplyr::select(PlotKey, LineKey, LineID, Azimuth)
+    dplyr::select(PlotKey, LineKey, LineID, Azimuth) %>%
+    # Replace NA Azimuths with a dummy code (999) representing "Entire Plot"
+    dplyr::mutate(Azimuth = dplyr::if_else(is.na(Azimuth), 999, as.numeric(Azimuth)))
 
   lines_spin <- tblSpecRichHeader %>%
     dplyr::distinct(PrimaryKey) %>%
     dplyr::rename(LineKey = PrimaryKey) %>%
     dplyr::mutate(
       LineID  = LineKey,
-      PlotKey = stringr::str_sub(LineKey, start = 1, end = -12)
+      PlotKey = stringr::str_sub(LineKey, start = 1, end = -12),
+      Azimuth = 999 # Also assign 999 to the species-richness lines generated here
     )
 
   lines_spin <- lines_spin %>%
     dplyr::select(dplyr::any_of(base::intersect(names(lines_spin), names(tblLines))))
 
-  tblLines <- tblLines %>% dplyr::bind_rows(lines_spin)
-
+  # Combine and drop duplicates based on the specified unique combination
+  tblLines <- tblLines %>%
+    dplyr::bind_rows(lines_spin) %>%
+    dplyr::distinct(LineKey, LineID, PlotKey, .keep_all = TRUE)
   # Integrity check verification matching
   missing_plots <- tblLines %>% dplyr::anti_join(tblPlots, by = "PlotKey")
 
