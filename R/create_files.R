@@ -766,7 +766,8 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
       source                = "DIMA",
       ProjectKey            = projectkey,
       SpeciesKey            = paste0("sp_", projectkey),
-      DateLoadedInDb        = Sys.Date()
+      DateLoadedInDb        = Sys.Date(),
+      State = AdminState
     )
 
   # Coordinate transformations using active geometry validation
@@ -814,7 +815,9 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
       wkb_geometry            = NA,
       EcologicalSiteId        = NA,
       PercentCoveredByEcoSite = NA,
-      SiteKey                 = projectkey
+      SiteKey                 = projectkey,
+      EcolSite = NA,
+      County = NA
     )
 
   utils::write.csv(tblPlots, file.path(path_dimatables, "tblPlots.csv"), row.names = FALSE)
