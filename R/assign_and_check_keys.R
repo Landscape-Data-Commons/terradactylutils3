@@ -13,7 +13,7 @@
 #'
 #' @examples assign_keys(path_project = "D:/modifying_data_prep_script_10032025/NWERN_HAFB_10132025/dima_exports/", format = "%m/%d/%Y", noteformat = "%m/%d/%Y",nonlineformat = "%m/%d/%Y",non_line_tables = c("tblPlots", "tblLines", "tblSites") )
 #' @export
-assign_keys <- function(path_project, non_line_tables = non_line_table_list){
+assign_keys <- function(path_project, non_line_tables){
   # get list of all export files
   dima_export_files <- data.frame(file_path = list.files(path = path_project,
                                                          pattern = ".csv",
@@ -64,26 +64,42 @@ assign_keys <- function(path_project, non_line_tables = non_line_table_list){
   # create PrimaryKeys by joining PlotKey to DateVisited. We first have to join to the header tables, then the detail tables
   header_tables <- lapply(X = all_dimas[names(all_dimas) |> stringr::str_detect("Header")],
                           function(X){
-                            # if there is already a PlotKey, no need to do anything, otherwise we need to join PlotKey to the table via tblLines
+                            # If there is already a PlotKey, no need to do anything, otherwise join via tblLines
                             if(!"PlotKey" %in% names(X)){
                               data_pk <- dplyr::left_join(
-                                X |> dplyr::mutate(LineKey = as.character(LineKey)),
+                                X |> dplyr::mutate(LineKey = as.double(LineKey)),
                                 all_dimas$tblLines |>
-                                  dplyr::mutate(LineKey = as.character(LineKey)) |>
+                                  dplyr::mutate(LineKey = as.double(LineKey)) |>
                                   dplyr::select(PlotKey, LineKey, project, dbname) |>
                                   dplyr::distinct(),
                                 relationship = "many-to-one")
-                            }else{
+                            } else {
                               data_pk <- X
                             }
-                            # Now generate Primarykey based on PlotKey and FormDate
-                            # Now generate Primarykey based on PlotKey and FormDate
+
+                            # PARSE EXCEL TEXT DATES USING BASE R ORIGIN
                             data_pk <- data_pk |>
                               dplyr::mutate(
-                                DateVisited = safe_parse_date(FormDate), # Uses the new smart parser
-                                PrimaryKey  = paste0(PlotKey, DateVisited),
-                                FormDate    = DateVisited
-                              )
+                                # 1. Test if the value is purely a number (like "45716")
+                                is_numeric_date = !is.na(suppressWarnings(as.numeric(FormDate))),
+
+                                # 2. Convert based on whether it's a number or actual text
+                                DateVisited = dplyr::if_else(
+                                  is_numeric_date,
+                                  # Base R alternative to janitor:
+                                  as.Date(as.numeric(FormDate), origin = "1899-12-30"),
+                                  # If it's standard text, use lubridate
+                                  as.Date(suppressWarnings(
+                                    lubridate::parse_date_time(FormDate,
+                                                               orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))
+                                  ))
+                                ),
+
+                                # 3. Build your primary key and clean up temporary helper column
+                                PrimaryKey = paste0(PlotKey, DateVisited),
+                                FormDate = DateVisited
+                              ) |>
+                              dplyr::select(-is_numeric_date) # Drop the helper column
                           })
 
 
@@ -103,11 +119,11 @@ assign_keys <- function(path_project, non_line_tables = non_line_table_list){
         data_pk <- dplyr::left_join(
           # Force RecKey to character in the Detail table
           tblDetail %>%
-            dplyr::mutate(RecKey = as.character(RecKey)),
+            dplyr::mutate(RecKey = as.double(RecKey)),
 
           # Force RecKey to character in the Header table
           tblHeader %>%
-            dplyr::mutate(RecKey = as.character(RecKey)) %>%
+            dplyr::mutate(RecKey = as.double(RecKey)) %>%
             dplyr::select_if(names(.) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
 
           relationship = "many-to-one"
@@ -210,13 +226,25 @@ assign_keys <- function(path_project, non_line_tables = non_line_table_list){
     # create PrimaryKey
     data_pk <- data_pk %>%
       dplyr::mutate(
-        # Ensure dates are in the correct format
-        collectDate = as.Date(lubridate::parse_date_time(collectDate,
-                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
-        DateVisited = as.Date(lubridate::parse_date_time(collectDate,
-                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
-        PrimaryKey = paste0(PlotKey, DateVisited)
-      )
+        # 1. Check if collectDate is a raw Excel numeric string
+        is_numeric_date = !is.na(suppressWarnings(as.numeric(collectDate))),
+
+        # 2. Parse safely: use origin if numeric, use lubridate if text
+        ParsedDate = dplyr::if_else(
+          is_numeric_date,
+          as.Date(as.numeric(collectDate), origin = "1899-12-30"),
+          as.Date(suppressWarnings(
+            lubridate::parse_date_time(collectDate,
+                                       orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))
+          ))
+        ),
+
+        # 3. Assign to both variables and create the PrimaryKey
+        collectDate = ParsedDate,
+        DateVisited = ParsedDate,
+        PrimaryKey  = paste0(PlotKey, DateVisited)
+      ) %>%
+      dplyr::select(-is_numeric_date, -ParsedDate) # Clean up temporary helper columns
 
     return(data_pk)
   })
@@ -248,13 +276,25 @@ assign_keys <- function(path_project, non_line_tables = non_line_table_list){
     # create PrimaryKey
     data_pk <- data_pk %>%
       dplyr::mutate(
-        # Ensure dates are in the correct format
-        collectDate = as.Date(lubridate::parse_date_time(collectDate,
-                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
-        DateVisited = as.Date(lubridate::parse_date_time(collectDate,
-                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
-        PrimaryKey = paste0(PlotKey, DateVisited)
-      )
+        # 1. Check if collectDate is a raw Excel numeric string
+        is_numeric_date = !is.na(suppressWarnings(as.numeric(collectDate))),
+
+        # 2. Parse safely: use origin if numeric, use lubridate if text
+        ParsedDate = dplyr::if_else(
+          is_numeric_date,
+          as.Date(as.numeric(collectDate), origin = "1899-12-30"),
+          as.Date(suppressWarnings(
+            lubridate::parse_date_time(collectDate,
+                                       orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))
+          ))
+        ),
+
+        # 3. Assign to both variables and create the PrimaryKey
+        collectDate = ParsedDate,
+        DateVisited = ParsedDate,
+        PrimaryKey  = paste0(PlotKey, DateVisited)
+      ) %>%
+      dplyr::select(-is_numeric_date, -ParsedDate) # Clean up temporary helper columns
 
     return(data_pk)
   })
@@ -295,36 +335,13 @@ assign_keys <- function(path_project, non_line_tables = non_line_table_list){
   plots_pks <- lapply(X = table_plots,
                       function(X){
                         print(X)
-
-                        # Safely capture the target dataframe
-                        current_df <- data_no_lines[[X]]
-
-                        # Standardize DateVisited to a real Date object if it exists
-                        if ("DateVisited" %in% names(current_df)) {
-                          current_df <- current_df |>
-                            dplyr::mutate(
-                              DateVisited = safe_parse_date(DateVisited) # Uses the new smart parser
-                            )
-                        }
-
-                        # DYNAMIC KEY SELECTION:
-                        # Only join on columns that actually exist in BOTH tables
-                        all_possible_keys <- c("PrimaryKey", "PlotKey", "DateVisited", "project", "dbname")
-                        available_keys <- base::intersect(names(current_df), all_possible_keys)
-
-                        # Execute the join safely using the dynamically discovered keys
-                        data <- current_df |>
-                          dplyr::left_join(
-                            unique_pks |>
-                              dplyr::select(-method) |>
-                              dplyr::distinct(),
-                            by = available_keys,
-                            relationship = "many-to-many"
-                          )
-
-                        return(data)
+                        data <- data_no_lines[[X]] |>
+                          dplyr::left_join(unique_pks |>
+                                             # remove method
+                                             dplyr::select(-method) |>
+                                             dplyr::distinct(),
+                                           relationship = "many-to-many")
                       })
-
   names(plots_pks) <- table_plots
 
 
@@ -439,6 +456,7 @@ assign_keys <- function(path_project, non_line_tables = non_line_table_list){
   }
 
 }
+
 
 
 ###############################################
