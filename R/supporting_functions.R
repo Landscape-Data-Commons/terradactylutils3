@@ -1327,14 +1327,13 @@ combine_project_csvs <- function(path_tall) {
 
   # 2. Find all CSV files inside the project subfolders (recursive = TRUE)
   all_subfolder_files <- list.files(
-    path        = path_tall,
+    path       = path_tall,
     pattern     = "\\.csv$",
     recursive   = TRUE,
     full.names  = TRUE
   )
 
   # 3. Filter out any CSVs that might already live in the root path_tall directory
-  # We use normalizePath to ensure trailing slashes or formatting don't break the comparison
   root_dir_normalized <- normalizePath(path_tall, mustWork = FALSE)
   subfolder_csvs <- all_subfolder_files[normalizePath(dirname(all_subfolder_files), mustWork = FALSE) != root_dir_normalized]
 
@@ -1354,9 +1353,11 @@ combine_project_csvs <- function(path_tall) {
     # Isolate paths matching this specific file type across all subfolders
     matching_files <- subfolder_csvs[file_base_names == file_type]
 
-    # Read and combine all data frames into one
+    # FIX: Read all columns as character to avoid logical vs character mismatch errors
     combined_df <- matching_files %>%
-      lapply(read.csv, stringsAsFactors = FALSE) %>%
+      lapply(function(f) {
+        read.csv(f, colClasses = "character", stringsAsFactors = FALSE)
+      }) %>%
       dplyr::bind_rows()
 
     # Define destination paths in the main root folder
@@ -1373,6 +1374,9 @@ combine_project_csvs <- function(path_tall) {
   message("--- All project data combined and saved to root path_tall! ---")
   return(invisible(NULL))
 }
+
+
+
 #' Filter Projects for Nonvascular Growth Habit
 #'
 #' Loops through a vector of project keys, reads their corresponding species CSV files,
