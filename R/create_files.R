@@ -793,7 +793,8 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
       ProjectKey            = projectkey,
       SpeciesKey            = paste0("sp_", projectkey),
       DateLoadedInDb        = Sys.Date(),
-      State = AdminState
+      State = AdminState,
+      RecKey = LineKey
     )
 
   # Coordinate transformations using active geometry validation
