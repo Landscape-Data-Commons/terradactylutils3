@@ -127,9 +127,14 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
 #'
 #' @examples create_header(path_tall = file.path(path_parent, "Tall"), tblPlots = tblPlots, todaysDate = format(Sys.Date(), "%m/%d/%Y"), source = "DIMA", by_species_key = FALSE)
 #' @export
-create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key = FALSE, gathered_data){
-  problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
-  tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
+create_header <- function(path_tall, tblPlots, todaysDate, source, by_species_key = FALSE, gathered_data) {
+
+  # Check if primarykey_qc exists, is not NULL, and has rows/elements before filtering
+  if (exists("primarykey_qc") && !is.null(primarykey_qc) && length(primarykey_qc) > 0 && nrow(primarykey_qc) > 0) {
+    problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action == "Delete"]
+    tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
+  }
+
   # 1. Define your target map (New_Name = "Old_Name")
   rename_map <- c(
     ProjectKey       = "project",
@@ -151,7 +156,8 @@ create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_ke
 
       # Check if the new name is already taken
       if (new_name %in% names(dataHeader)) {
-        warning(paste0("ProjectKey already exists; not replacing ", old_name))
+        # Fixed to dynamically show the actual duplicate column name
+        warning(paste0(new_name, " already exists; not replacing ", old_name))
       } else {
         # Rename safely using base bracket notation to avoid tidyverse overhead in a loop
         names(dataHeader)[names(dataHeader) == old_name] <- new_name
@@ -159,39 +165,37 @@ create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_ke
 
     }
   }
+
   dataHeader$SiteID <- tblSites$SiteID[match(dataHeader$SiteKey, tblSites$SiteKey)]
   dataHeader$RecKey <- dataHeader$PlotKey
 
   header2 <- dataHeader
 
   # keeping only cols of interest
-  dataHeader <- dataHeader |> dplyr::select(ProjectKey, PrimaryKey, DateVisited, Latitude_NAD83, Longitude_NAD83,
-                                            DBKey, State, County, PlotID, RecKey,EcologicalSiteId)
-
+  dataHeader <- dataHeader |> dplyr::select(
+    ProjectKey, PrimaryKey, DateVisited, Latitude_NAD83, Longitude_NAD83,
+    DBKey, State, County, PlotID, RecKey, EcologicalSiteId
+  )
 
   # adding remaining details needed for dataHeader
-
   dataHeader$PercentCoveredByEcoSite <- rep(NA) # leaving blank, doesn't impact calcs
   dataHeader$wkb_geometry <- rep(NA) # leaving blank, doesn't impact calcs
   dataHeader$DateLoadedInDb <- rep(todaysDate)
   dataHeader$source <- rep(source)
+
   # for species join to work properly, the SpecieState needs to be the projectkey
   # unless the project actually is distinguishing the species by state
-  if(by_species_key == TRUE){
+  if (by_species_key == TRUE) {
     dataHeader$SpeciesState <- dataHeader$State
-  }
-
-  if(by_species_key == FALSE){
+  } else {
     dataHeader$SpeciesState <- dataHeader$ProjectKey
   }
-  #dataHeader$DateVisited <- as.character(dataHeader$DateVisited)
 
-  write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
-  saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
-  write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
+  write.csv(dataHeader, paste0(path_tall, "/header.csv"), row.names = F)
+  saveRDS(dataHeader, paste0(path_tall, "/header.rdata"))
+  write.csv(dataHeader, paste0(gathered_data, "/header.csv"), row.names = F)
 
   dataHeader
-
 }
 ###############################
 #' Create geoIndicators
