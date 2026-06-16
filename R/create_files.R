@@ -488,6 +488,7 @@ create_mwac <- function(tblBSNE_BoxCollection, gathered_data){
 
   write.csv(tblBSNE_BoxCollection, paste0(gathered_data, "/horizontalflux_tall.csv"), row.names = FALSE)
 
+  return(tblBSNE_BoxCollection)
 }
 
 
@@ -545,7 +546,7 @@ create_ddt <- function(tblBSNE_TrapCollection, gathered_data, path_schema){
 
 
   write.csv(tblBSNE_TrapCollection, paste0(gathered_data, "/dustdeposition_tall.csv"), row.names = FALSE)
-
+return(tblBSNE_TrapCollection)
 }
 
 
