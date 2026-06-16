@@ -421,7 +421,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
   # Horizontal flux and DDT
   if (exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0) {
     message("DIMA MWAC data found; processing")
-    tall_files_list$mwac <- terradactylutils3::create_mwac(tblBSNE_BoxCollection = dima_data_list[["tblBSNE_BoxCollection"]], gathered_data = gathered_data)
+    tall_files_list$HorizontalFlux <- terradactylutils3::create_mwac(tblBSNE_BoxCollection = dima_data_list[["tblBSNE_BoxCollection"]], gathered_data = gathered_data)
   } else {
     message("No DIMA MWAC data found")
   }
@@ -429,7 +429,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
   # DDT
   if (exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0) {
     message("DIMA DDT data found; processing")
-    tall_files_list$ddt <- create_ddt(dima_data_list[["tblBSNE_TrapCollection"]], gathered_data = gathered_data)
+    tall_files_list$DustDeposition <- create_ddt(dima_data_list[["tblBSNE_TrapCollection"]], gathered_data = gathered_data)
   } else {
     message("No DIMA DDT data found")
   }
