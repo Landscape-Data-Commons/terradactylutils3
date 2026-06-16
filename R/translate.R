@@ -122,108 +122,144 @@ translate_schema2 <- function(data,
 #' @export
 #'
 #' @examples translate_coremethods2(path_tall = file.path(path_parent, "Tall"),path_out = path_foringest,path_schema = path_schema,verbose = T)
-translate_coremethods2 <- function(path_tall, path_out, path_schema,  verbose = F){
+translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = FALSE){
 
   schema <- read.csv(path_schema)
 
-  if(file.exists(file.path(path_tall, "header.Rdata"))){
+  # Helper function to find and read files flexibly
+  smart_read <- function(dir_path, base_name) {
+    # Valid extensions we are looking for
+    valid_exts <- c("rdata", "rds", "csv")
+
+    # List all files in the directory
+    all_files <- list.files(dir_path, full.names = FALSE)
+
+    # Filter files that match the base name (ignoring extension) case-insensitively
+    # e.g., ^header\.(rdata|rds|csv)$
+    pattern <- paste0("^", base_name, "\\.(", paste(valid_exts, collapse = "|"), ")$")
+    matched_files <- all_files[grep(pattern, all_files, ignore.case = TRUE)]
+
+    if (length(matched_files) == 0) {
+      return(NULL)
+    }
+
+    # Pick the first match found
+    target_file <- file.path(dir_path, matched_files[1])
+    ext <- tolower(tools::file_ext(target_file))
+
+    # Read dynamically based on extension
+    if (ext == "rds") {
+      return(readRDS(target_file))
+    } else if (ext == "rdata") {
+      # load() brings objects into an environment. We grab the first object loaded.
+      env <- new.env()
+      loaded_names <- load(target_file, envir = env)
+      return(env[[loaded_names[1]]])
+    } else if (ext == "csv") {
+      return(read.csv(target_file, stringsAsFactors = FALSE))
+    }
+
+    return(NULL)
+  }
+
+  # --- 1. HEADER DATA ---
+  header <- smart_read(path_tall, "header")
+  if(!is.null(header)){
     print("Translating header data")
-    header   <- readRDS(file.path(path_tall, "header.Rdata"))
     dataHeader <- header |>
       translate_schema2(schema = schema,
-                        #projectkey = projectkey,
                         datatype = "dataHeader",
                         dropcols = TRUE,
                         verbose = TRUE)
-    write.csv(dataHeader, file.path(path_out, "dataHeader.csv"), row.names = F)
+    write.csv(dataHeader, file.path(path_out, "dataHeader.csv"), row.names = FALSE)
   } else {
     stop("Header data not found. Unable to translate data")
   }
 
-  if(file.exists(file.path(path_tall, "lpi_tall.Rdata"))){
+  # --- 2. LPI DATA ---
+  tall_lpi <- smart_read(path_tall, "lpi_tall")
+  if(!is.null(tall_lpi)){
     print("Translating LPI data")
-    tall_lpi <- readRDS(file.path(path_tall, "lpi_tall.Rdata")) |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    tall_lpi <- tall_lpi |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
     dataLPI <- tall_lpi |>
       translate_schema2(schema = schema,
-                        #projectkey = projectkey,
                         datatype = "dataLPI",
                         dropcols = TRUE,
                         verbose = TRUE)
-    write.csv(dataLPI, file.path(path_out, "dataLPI.csv"), row.names = F)
+    write.csv(dataLPI, file.path(path_out, "dataLPI.csv"), row.names = FALSE)
   } else {
     print("LPI data not found")
   }
 
-  if(file.exists(file.path(path_tall, "height_tall.Rdata"))){
+  # --- 3. HEIGHT DATA ---
+  tall_ht <- smart_read(path_tall, "height_tall")
+  if(!is.null(tall_ht)){
     print("Translating height data")
-    tall_ht  <- readRDS(file.path(path_tall, "height_tall.Rdata"))
     tall_ht$DateVisited <- as.Date(tall_ht$DateVisited, format = "%Y-%m-%d")
     tall_ht <- tall_ht |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
     dataHeight <- tall_ht |>
       translate_schema2(schema = schema,
-                        # projectkey = projectkey,
                         datatype = "dataHeight",
                         dropcols = TRUE,
                         verbose = TRUE)
-    write.csv(dataHeight, file.path(path_out, "dataHeight.csv"), row.names = F)
+    write.csv(dataHeight, file.path(path_out, "dataHeight.csv"), row.names = FALSE)
   } else {
     print("Height data not found")
   }
 
-  if(file.exists(file.path(path_tall, "species_inventory_tall.Rdata"))){
+  # --- 4. SPECIES INVENTORY DATA ---
+  tall_sr <- smart_read(path_tall, "species_inventory_tall")
+  if(!is.null(tall_sr)){
     print("Translating species inventory data")
-    tall_sr  <- readRDS(file.path(path_tall, "species_inventory_tall.Rdata")) |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    tall_sr <- tall_sr |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
     dataSpeciesInventory <- tall_sr |>
       translate_schema2(schema = schema,
-                        # projectkey = projectkey,
                         datatype = "dataSpeciesInventory",
                         dropcols = TRUE,
                         verbose = TRUE)
-    write.csv(dataSpeciesInventory, file.path(path_out, "dataSpeciesInventory.csv"), row.names = F)
+    write.csv(dataSpeciesInventory, file.path(path_out, "dataSpeciesInventory.csv"), row.names = FALSE)
   } else {
     print("Species inventory data not found")
   }
 
-
-  if(file.exists(file.path(path_tall, "soil_stability_tall.Rdata"))){
+  # --- 5. SOIL STABILITY DATA ---
+  tall_ss <- smart_read(path_tall, "soil_stability_tall")
+  if(!is.null(tall_ss)){
     print("Translating soil stability data")
-    tall_ss  <- readRDS(file.path(path_tall, "soil_stability_tall.Rdata")) |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    tall_ss <- tall_ss |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
     dataSoilStability <- tall_ss |>
       translate_schema2(schema = schema,
-                        #  projectkey = projectkey,
                         datatype = "dataSoilStability",
                         dropcols = TRUE,
                         verbose = TRUE)
-    write.csv(dataSoilStability, file.path(path_out, "dataSoilStability.csv"), row.names = F)
+    write.csv(dataSoilStability, file.path(path_out, "dataSoilStability.csv"), row.names = FALSE)
   } else {
     print("Soil stability data not found")
   }
 
-  if(file.exists(file.path(path_tall, "gap_tall.Rdata"))){
+  # --- 6. CANOPY GAP DATA ---
+  tall_gap <- smart_read(path_tall, "gap_tall")
+  if(!is.null(tall_gap)){
     print("Translating canopy gap data")
-    # tall_gap  <- readRDS(file.path(path_tall, "gap_tall.Rdata"))
-    # tall_gap$DateVisited <- as.Date(tall_gap$DateVisited, format = "%Y-%m-%d")
-    # tall_gap <- tall_gap |>
-    #   dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
-    tall_gap <- readRDS(file.path(path_tall, "gap_tall.Rdata")) |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited))
+    tall_gap <- tall_gap |>
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
 
     dataGap <- tall_gap |>
       translate_schema2(schema = schema,
-                        #    projectkey = projectkey,
                         datatype = "dataGap",
                         dropcols = TRUE,
                         verbose = TRUE)
-    write.csv(dataGap, file.path(path_out, "dataGap.csv"), row.names = F)
+    write.csv(dataGap, file.path(path_out, "dataGap.csv"), row.names = FALSE)
   } else {
     print("Gap data not found")
   }
 
 }
+
 ##################################
 
 ##############################################
