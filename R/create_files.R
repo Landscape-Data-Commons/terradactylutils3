@@ -947,5 +947,5 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
 
   utils::write.csv(tblLines, file.path(path_dimatables, "tblLines.csv"), row.names = FALSE)
 
-  return(invisible(missing_plots))
+  #return(invisible(missing_plots))
 }
