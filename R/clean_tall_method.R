@@ -385,7 +385,12 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tblLPIDetail <- dima_data_list[["tblLPIDetail"]]
     tblLPIDetail$RecKey <- as.character(tblLPIDetail$RecKey)
     tblLPIDetail$SpeciesLowerHerb <- as.character(tblLPIDetail$SpeciesLowerHerb)
-
+    # Convert any column with "Chkbox" or "Checkbox" in its name to character
+    tblLPIDetail <- tblLPIDetail |>
+      dplyr::mutate(dplyr::across(
+        .cols = tidyselect::contains("chkbox", ignore.case = TRUE),
+        .fns = as.character
+      ))
     tall_height <- terradactyl::gather_height(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- tall_height
