@@ -869,6 +869,28 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   tblLPIDetail$ShrubShape <- NA
   tblLPIDetail$SpeciesLowerHerb <- NA
   tblLPIDetail$HeightLowerHerb <- NA
+  # keep only cols to prevent height issues
+  lpi_keep_cols <- c(
+    "PrimaryKey", # Included as a safety key for future joins
+    "RecKey", "PointLoc", "PointNbr", "TopCanopy",
+    "Lower1", "Lower2", "Lower3", "Lower4", "Lower5", "Lower6", "Lower7",
+    "SoilSurface", "HeightTop", "HeightSurface", "HeightWoody", "HeightHerbaceous", "HeightLowerHerb",
+    "HeightLower1", "HeightLower2", "HeightLower3", "HeightLower4", "HeightLower5", "HeightLower6", "HeightLower7",
+    "ChkboxTop", "ChkboxSoil", "ChkboxWoody", "ChkboxHerbaceous", "ChkboxLowerHerb",
+    "ChkboxLower1", "ChkboxLower2", "ChkboxLower3", "ChkboxLower4", "ChkboxLower5", "ChkboxLower6", "ChkboxLower7",
+    "SpeciesWoody", "SpeciesHerbaceous", "SpeciesLowerHerb", "ShrubShape"
+  )
+
+  # loop through the list: if a column does not exist, initialize it with NA
+  for (col in lpi_keep_cols) {
+    if (!col %in% names(tblLPIDetail)) {
+      tblLPIDetail[[col]] <- NA
+    }
+  }
+
+  # select only the columns oi, dropping everything else
+  tblLPIDetail <- tblLPIDetail |>
+    dplyr::select(dplyr::all_of(lpi_keep_cols))
   utils::write.csv(tblLPIDetail, file.path(path_dimatables, "tblLPIDetail.csv"), row.names = FALSE)
 
   tblLPIHeader <- lpi %>%
