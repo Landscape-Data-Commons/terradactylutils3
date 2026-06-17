@@ -868,6 +868,7 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   colnames(tblLPIDetail)[colnames(tblLPIDetail) == 'EvaluationID'] <- 'PrimaryKey'
   tblLPIDetail$ShrubShape <- NA
   tblLPIDetail$SpeciesLowerHerb <- NA
+  tblLPIDetail$HeightLowerHerb <- NA
   utils::write.csv(tblLPIDetail, file.path(path_dimatables, "tblLPIDetail.csv"), row.names = FALSE)
 
   tblLPIHeader <- lpi %>%
