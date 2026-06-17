@@ -881,28 +881,28 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   # ==========================================
   # 5. EXPORT SPECIES RICHNESS TABLES
   # ==========================================
-  tblSpecRichHeader <- tblSpecRichHeader %>%
-    sf::st_drop_geometry() %>%
-    dplyr::mutate(
-      RecKey       = EvaluationID,
-      # Convert DateFormat string to true standard Date object tracking
-      DateVisited  = as.Date(as.character(DateFormat), format = "%Y-%m-%d")
-    )
-
-  colnames(tblSpecRichHeader)[colnames(tblSpecRichHeader) == 'EvaluationID'] <- 'PrimaryKey'
-  tblSpecRichHeader$LineKey <- tblSpecRichHeader$PrimaryKey
-  utils::write.csv(tblSpecRichHeader, file.path(path_dimatables, "tblSpecRichHeader.csv"), row.names = FALSE)
-
-  tblSpecRichDetail <- tblSpecRichDetail %>%
-    sf::st_drop_geometry() %>%
-    dplyr::mutate(
-      RecKey = EvaluationID
-    )
-
-  colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'EvaluationID'] <- 'PrimaryKey'
-  colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'abundance']   <- 'DENSITY'
-  tblSpecRichDetail$DENSITY <- as.integer(tblSpecRichDetail$DENSITY)
-  utils::write.csv(tblSpecRichDetail, file.path(path_dimatables, "tblSpecRichDetail.csv"), row.names = FALSE)
+  # tblSpecRichHeader <- tblSpecRichHeader %>%
+  #   sf::st_drop_geometry() %>%
+  #   dplyr::mutate(
+  #     RecKey       = EvaluationID,
+  #     # Convert DateFormat string to true standard Date object tracking
+  #     DateVisited  = as.Date(as.character(DateFormat), format = "%Y-%m-%d")
+  #   )
+  #
+  # colnames(tblSpecRichHeader)[colnames(tblSpecRichHeader) == 'EvaluationID'] <- 'PrimaryKey'
+  # tblSpecRichHeader$LineKey <- tblSpecRichHeader$PrimaryKey
+  # utils::write.csv(tblSpecRichHeader, file.path(path_dimatables, "tblSpecRichHeader.csv"), row.names = FALSE)
+  #
+  # tblSpecRichDetail <- tblSpecRichDetail %>%
+  #   sf::st_drop_geometry() %>%
+  #   dplyr::mutate(
+  #     RecKey = EvaluationID
+  #   )
+  #
+  # colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'EvaluationID'] <- 'PrimaryKey'
+  # colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'abundance']   <- 'DENSITY'
+  # tblSpecRichDetail$DENSITY <- as.integer(tblSpecRichDetail$DENSITY)
+  # utils::write.csv(tblSpecRichDetail, file.path(path_dimatables, "tblSpecRichDetail.csv"), row.names = FALSE)
 
   # ==========================================
   # 6. TBLLINES PROCESSING & INTEGRITY CHECK
@@ -915,35 +915,35 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
       Azimuth = dplyr::if_else(is.na(Azimuth), 999, as.numeric(Azimuth)),
       RecKey  = LineKey
     )
-
-  lines_spin <- tblSpecRichHeader %>%
-    dplyr::distinct(PrimaryKey, DateVisited) %>%
-    dplyr::rename(LineKey = PrimaryKey) %>%
-    dplyr::mutate(
-      LineID      = LineKey,
-      PlotKey     = stringr::str_sub(LineKey, start = 1, end = -12),
-      Azimuth     = 999,
-      RecKey      = LineKey,
-      # Populate tracking keys using local metadata fallbacks
-      PrimaryKey  = LineKey
-    )
-
-  lines_spin <- lines_spin %>%
-    dplyr::select(dplyr::any_of(base::intersect(names(lines_spin), names(tblLines))))
-
-  # Combine and drop duplicates based on the specified unique combination
-  tblLines <- tblLines %>%
-    dplyr::bind_rows(lines_spin) %>%
-    dplyr::distinct(LineKey, LineID, PlotKey, .keep_all = TRUE)
-
-  # Integrity check verification matching
-  missing_plots <- tblLines %>% dplyr::anti_join(tblPlots, by = "PlotKey")
-
-  if (nrow(missing_plots) == 0) {
-    message("Every PlotKey in tblLines exists in tblPlots.")
-  } else {
-    warning(paste("Found", nrow(missing_plots), "rows with missing PlotKeys. These PlotKeys must be added to tblPlots before proceeding."))
-  }
+  #
+  # lines_spin <- tblSpecRichHeader %>%
+  #   dplyr::distinct(PrimaryKey, DateVisited) %>%
+  #   dplyr::rename(LineKey = PrimaryKey) %>%
+  #   dplyr::mutate(
+  #     LineID      = LineKey,
+  #     PlotKey     = stringr::str_sub(LineKey, start = 1, end = -12),
+  #     Azimuth     = 999,
+  #     RecKey      = LineKey,
+  #     # Populate tracking keys using local metadata fallbacks
+  #     PrimaryKey  = LineKey
+  #   )
+  #
+  # lines_spin <- lines_spin %>%
+  #   dplyr::select(dplyr::any_of(base::intersect(names(lines_spin), names(tblLines))))
+  #
+  # # Combine and drop duplicates based on the specified unique combination
+  # tblLines <- tblLines %>%
+  #   dplyr::bind_rows(lines_spin) %>%
+  #   dplyr::distinct(LineKey, LineID, PlotKey, .keep_all = TRUE)
+  #
+  # # Integrity check verification matching
+  # missing_plots <- tblLines %>% dplyr::anti_join(tblPlots, by = "PlotKey")
+  #
+  # if (nrow(missing_plots) == 0) {
+  #   message("Every PlotKey in tblLines exists in tblPlots.")
+  # } else {
+  #   warning(paste("Found", nrow(missing_plots), "rows with missing PlotKeys. These PlotKeys must be added to tblPlots before proceeding."))
+  # }
 
   utils::write.csv(tblLines, file.path(path_dimatables, "tblLines.csv"), row.names = FALSE)
 
