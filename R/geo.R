@@ -1017,6 +1017,7 @@ generate_geoIndicators <- function(path_foringest,
         digits           = 6
       )
 
+      # --- Handle geoIndicators ---
       geo_file <- file.path(current_path_ingest, "geoIndicators.csv")
       if (file.exists(geo_file)) {
         geoind <- read.csv(geo_file) %>% dplyr::filter(ProjectKey == projkey)
@@ -1027,17 +1028,36 @@ generate_geoIndicators <- function(path_foringest,
         write.csv(geoind, new_name, row.names = FALSE)
         file.remove(geo_file)
       }
+
+      # --- Handle geoIndicators_all_indicators ---
+      all_ind_file <- file.path(current_path_ingest, "geoIndicators_all_indicators.csv")
+      if (file.exists(all_ind_file)) {
+        all_ind <- read.csv(all_ind_file) %>% dplyr::filter(ProjectKey == projkey)
+
+        suffix <- if(s_nbr == "root") "" else paste0("_sub", s_nbr)
+        new_all_name <- file.path(current_path_ingest, paste0("geoIndicators_all_indicators_", projkey, suffix, ".csv"))
+
+        write.csv(all_ind, new_all_name, row.names = FALSE)
+        file.remove(all_ind_file)
+      }
     }
   })
 
   message("\nMerging outputs into master file...")
-  all_geo_files <- list.files(path_ingest_subset_root, pattern = "geoIndicators_.*\\.csv", recursive = TRUE, full.names = TRUE)
+  all_geo_files <- list.files(path_ingest_subset_root, pattern = "^geoIndicators_[^all].*\\.csv", recursive = TRUE, full.names = TRUE)
 
   if (length(all_geo_files) > 0) {
     master_geo <- lapply(all_geo_files, read.csv) %>% dplyr::bind_rows()
     write.csv(master_geo, file.path(path_foringest, "geoIndicators.csv"), row.names = FALSE)
 
-    # --- SAFE CLEANUP FIX ---
+    # combined master file for ALL indicators across projects/subsets:
+    all_ind_files <- list.files(path_ingest_subset_root, pattern = "geoIndicators_all_indicators_.*\\.csv", recursive = TRUE, full.names = TRUE)
+    if (length(all_ind_files) > 0) {
+      master_all_ind <- lapply(all_ind_files, read.csv) %>% dplyr::bind_rows()
+      write.csv(master_all_ind, file.path(path_foringest, "geoIndicators_all_indicators.csv"), row.names = FALSE)
+    }
+
+    # --- cleanup files ---
     if (has_subsets) {
       # Safe to delete the temporary wrapper folder
       unlink(path_ingest_subset_root, recursive = TRUE)
