@@ -580,6 +580,10 @@ geofiles_nri <- function(path_foringest,
             file = file.path(path_foringest,
                              "geoIndicators.csv"),
             row.names = FALSE)
+  write.csv(x = all_indicators,
+            file = file.path(path_foringest,
+                             "geoIndicators_all_indicators.csv"),
+            row.names = FALSE)
 
   #### Accumulated species stuff -----------------------------------------------
   if (doGSP) {
