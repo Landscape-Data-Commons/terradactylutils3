@@ -181,7 +181,7 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   if(!is.null(tall_lpi)){
     print("Translating LPI data")
     tall_lpi <- tall_lpi |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
     dataLPI <- tall_lpi |>
       translate_schema2(schema = schema,
                         datatype = "dataLPI",
@@ -198,7 +198,7 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
     print("Translating height data")
     tall_ht$DateVisited <- as.Date(tall_ht$DateVisited, format = "%Y-%m-%d")
     tall_ht <- tall_ht |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
     dataHeight <- tall_ht |>
       translate_schema2(schema = schema,
                         datatype = "dataHeight",
@@ -214,7 +214,7 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   if(!is.null(tall_sr)){
     print("Translating species inventory data")
     tall_sr <- tall_sr |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
     dataSpeciesInventory <- tall_sr |>
       translate_schema2(schema = schema,
                         datatype = "dataSpeciesInventory",
@@ -230,7 +230,7 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   if(!is.null(tall_ss)){
     print("Translating soil stability data")
     tall_ss <- tall_ss |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
     dataSoilStability <- tall_ss |>
       translate_schema2(schema = schema,
                         datatype = "dataSoilStability",
@@ -246,7 +246,7 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   if(!is.null(tall_gap)){
     print("Translating canopy gap data")
     tall_gap <- tall_gap |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = character())
+      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
 
     dataGap <- tall_gap |>
       translate_schema2(schema = schema,
