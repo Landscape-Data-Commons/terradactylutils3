@@ -333,39 +333,46 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
 #' @return folders for data preparation for the LDC, if not already created
 #'
 #' @export
-create_dirs <- function(path_parent, source){
+create_dirs <- function(path_parent, source) {
 
-  #setting file path for directories that the user does not edit
-  path_cache <<- file.path(path_parent, "Cache")
-  path_qc <<- file.path(path_parent, "QC") # path where the QC data will be saved
-  path_tall <<- file.path(path_parent, "Tall") # path where the tall data will be saved
-  path_original_files <<- file.path(path_parent, "original_files")
-  path_qc <<- file.path(path_parent, "QC")
-  DIMATables <<- file.path(path_parent, "DIMATables")
-  sensitive_data <<- file.path(path_parent, "sensitive_data")
-  gathered_data <<-file.path(path_parent, "gathered_data")
+  # 1. Build a named list of paths
+  paths <- list(
+    path_cache          = file.path(path_parent, "Cache"),
+    path_qc             = file.path(path_parent, "QC"),
+    path_tall           = file.path(path_parent, "Tall"),
+    path_original_files = file.path(path_parent, "original_files"),
+    DIMATables          = file.path(path_parent, "DIMATables"),
+    sensitive_data      = file.path(path_parent, "sensitive_data"),
+    gathered_data       = file.path(path_parent, "gathered_data"),
+    Tables              = file.path(path_parent, "Tables"),
+    path_foringest      = file.path(path_parent, "For Ingest")
+  )
 
-  # set up directories if not yet in parent folder
+  # 2. Create the directories safely
   if(!dir.exists(path_parent)) dir.create(path_parent)
-  if(!dir.exists(path_cache)) dir.create(path_cache)
-  if(!dir.exists(path_qc)) dir.create(path_qc)
-  if(!dir.exists(gathered_data)) dir.create(gathered_data)
+  if(!dir.exists(paths$path_cache)) dir.create(paths$path_cache)
+  if(!dir.exists(paths$path_qc)) dir.create(paths$path_qc)
+  if(!dir.exists(paths$gathered_data)) dir.create(paths$gathered_data)
 
   if(source == "NRI"){
-    if(!dir.exists(path_original_files)) dir.create(path_original_files)
-    if(!dir.exists(path_qc)) dir.create(path_qc)
-    if(!dir.exists(sensitive_data)) dir.create(sensitive_data)
-
+    if(!dir.exists(paths$path_original_files)) dir.create(paths$path_original_files)
+    if(!dir.exists(paths$path_qc)) dir.create(paths$path_qc)
+    if(!dir.exists(paths$sensitive_data)) dir.create(paths$sensitive_data)
   }
 
-  path_tall <<- file.path(path_parent, "Tall")
-  if(!dir.exists(path_tall)) dir.create(path_tall)
-  path_foringest <<- file.path(path_parent, "For Ingest")
-  if(!dir.exists(path_foringest)) dir.create(path_foringest)
-  if(source == "DIMA"){
-    if(!dir.exists(DIMATables)) dir.create(DIMATables)}
-}
+  if(!dir.exists(paths$path_tall)) dir.create(paths$path_tall)
+  if(!dir.exists(paths$path_foringest)) dir.create(paths$path_foringest)
 
+  if(source == "DIMA"){
+    if(!dir.exists(paths$DIMATables)) dir.create(paths$DIMATables)
+  }
+  if(source == "DIMA" || source == "Other"){
+    if(!dir.exists(paths$Tables)) dir.create(paths$Tables)
+  }
+
+  # Return the list of paths to the user/parent function
+  return(paths)
+}
 
 
 
