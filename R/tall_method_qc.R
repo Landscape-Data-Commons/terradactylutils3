@@ -1336,24 +1336,38 @@ qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
   tall_file_names <- c("lpi_tall", "height_tall", "gap_tall",
                        "species_inventory_tall", "soil_stability_tall")
 
-  # can't rely on .GlobalEnv for parallel - ensure objects are available locally
+  # 1. Dynamically read files based on whether we are dealing with a subset or a whole project
   for (file_name in tall_file_names) {
-    # save qc by subset nbr if available
-    file_path <- file.path(path_tall, paste0("subset", subset_nbr, "_", file_name, ".csv"))
+
+    if (!is.null(subset_nbr)) {
+      # If processing a subset, look for the subset prefix pattern
+      file_path <- file.path(path_tall, paste0("subset", subset_nbr, "_", file_name, ".csv"))
+    } else {
+      # If processing the whole project at once, look for the standard file name
+      file_path <- file.path(path_tall, paste0(file_name, ".csv"))
+    }
 
     if (file.exists(file_path)) {
       dat <- vroom::vroom(file_path, show_col_types = FALSE)
-      # Assigning locally
       assign(file_name, dat)
+    } else {
+      # Optional warning to help you track down missing expected files
+      message("Note: ", file_name, " not found at: ", file_path)
     }
   }
 
-  # need subset paths for parallel
-  subset_qc_path <- file.path(path_qc, paste0("subset", subset_nbr))
+  # 2. Dynamically resolve the QC output directory path
+  if (!is.null(subset_nbr)) {
+    # If it's a subset, isolate it in its own subset folder
+    subset_qc_path <- file.path(path_qc, paste0("subset", subset_nbr))
+  } else {
+    # Otherwise, write the QC files directly to the project's root QC directory
+    subset_qc_path <- path_qc
+  }
+
   if (!dir.exists(subset_qc_path)) {
     dir.create(subset_qc_path, recursive = TRUE)
   }
-
 
   ## LPI
   if(exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0){

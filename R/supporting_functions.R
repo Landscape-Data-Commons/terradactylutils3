@@ -1115,13 +1115,6 @@ merge_subfolder <- function(parent_path, verbose = TRUE) {
 #' @param path_schema Path to LDC schema plan
 #' @export
 filter_data_by_schema <- function(data_list, path_schema) {
-    # 1. Verification checks
-    if (!file.exists(path_schema)) {
-      stop("The schema file path provided does not exist: ", path_schema)
-    }
-    if (!is.list(data_list) || length(data_list) == 0) {
-      stop("The data_list provided is empty or not a valid list.")
-    }
 
     # 2. Read the schema
     schema <- read.csv(path_schema)
@@ -1180,3 +1173,454 @@ filter_data_by_schema <- function(data_list, path_schema) {
     message("All list elements successfully processed against the schema.")
     return(updated_list)
   }
+
+
+
+
+#' Process and save "clean" tall files
+#'
+#' @param gathered_data_list list of gathered data files
+#' @param dataHeader dataHeader as data frame
+#' @param source data type
+#' @param path_tall path_tall folder path
+#' @param nonvasc_codes list of nonvascular codes
+#' @param data_list list of original files for DIMA
+#' @export
+process_and_save_tall <- function(gathered_data_list, dataHeader, source, path_tall, save_dir = path_tall, nonvasc_codes = NULL, data_list = NULL) {
+
+  # 1. Verification Check
+  if (is.null(dataHeader) || !is.data.frame(dataHeader)) {
+    stop("dataHeader must be a valid data frame in the environment.")
+  }
+  if (!"PrimaryKey" %in% names(dataHeader)) {
+    stop("dataHeader must contain a 'PrimaryKey' column to perform subsetting.")
+  }
+
+  # 2. Determine Subsetting Logic based on observation count (> 10,000)
+  total_rows <- nrow(dataHeader)
+
+  if (total_rows > 10000) {
+    message("Observation count (", total_rows, ") exceeds 10,000. Splitting into 4 subsets...")
+
+    set.seed(123)
+    subset_vector <- rep(1:4, length.out = total_rows)
+    pk_groups <- split(dataHeader$PrimaryKey, subset_vector)
+
+    results_by_subset <- lapply(1:4, function(s_nbr) {
+      message("--- Processing Subset Group: ", s_nbr, "/4 ---")
+      current_pks <- pk_groups[[s_nbr]]
+
+      sub_dataHeader <- dataHeader %>% filter(PrimaryKey %in% current_pks)
+
+      sub_gathered_data_list <- lapply(gathered_data_list, function(df) {
+        if (is.data.frame(df) && "PrimaryKey" %in% names(df)) {
+          return(df %>% filter(PrimaryKey %in% current_pks))
+        }
+        return(df)
+      })
+
+      sub_data_list <- lapply(data_list, function(df) {
+        if (is.data.frame(df) && "PrimaryKey" %in% names(df)) {
+          return(df %>% filter(PrimaryKey %in% current_pks))
+        }
+        return(df)
+      })
+
+      result <- clean_tall_all(
+        data_source        = source,
+        gathered_data      = NULL,
+        dataHeader         = sub_dataHeader,
+        path_tall          = path_tall, # Keeps project subfolder context for processing
+        subset_to_filter   = s_nbr,
+        gathered_data_list = sub_gathered_data_list,
+        data_list          = sub_data_list,
+        nonvasc_codes      = nonvasc_codes
+      )
+
+      return(result)
+    })
+
+    message("Recombining all processed subsets...")
+    tall_files_list_final <- results_by_subset %>%
+      purrr::list_transpose() %>%
+      lapply(function(table_list) {
+        dplyr::bind_rows(table_list[!sapply(table_list, is.null)])
+      })
+
+  } else {
+    message("Observation count (", total_rows, ") is <= 10,000. Processing whole dataset at once...")
+
+    tall_files_list_final <- clean_tall_all(
+      data_source        = source,
+      gathered_data      = NULL,
+      dataHeader         = dataHeader,
+      path_tall          = path_tall, # Keeps project subfolder context for processing
+      subset_to_filter   = NULL,
+      data_list          = data_list,
+      gathered_data_list = gathered_data_list,
+      nonvasc_codes      = nonvasc_codes
+    )
+
+    if (!is.list(tall_files_list_final) || is.data.frame(tall_files_list_final)) {
+      stop("clean_tall_all must return a named list of data frames.")
+    }
+  }
+
+  # 3. Output and Save block (RDS and CSV)
+  # CHANGED: Now uses save_dir instead of path_tall for the file outputs
+  output_dir <- save_dir
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  list_names <- names(tall_files_list_final)
+  if (is.null(list_names)) {
+    warning("The returned list from clean_tall_all was unnamed. Defaulting generic names.")
+    list_names <- paste0("dataset_", seq_along(tall_files_list_final))
+    names(tall_files_list_final) <- list_names
+  }
+
+  lapply(list_names, function(name) {
+    df <- tall_files_list_final[[name]]
+    if (is.null(df)) return(NULL)
+
+    clean_name <- if(grepl("_tall$", name)) name else paste0(name, "_tall")
+
+    rds_path <- file.path(output_dir, paste0(clean_name, ".rds"))
+    csv_path <- file.path(output_dir, paste0(clean_name, ".csv"))
+
+    saveRDS(df, file = rds_path)
+    write.csv(df, file = csv_path, row.names = FALSE)
+
+    message(paste("Successfully saved final data asset to directory:", rds_path))
+  })
+
+  message("--- Processing Complete! ---")
+  return(invisible(tall_files_list_final))
+}
+
+
+#' Combine Project CSV Files Across Subfolders
+#'
+#' @description
+#' Scans a root directory for subfolders containing processed project CSV files,
+#' groups files by their common base name (e.g., `lpi_tall.csv`), combines
+#' them by stacking their rows, and saves the consolidated datasets back into
+#' the root directory as both CSV and RDS files.
+#'
+#' @param path_tall Character. The absolute or relative path to the root
+#'   directory containing the project subfolders.
+#'
+#' @return Invisible `NULL`. The function is called for its side effect of
+#'   writing combined CSV and RDS files to disk.
+#'
+#' @importFrom dplyr bind_rows
+#' @importFrom magrittr %>%
+#'
+#' @export
+combine_project_csvs <- function(path_tall) {
+
+  # 1. Sanity Check: Ensure the root directory actually exists
+  if (!dir.exists(path_tall)) {
+    stop("The provided path_tall directory does not exist: ", path_tall)
+  }
+
+  message("\n--- Beginning Post-Processing: Combining Project Files ---")
+
+  # 2. Find all CSV files inside the project subfolders (recursive = TRUE)
+  all_subfolder_files <- list.files(
+    path       = path_tall,
+    pattern     = "\\.csv$",
+    recursive   = TRUE,
+    full.names  = TRUE
+  )
+
+  # 3. Filter out any CSVs that might already live in the root path_tall directory
+  root_dir_normalized <- normalizePath(path_tall, mustWork = FALSE)
+  subfolder_csvs <- all_subfolder_files[normalizePath(dirname(all_subfolder_files), mustWork = FALSE) != root_dir_normalized]
+
+  if (length(subfolder_csvs) == 0) {
+    warning("No subfolder CSV files found to combine. Check your directory structure.")
+    return(invisible(NULL))
+  }
+
+  # 4. Group files by their base name (e.g., "lpi_tall.csv")
+  file_base_names   <- basename(subfolder_csvs)
+  unique_file_types <- unique(file_base_names)
+
+  # 5. Loop through each unique file type, read, stack, and save
+  lapply(unique_file_types, function(file_type) {
+    message("Combining asset: ", file_type)
+
+    # Isolate paths matching this specific file type across all subfolders
+    matching_files <- subfolder_csvs[file_base_names == file_type]
+
+    # FIX: Read all columns as character to avoid logical vs character mismatch errors
+    combined_df <- matching_files %>%
+      lapply(function(f) {
+        read.csv(f, colClasses = "character", stringsAsFactors = FALSE)
+      }) %>%
+      dplyr::bind_rows()
+
+    # Define destination paths in the main root folder
+    target_csv <- file.path(path_tall, file_type)
+    target_rds <- file.path(path_tall, gsub("\\.csv$", ".rds", file_type))
+
+    # Save consolidated outputs
+    write.csv(combined_df, file = target_csv, row.names = FALSE)
+    saveRDS(combined_df, file = target_rds)
+
+    message("Successfully saved combined asset to: ", target_csv)
+  })
+
+  message("--- All project data combined and saved to root path_tall! ---")
+  return(invisible(NULL))
+}
+
+
+
+#' Filter Projects for Nonvascular Growth Habit
+#'
+#' Loops through a vector of project keys, reads their corresponding species CSV files,
+#' and filters the data for rows where `GrowthHabitSub` matches "nonvascular"
+#' (including variations like "Non-Vascular", "non_vascular", etc.).
+#'
+#' @param project_keys A character vector of project identifiers.
+#' @param path_species A character string specifying the base directory path where
+#'   the CSV files are located. Should end with a slash (e.g., "path/to/data/").
+#' @param file_extension A character string specifying the file extension. Defaults to ".csv".
+#'
+#' @return A named list of data frames. Each element in the list corresponds to a
+#'   project key and contains the filtered data frame. If a file is missing,
+#'   the list element will be `NULL`.
+#' @export
+#'
+#' @examples
+#' nonvascular_data <- filter_nonvascular_projects(my_keys, species_path)
+filter_nonvascular <- function(project_keys, path_species, file_extension = ".csv") {
+
+  # Ensure the output list is initialized
+  filtered_projects_list <- list()
+
+  # Define the regex pattern for nonvascular variations
+  regex_pattern <- "^non[-_]?vascular$"
+
+  for (proj in project_keys) {
+
+    # Construct the full file path
+    file_path <- paste0(path_species, proj, file_extension)
+
+    # Safely check if the file exists before reading
+    if (file.exists(file_path)) {
+
+      # Read the data
+      df <- read.csv(file_path, stringsAsFactors = FALSE)
+
+      # Check if the target column actually exists in this file
+      if ("GrowthHabitSub" %in% names(df)) {
+
+        # FIX: Changed ignore_case to ignore.case
+        match_mask <- grepl(regex_pattern, df$GrowthHabitSub, ignore.case = TRUE)
+        filtered_df <- df[match_mask, ]
+
+        # Store the result (Will be an empty 0-row df if no matches are found)
+        filtered_projects_list[[proj]] <- filtered_df
+
+      } else {
+        warning(paste0("Column 'GrowthHabitSub' not found in file: ", file_path))
+        filtered_projects_list[[proj]] <- data.frame()
+      }
+
+    } else {
+      warning(paste("File not found:", file_path))
+      filtered_projects_list[[proj]] <- NULL
+    }
+  }
+
+  return(filtered_projects_list)
+}
+
+
+
+#' Map DIMA Primary Keys to a Assigned Identifier
+#'
+#' @description
+#' Scans all data frames inside a list to build a master crosswalk mapping
+#' the current `PrimaryKey` to a target identifier column (e.g., `plotVisitKey`).
+#' It then updates the `PrimaryKey` column across all data frames using this map.
+#' If an observation does not have a matching target key, it retains its original
+#' `PrimaryKey` value, and a detailed warning is generated specifying which keys
+#' were missing and which data frames they were found in.
+#'
+#' @param data_list A named list of data frames to be processed.
+#' @param source Character. The data source identifier. The mapping logic will
+#'   only execute if this equals `"DIMA"`.
+#' @param pkey_assigned Character. The name of the unique identifier column
+#'   used to overwrite `PrimaryKey` (e.g., `"plotVisitKey"`).
+#'
+#' @return A list of data frames with updated `PrimaryKey` columns.
+#'
+#' @importFrom dplyr bind_rows left_join distinct filter
+#' @importFrom magrittr %>%
+#'
+#' @export
+map_dima_primary_keys <- function(data_list, source, pkey_assigned) {
+
+  # 1. Early exit checks
+  if (is.null(source) || source != "DIMA") {
+    return(data_list)
+  }
+  if (is.null(pkey_assigned)) {
+    return(data_list)
+  }
+  if (!is.list(data_list) || is.data.frame(data_list)) {
+    stop("data_list must be a valid list of data frames.")
+  }
+
+  message("Source is DIMA: Building master key translation crosswalk using '", pkey_assigned, "'...")
+
+  # --- STEP 2: Build the Master Translation Crosswalk ---
+  crosswalk_list <- lapply(data_list, function(df) {
+    if (is.data.frame(df) && "PrimaryKey" %in% names(df) && pkey_assigned %in% names(df)) {
+      return(df[, c("PrimaryKey", pkey_assigned), drop = FALSE])
+    }
+    return(NULL)
+  })
+
+  master_crosswalk <- dplyr::bind_rows(crosswalk_list) %>%
+    unique() %>%
+    dplyr::filter(!is.na(PrimaryKey) & !is.na(.data[[pkey_assigned]]) & .data[[pkey_assigned]] != "")
+
+  if (nrow(master_crosswalk) == 0) {
+    warning("Could not build a crosswalk. No tables contained both 'PrimaryKey' and '", pkey_assigned, "' with valid values.")
+    return(data_list)
+  }
+
+  if (any(duplicated(master_crosswalk$PrimaryKey))) {
+    warning("Some PrimaryKey values map to multiple '", pkey_assigned, "' values. Keeping the first match.")
+    master_crosswalk <- master_crosswalk %>%
+      dplyr::distinct(PrimaryKey, .keep_all = TRUE)
+  }
+
+  # --- STEP 3: Map and Track Failures by Data Frame ---
+  unmapped_registry <- list()
+
+  df_names <- names(data_list)
+  if (is.null(df_names)) df_names <- paste0("df_index_", seq_along(data_list))
+
+  for (i in seq_along(data_list)) {
+    df <- data_list[[i]]
+    df_name <- df_names[i]
+
+    if (is.data.frame(df) && "PrimaryKey" %in% names(df)) {
+
+      # Keep a backup copy of the original PrimaryKey column
+      df$ORIGINAL_PRIMARY_KEY_BACKUP <- df$PrimaryKey
+
+      # Perform left join to bring in the translation map column
+      df_mapped <- df %>%
+        dplyr::left_join(master_crosswalk, by = "PrimaryKey", suffix = c("", "_crosswalk"))
+
+      # Define exactly what counts as a "successful match"
+      has_valid_match <- !is.na(df_mapped[[pkey_assigned]]) & df_mapped[[pkey_assigned]] != ""
+
+      # Identify rows that completely missed finding a match
+      failed_rows <- !has_valid_match & !is.na(df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP) & df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP != ""
+
+      # Log failures into registry
+      if (any(failed_rows)) {
+        missing_keys_in_df <- unique(df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP[failed_rows])
+        unmapped_registry[[df_name]] <- missing_keys_in_df
+      }
+
+      # Assignment Guard: Only update matching rows
+      if (any(has_valid_match)) {
+        df_mapped$PrimaryKey[has_valid_match] <- df_mapped[[pkey_assigned]][has_valid_match]
+      }
+
+      # Fallback: Force failed rows to retain their backup snapshot
+      if (any(!has_valid_match)) {
+        df_mapped$PrimaryKey[!has_valid_match] <- df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP[!has_valid_match]
+      }
+
+      # Clean Up temporary metadata columns
+      df_mapped$ORIGINAL_PRIMARY_KEY_BACKUP <- NULL
+
+      # Clean up target assignment column depending on table origin
+      if (!(pkey_assigned %in% names(df))) {
+        df_mapped[[pkey_assigned]] <- NULL
+      } else {
+        df_mapped[[pkey_assigned]] <- df[[pkey_assigned]]
+      }
+
+      data_list[[i]] <- df_mapped
+    }
+  }
+
+  # --- STEP 4: Produce Detailed Warning Report ---
+  if (length(unmapped_registry) > 0) {
+    warning_report <- sapply(names(unmapped_registry), function(name) {
+      paste0("  - [", name, "]: ", paste(unmapped_registry[[name]], collapse = ", "))
+    }) %>% paste(collapse = "\n")
+
+    warning(
+      "The following PrimaryKey observations did not have a matching '", pkey_assigned, "' value and retained their original PrimaryKey:\n",
+      warning_report
+    )
+  } else {
+    message("Success: All encountered PrimaryKeys successfully mapped to '", pkey_assigned, "'.")
+  }
+
+  return(data_list)
+}
+
+#' Smart Date Parsing
+#'
+#' @description
+#' `safe_parse_date` attempts to parse a vector of dates cleanly. It first
+#' leverages fast ISO-8601 parsing for standard formats (e.g., "YYYY-MM-DD").
+#' If any values fail and turn into `NA`, it automatically drops into a robust,
+#' multi-order fallback parser to rescue non-standard or messy date strings.
+#'
+#' @param date_vec A vector of dates to be parsed. Can be character strings,
+#' factors, numerics, or mixed formats.
+#'
+#' @details
+#' The function operates in two stages to maximize speed and accuracy:
+#' 1. It forces the input to character format and runs [lubridate::as_date()],
+#'    which instantly handles standard formats like `"2026-06-11"` or `"2026-06-11 00:00:00"`.
+#' 2. For any rows that resolve to `NA` (but were not originally `NA` in the raw input),
+#'    it applies [lubridate::parse_date_time()] using a wide net of specific
+#'    orders: `"ymd"`, `"mdy"`, `"dmy"`, and their variations containing hours, minutes, and seconds.
+#'
+#' @return A vector of class `Date` in standard `YYYY-MM-DD` format, preserving
+#' original `NA` values where parsing was impossible.
+#'
+#' @importFrom lubridate as_date parse_date_time
+#' @export
+#'
+#' @examples
+#' # Handling a mixture of perfect ISO dates and messy Excel formats:
+#' messy_dates <- c("2026-06-11", "06/11/2026 14:30", "11-Jun-26", NA, "broken_string")
+#' safe_parse_date(messy_dates)
+#'
+safe_parse_date <- function(date_vec) {
+  # Convert factor/numeric to character safely
+  date_char <- as.character(date_vec)
+
+  # Try basic ISO parsing first (handles "2026-06-11", "2026-06-11 00:00:00", etc.)
+  parsed_dates <- lubridate::as_date(date_char)
+
+  # Find any records that failed (turned into NA) and were NOT originally NA
+  failed_indices <- which(is.na(parsed_dates) & !is.na(date_vec))
+
+  if (length(failed_indices) > 0) {
+    # Run the messy parser ONLY on the failed rows
+    messy_parsed <- lubridate::parse_date_time(
+      date_char[failed_indices],
+      orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM")
+    )
+    # Inject the rescued dates back into the main vector
+    parsed_dates[failed_indices] <- lubridate::as_date(messy_parsed)
+  }
+
+  return(parsed_dates)
+}

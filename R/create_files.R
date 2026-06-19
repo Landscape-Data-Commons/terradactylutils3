@@ -127,50 +127,75 @@ create_species_list <- function(species_list_NOT_created,tblSpeciesGeneric, tblS
 #'
 #' @examples create_header(path_tall = file.path(path_parent, "Tall"), tblPlots = tblPlots, todaysDate = format(Sys.Date(), "%m/%d/%Y"), source = "DIMA", by_species_key = FALSE)
 #' @export
-create_header <- function (path_tall,tblPlots,todaysDate, source,  by_species_key = FALSE, gathered_data){
-  problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action=="Delete"]
-  tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
-  dataHeader <- tblPlots |>
-    rename(
-      ProjectKey = project,
-      DBKey = dbname,
-      Latitude_NAD83 = Latitude,
-      Longitude_NAD83 = Longitude,
-      EcologicalSiteId = EcolSite
-    )
+create_header <- function(path_tall, tblPlots, todaysDate, source, by_species_key = FALSE, gathered_data) {
+
+  # Check if primarykey_qc exists, is not NULL, and has rows/elements before filtering
+  if (exists("primarykey_qc") && !is.null(primarykey_qc) && length(primarykey_qc) > 0 && nrow(primarykey_qc) > 0) {
+    problem_pk <- primarykey_qc$PrimaryKey[primarykey_qc$Action == "Delete"]
+    tblPlots <- tblPlots |> subset(!PrimaryKey %in% problem_pk)
+  }
+
+  # 1. Define your target map (New_Name = "Old_Name")
+  rename_map <- c(
+    ProjectKey       = "project",
+    DBKey            = "dbname",
+    Latitude_NAD83   = "Latitude",
+    Longitude_NAD83  = "Longitude",
+    EcologicalSiteId = "EcolSite"
+  )
+
+  # 2. Start with your base dataframe
+  dataHeader <- tblPlots
+
+  # 3. Loop through and apply renames conditionally
+  for (new_name in names(rename_map)) {
+    old_name <- rename_map[[new_name]]
+
+    # Check if the old column exists to be renamed
+    if (old_name %in% names(dataHeader)) {
+
+      # Check if the new name is already taken
+      if (new_name %in% names(dataHeader)) {
+        # Fixed to dynamically show the actual duplicate column name
+        warning(paste0(new_name, " already exists; not replacing ", old_name))
+      } else {
+        # Rename safely using base bracket notation to avoid tidyverse overhead in a loop
+        names(dataHeader)[names(dataHeader) == old_name] <- new_name
+      }
+
+    }
+  }
+
   dataHeader$SiteID <- tblSites$SiteID[match(dataHeader$SiteKey, tblSites$SiteKey)]
   dataHeader$RecKey <- dataHeader$PlotKey
 
   header2 <- dataHeader
 
   # keeping only cols of interest
-  dataHeader <- dataHeader |> dplyr::select(ProjectKey, PrimaryKey, DateVisited, Latitude_NAD83, Longitude_NAD83,
-                                            DBKey, State, County, PlotID, RecKey,EcologicalSiteId)
-
+  dataHeader <- dataHeader |> dplyr::select(
+    ProjectKey, PrimaryKey, DateVisited, Latitude_NAD83, Longitude_NAD83,
+    DBKey, State, County, PlotID, RecKey, EcologicalSiteId
+  )
 
   # adding remaining details needed for dataHeader
-
   dataHeader$PercentCoveredByEcoSite <- rep(NA) # leaving blank, doesn't impact calcs
   dataHeader$wkb_geometry <- rep(NA) # leaving blank, doesn't impact calcs
   dataHeader$DateLoadedInDb <- rep(todaysDate)
   dataHeader$source <- rep(source)
+
   # for species join to work properly, the SpecieState needs to be the projectkey
   # unless the project actually is distinguishing the species by state
-  if(by_species_key == TRUE){
+  if (by_species_key == TRUE) {
     dataHeader$SpeciesState <- dataHeader$State
-  }
-
-  if(by_species_key == FALSE){
+  } else {
     dataHeader$SpeciesState <- dataHeader$ProjectKey
   }
-  #dataHeader$DateVisited <- as.character(dataHeader$DateVisited)
 
-  write.csv(dataHeader, paste0(path_tall,"/header.csv"), row.names = F)
-  saveRDS(dataHeader, paste0(path_tall,"/header.rdata"))
-  write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
+  write.csv(dataHeader, paste0(path_tall, "/header.csv"), row.names = F)
+  saveRDS(dataHeader, paste0(path_tall, "/header.rdata"))
+  write.csv(dataHeader, paste0(gathered_data, "/header.csv"), row.names = F)
 
   dataHeader
-
 }
 ###############################
 #' Create geoIndicators
@@ -276,6 +301,13 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     dataHeader <- dataHeader[which(!duplicated(dataHeader)),]
     dataHeader$DBKey <- gsub('.{15}$', '', dataHeader$DateVisited)
     dataHeader$ProjectKey <- "BLM_AIM"
+    if(by_species_key == TRUE){
+      dataHeader$SpeciesState <- dataHeader$State
+    }
+
+    if(by_species_key == FALSE){
+      dataHeader$SpeciesState <- dataHeader$ProjectKey
+    }
     write.csv(dataHeader, file.path(path_tall, "header.csv"), row.names = F)
     saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
     write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
@@ -460,6 +492,7 @@ create_mwac <- function(tblBSNE_BoxCollection, gathered_data){
 
   write.csv(tblBSNE_BoxCollection, paste0(gathered_data, "/horizontalflux_tall.csv"), row.names = FALSE)
 
+  return(tblBSNE_BoxCollection)
 }
 
 
@@ -517,7 +550,7 @@ create_ddt <- function(tblBSNE_TrapCollection, gathered_data, path_schema){
 
 
   write.csv(tblBSNE_TrapCollection, paste0(gathered_data, "/dustdeposition_tall.csv"), row.names = FALSE)
-
+return(tblBSNE_TrapCollection)
 }
 
 
@@ -655,3 +688,287 @@ write.csv(test, path_specieslist)
 
 }
 
+
+
+#' Create Species List from National Species List Layer RW
+#'
+#' @description Extracts and formats the national species list layer from an AIM Wetland
+#' geodatabase, appends project-specific metadata and dummy attributes, and writes the
+#' output to a standard local CSV file directory.
+#'
+#' @param dsn Character. The Data Source Name (typically a path to a File Geodatabase `.gdb`).
+#' @param projectkey Character. The unique identifier code for the target project/state.
+#' @param output_dir Character. The base directory path where the generated CSV should be saved.
+#'
+#' @return An invisible `data.frame` containing the formatted species list data.
+#' @export
+#'
+#' @importFrom sf st_read
+#' @importFrom dplyr mutate across
+#' @importFrom readr write_csv
+#' @importFrom utils head
+create_species_list_RW <- function(dsn, projectkey, output_dir) {
+  library(sf)
+  library(dplyr)
+  library(readr)
+
+  # Read in species list layer
+  sp <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__S_NationalSpeciesList", quiet = TRUE)
+
+  # Streamline column additions using mutate and across
+  sp <- sp %>%
+    dplyr::mutate(
+      SpeciesCode        = Symbol,
+      UpdatedSpeciesCode = Symbol,
+      CurrentPLANTSCode  = Symbol,
+      SpeciesState       = projectkey,
+      # Safely initialize the non-existent columns to NA
+      Noxious            = NA,
+      Invasive           = NA,
+      HigherTaxon        = NA,
+      Nonnative          = NA,
+      SpecialStatus      = NA,
+      Photosynthesis     = NA,
+      PJ                 = NA
+    )
+
+  # Ensure export directory exists safely
+  if (!dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+
+  readr::write_csv(sp, file.path(output_dir, "species_BLM_AIM_RW.csv"))
+
+  return((sp))
+}
+
+
+#' Create DIMA-Compatible Tables from RW DSN
+#'
+#' @description Reads Line Point Intercept (LPI) and Species Richness layers from an
+#' AIM Wetland Geodatabase, transforms spatial coordinates, cleans tracking metrics,
+#' validates plot keys, and outputs formatted DIMA and Tall relational tables.
+#'
+#' @param dsn Character. The Data Source Name (typically a path to a File Geodatabase `.gdb`).
+#' @param projectkey Character. The unique identifier code for the target project/state.
+#' @param path_dimatables Character. Directory path where the DIMA export CSVs will be saved.
+#' @param path_tall Character. Directory path where the processed "tall" layout CSV and RDS headers will be saved.
+#'
+#' @return An invisible `data.frame` containing rows from `tblLines` where the `PlotKey`
+#' does not successfully match an entry in `tblPlots` (empty if data integrity is clean).
+#' @export
+#'
+#' @importFrom sf st_read st_as_sf st_transform st_coordinates st_drop_geometry st_geometry
+#' @importFrom dplyr mutate select rename distinct bind_rows anti_join any_of
+#' @importFrom stringr str_sub
+#' @importFrom utils write.csv
+create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
+  # ==========================================
+  # 1. READ IN SPECIFIC NECESSARY LAYERS
+  # ==========================================
+  tblLPIDetail       <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__F_LPIDetail", quiet = TRUE)
+  tblLPIHeader       <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__F_LPI", quiet = TRUE)
+  tblSpecRichHeader  <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__F_SpeciesInventory", quiet = TRUE)
+  tblSpecRichDetail  <- sf::st_read(dsn = dsn, layer = "AIM_Wetland__F_SpecRichDetail", quiet = TRUE)
+
+  # ==========================================
+  # 2. LPI & PLOT PROCESSING
+  # ==========================================
+  lpi <- tblLPIHeader %>%
+    dplyr::mutate(
+      State                 = projectkey,
+      PrimaryKey            = EvaluationID,
+      Date                  = as.character(DateFormat),
+      DateVisited           = as.Date(Date, format = "%Y-%m-%d"),
+      FormDate              = DateVisited,
+      Measure               = 1,
+      LineLengthAmount      = LineLength,
+      SpacingIntervalAmount = interval,
+      SpacingType           = "cm",
+      HeightOption          = "height",
+      HeightUOM             = htinterval,
+      ShowCheckbox          = "FALSE",
+      CheckboxLabel         = "",
+      source                = "DIMA",
+      ProjectKey            = projectkey,
+      SpeciesKey            = paste0("sp_", projectkey),
+      DateLoadedInDb        = Sys.Date(),
+      State = AdminState,
+      RecKey = LineKey
+    )
+
+  # Coordinate transformations using active geometry validation
+  lpi <- sf::st_as_sf(lpi)
+  sf::st_geometry(lpi) <- sf::st_geometry(lpi)
+
+  lpi <- sf::st_transform(lpi, 4326)
+  lpi <- sf::st_transform(lpi, 4269)
+
+  # Extract coordinates safely from sf matrix layout
+  coords <- sf::st_coordinates(lpi)
+
+  lpi <- lpi %>%
+    dplyr::mutate(
+      Latitude  = coords[, "Y"],
+      Longitude = coords[, "X"],
+      unique_key      = paste0(PrimaryKey, "_", LineKey)
+    )
+
+  # Deduplicate LPI records
+  lpi <- lpi[!duplicated(lpi$unique_key), ]
+
+  lpi <- lpi %>%
+    dplyr::mutate(
+      PlotKey = PlotID,
+      LineID  = LineNumber
+    )
+
+  # ==========================================
+  # 3. EXPORT TBLPLOTS & HEADER
+  # ==========================================
+  # Strip sf tracking properties to convert to a flat dataframe for tabular files
+  tblPlots <- lpi %>%
+    sf::st_drop_geometry() %>%
+    dplyr::select(
+      ProjectKey, PrimaryKey, PlotKey, PlotID, DateVisited, Latitude, Longitude,
+      DateLoadedInDb, source, State
+    )
+
+  tblPlots <- tblPlots[!duplicated(tblPlots$PrimaryKey), ]
+
+  tblPlots <- tblPlots %>%
+    dplyr::mutate(
+      SpeciesState            = projectkey,
+      wkb_geometry            = NA,
+      EcologicalSiteId        = NA,
+      PercentCoveredByEcoSite = NA,
+      SiteKey                 = projectkey,
+      EcolSite = NA,
+      County = NA
+    )
+
+  utils::write.csv(tblPlots, file.path(path_dimatables, "tblPlots.csv"), row.names = FALSE)
+
+  # header <- tblPlots %>% dplyr::mutate(PlotKey = NULL)
+  # header <- header[!duplicated(header$PrimaryKey), ]
+  #
+  # utils::write.csv(header, file.path(path_tall, "header.csv"), row.names = FALSE)
+  # saveRDS(header, file.path(path_tall, "header.rdata"))
+
+  # ==========================================
+  # 4. EXPORT SITES & LPI TABLES
+  # ==========================================
+  tblSites <- data.frame(
+    SiteKey = projectkey,
+    SiteID  = projectkey,
+    stringsAsFactors = FALSE
+  )
+  utils::write.csv(tblSites, file.path(path_dimatables, "tblSites.csv"), row.names = FALSE)
+
+  colnames(tblLPIDetail)[colnames(tblLPIDetail) == 'EvaluationID'] <- 'PrimaryKey'
+  tblLPIDetail$ShrubShape <- NA
+  tblLPIDetail$SpeciesLowerHerb <- NA
+  tblLPIDetail$HeightLowerHerb <- NA
+  # keep only cols to prevent height issues
+  lpi_keep_cols <- c(
+    "PrimaryKey", # Included as a safety key for future joins
+    "RecKey", "PointLoc", "PointNbr", "TopCanopy",
+    "Lower1", "Lower2", "Lower3", "Lower4", "Lower5", "Lower6", "Lower7",
+    "SoilSurface", "HeightTop", "HeightSurface", "HeightWoody", "HeightHerbaceous", "HeightLowerHerb",
+    "HeightLower1", "HeightLower2", "HeightLower3", "HeightLower4", "HeightLower5", "HeightLower6", "HeightLower7",
+    "ChkboxTop", "ChkboxSoil", "ChkboxWoody", "ChkboxHerbaceous", "ChkboxLowerHerb",
+    "ChkboxLower1", "ChkboxLower2", "ChkboxLower3", "ChkboxLower4", "ChkboxLower5", "ChkboxLower6", "ChkboxLower7",
+    "SpeciesWoody", "SpeciesHerbaceous", "SpeciesLowerHerb", "ShrubShape"
+  )
+
+  # loop through the list: if a column does not exist, initialize it with NA
+  for (col in lpi_keep_cols) {
+    if (!col %in% names(tblLPIDetail)) {
+      tblLPIDetail[[col]] <- NA
+    }
+  }
+
+  # select only the columns oi, dropping everything else
+  tblLPIDetail <- tblLPIDetail |>
+    dplyr::select(dplyr::all_of(lpi_keep_cols))
+  utils::write.csv(tblLPIDetail, file.path(path_dimatables, "tblLPIDetail.csv"), row.names = FALSE)
+
+  tblLPIHeader <- lpi %>%
+    sf::st_drop_geometry() %>%
+    dplyr::mutate(
+      CheckboxLabel = "",
+      chckbox       = NA
+    )
+  utils::write.csv(tblLPIHeader, file.path(path_dimatables, "tblLPIHeader.csv"), row.names = FALSE)
+
+  # ==========================================
+  # 5. EXPORT SPECIES RICHNESS TABLES
+  # ==========================================
+  # tblSpecRichHeader <- tblSpecRichHeader %>%
+  #   sf::st_drop_geometry() %>%
+  #   dplyr::mutate(
+  #     RecKey       = EvaluationID,
+  #     # Convert DateFormat string to true standard Date object tracking
+  #     DateVisited  = as.Date(as.character(DateFormat), format = "%Y-%m-%d")
+  #   )
+  #
+  # colnames(tblSpecRichHeader)[colnames(tblSpecRichHeader) == 'EvaluationID'] <- 'PrimaryKey'
+  # tblSpecRichHeader$LineKey <- tblSpecRichHeader$PrimaryKey
+  # utils::write.csv(tblSpecRichHeader, file.path(path_dimatables, "tblSpecRichHeader.csv"), row.names = FALSE)
+  #
+  # tblSpecRichDetail <- tblSpecRichDetail %>%
+  #   sf::st_drop_geometry() %>%
+  #   dplyr::mutate(
+  #     RecKey = EvaluationID
+  #   )
+  #
+  # colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'EvaluationID'] <- 'PrimaryKey'
+  # colnames(tblSpecRichDetail)[colnames(tblSpecRichDetail) == 'abundance']   <- 'DENSITY'
+  # tblSpecRichDetail$DENSITY <- as.integer(tblSpecRichDetail$DENSITY)
+  # utils::write.csv(tblSpecRichDetail, file.path(path_dimatables, "tblSpecRichDetail.csv"), row.names = FALSE)
+
+  # ==========================================
+  # 6. TBLLINES PROCESSING & INTEGRITY CHECK
+  # ==========================================
+  tblLines <- lpi %>%
+    sf::st_drop_geometry() %>%
+    # Explicitly selected PrimaryKey and DateVisited for schema validation
+    dplyr::select(PlotKey, LineKey, LineID, Azimuth, PrimaryKey, DateVisited) %>%
+    dplyr::mutate(
+      Azimuth = dplyr::if_else(is.na(Azimuth), 999, as.numeric(Azimuth)),
+      RecKey  = LineKey
+    )
+  #
+  # lines_spin <- tblSpecRichHeader %>%
+  #   dplyr::distinct(PrimaryKey, DateVisited) %>%
+  #   dplyr::rename(LineKey = PrimaryKey) %>%
+  #   dplyr::mutate(
+  #     LineID      = LineKey,
+  #     PlotKey     = stringr::str_sub(LineKey, start = 1, end = -12),
+  #     Azimuth     = 999,
+  #     RecKey      = LineKey,
+  #     # Populate tracking keys using local metadata fallbacks
+  #     PrimaryKey  = LineKey
+  #   )
+  #
+  # lines_spin <- lines_spin %>%
+  #   dplyr::select(dplyr::any_of(base::intersect(names(lines_spin), names(tblLines))))
+  #
+  # # Combine and drop duplicates based on the specified unique combination
+  # tblLines <- tblLines %>%
+  #   dplyr::bind_rows(lines_spin) %>%
+  #   dplyr::distinct(LineKey, LineID, PlotKey, .keep_all = TRUE)
+  #
+  # # Integrity check verification matching
+  # missing_plots <- tblLines %>% dplyr::anti_join(tblPlots, by = "PlotKey")
+  #
+  # if (nrow(missing_plots) == 0) {
+  #   message("Every PlotKey in tblLines exists in tblPlots.")
+  # } else {
+  #   warning(paste("Found", nrow(missing_plots), "rows with missing PlotKeys. These PlotKeys must be added to tblPlots before proceeding."))
+  # }
+
+  utils::write.csv(tblLines, file.path(path_dimatables, "tblLines.csv"), row.names = FALSE)
+
+  #return(invisible(missing_plots))
+}

@@ -6,12 +6,13 @@
 #' @param lpi as a data.frame, the tall_lpi file
 #' @param dataHeader as a data.frame, the dataHeader file produced from terradactylutils2::create_header()
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
+#' @param nonvasc_codes list of nonvascular codes in the dataset
 #'
 #' @return updated tall file written to path_tall and a tall_lpi data frame in the console (unless saved to an object)
 #'
 #' @examples clean_tall_lpi(lpi = terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
 #' @export
-clean_tall_lpi_nri <- function(lpi, dataHeader, path_tall){
+clean_tall_lpi_nri <- function(lpi, dataHeader, path_tall, nonvasc_codes){
   if (any(class(lpi) %in% c("POSIXct", "POSIXt"))) {
     change_vars <- names(lpi)[do.call(rbind, vapply(lpi,
                                                     class))[, 1] %in% c("POSIXct", "POSIXt")]
@@ -38,8 +39,11 @@ clean_tall_lpi_nri <- function(lpi, dataHeader, path_tall){
   ### remove duplicates and empty rows
 
 
-  lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
-
+  #lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
+  lpi <- lpi |>
+    dplyr::as_tibble() |>
+    tdact_remove_duplicates() |>
+    tdact_remove_empty(datatype = "lpi")
 
   tall_lpi <- lpi
 tall_lpi <- tall_lpi[!is.na(tall_lpi$code),]
@@ -54,18 +58,18 @@ tall_lpi <- tall_lpi[tall_lpi$code != "None",]
 
   tall_lpi <- tall_lpi %>%
     group_by(PrimaryKey, LineKey, PointNbr) %>%
-    # TopCanopy moss needs to be handled differently - move to lower code and drop TopCanopy
-    # make sure we don't touch SoilSurface
-    mutate(has_2moss_top = any(layer == "TopCanopy" & code == "2MOSS")) %>%
 
-  # only mutating the moss top groups
+    # Flag if ANY of the bad codes are in the TopCanopy for this group
+    mutate(has_bad_top = any(layer == "TopCanopy" & code %in% nonvasc_codes)) %>%
+
+    # Mutate the layers for flagged groups
     mutate(
       layer = case_when(
-        !has_2moss_top ~ layer,               # Do nothing if no 2MOSS on top
-        layer == "SoilSurface" ~ layer,        # Do nothing to SoilSurface
-        layer == "TopCanopy" ~ "Lower1",       # 2MOSS (TopCanopy) becomes Lower1
+        !has_bad_top ~ layer,                   # Do nothing if no bad code on top
+        layer == "SoilSurface" ~ layer,          # Do nothing to SoilSurface
+        layer == "TopCanopy" ~ "Lower1",         # Bad code (TopCanopy) becomes Lower1
 
-        # For any LowerX, extract the number, add 1, and paste it back - that way if Lower5 becomes Lower6 and we keep SoilSurface
+        # Shift LowerX layers down by 1
         str_detect(layer, "Lower") ~ {
           old_num <- as.numeric(str_extract(layer, "\\d+"))
           paste0("Lower", old_num + 1)
@@ -74,50 +78,9 @@ tall_lpi <- tall_lpi[tall_lpi$code != "None",]
         TRUE ~ layer
       )
     ) %>%
-    #
-    # since 2MOSS is now Lower1, we just filter out any remaining TopCanopy rows
-    # (which only exist in the non-moss groups now).
-    filter(!(has_2moss_top & layer == "TopCanopy")) %>%
-    # drop the new column
-    select(-has_2moss_top) %>%
-    ungroup()
-
-
-  # we don't need to move 2MOSS if already in lower layer
-
-  # now just make 2MOSS "M"
-  #tall_lpi$code <- ifelse(tall_lpi$code == "2MOSS", "M", tall_lpi$code)
-
-  # same for 2LICHN(1)
-
-  tall_lpi <- tall_lpi %>%
-    group_by(PrimaryKey, LineKey, PointNbr) %>%
-    # TopCanopy moss needs to be handled differently - move to lower code and drop TopCanopy
-    # make sure we don't touch SoilSurface
-    mutate(has_2lich_top = any(layer == "TopCanopy" & code == "2LICHN")) %>%
-
-    # only mutating the moss top groups
-    mutate(
-      layer = case_when(
-        !has_2lich_top ~ layer,               # Do nothing if no 2MOSS on top
-        layer == "SoilSurface" ~ layer,        # Do nothing to SoilSurface
-        layer == "TopCanopy" ~ "Lower1",       # 2MOSS (TopCanopy) becomes Lower1
-
-        # For any LowerX, extract the number, add 1, and paste it back - that way if Lower5 becomes Lower6 and we keep SoilSurface
-        str_detect(layer, "Lower") ~ {
-          old_num <- as.numeric(str_extract(layer, "\\d+"))
-          paste0("Lower", old_num + 1)
-        },
-
-        TRUE ~ layer
-      )
-    ) %>%
-    #
-    # since 2MOSS is now Lower1, we just filter out any remaining TopCanopy rows
-    # (which only exist in the non-moss groups now).
-    filter(!(has_2lich_top & layer == "TopCanopy")) %>%
-    # drop the new column
-    select(-has_2lich_top) %>%
+    # Filter out remaining TopCanopy rows for flagged groups
+    filter(!(has_bad_top & layer == "TopCanopy")) %>%
+    select(-has_bad_top) %>%
     ungroup()
 
 

@@ -4,7 +4,7 @@
 \alias{clean_tall_lpi_aim}
 \title{Clean Tall LPI AIM}
 \usage{
-clean_tall_lpi_aim(lpi, path_tall, dataHeader)
+clean_tall_lpi_aim(lpi, path_tall, dataHeader, nonvasc_codes)
 }
 \arguments{
 \item{lpi}{as a data.frame, the tall_lpi file}
@@ -12,6 +12,8 @@ clean_tall_lpi_aim(lpi, path_tall, dataHeader)
 \item{path_tall}{where all tall files from terradactyl::gather_... were saved}
 
 \item{dataHeader}{dataHeader as dataframe}
+
+\item{nonvasc_codes}{list of nonvascular codes in the data}
 }
 \value{
 cleaned, in LDC format, tall lpi to the path_tall

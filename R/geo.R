@@ -263,6 +263,12 @@ geofiles <- function(path_foringest,
                              "geoIndicators.csv"),
             row.names = FALSE)
 
+  write.csv(x = all_indicators,
+            file = file.path(path_foringest,
+                             "geoIndicators_all_indicators.csv"),
+            row.names = FALSE)
+
+
   #### Accumulated species stuff -----------------------------------------------
   if (doGSP) {
     schema <- read.csv(path_schema) |>
@@ -573,6 +579,10 @@ geofiles_nri <- function(path_foringest,
   write.csv(x = geoInd,
             file = file.path(path_foringest,
                              "geoIndicators.csv"),
+            row.names = FALSE)
+  write.csv(x = all_indicators,
+            file = file.path(path_foringest,
+                             "geoIndicators_all_indicators.csv"),
             row.names = FALSE)
 
   #### Accumulated species stuff -----------------------------------------------
@@ -923,3 +933,349 @@ geofiles_from_subsets <- function(path_foringest,
   }
 
 }
+
+
+
+
+#' Generate and Merge GeoIndicators from Data Subsets or Lists
+#'
+#' @param path_foringest Character. Path where the final merged geoIndicators.csv will be saved.
+#' @param path_tall Character. Path to the directory containing subset folders (used if tall_files_list is NULL).
+#' @param path_species Character. Base path/prefix for species list CSVs.
+#' @param template Character. Path to the Excel template file.
+#' @param path_schema Character. Path to the schema file.
+#' @param tall_header Data frame. The header data containing \code{ProjectKey} and \code{subset_nbr}.
+#' @param tall_files_list List. Optional in-memory list of tall datasets.
+#'
+#' @export
+generate_geoIndicators <- function(path_foringest,
+                                   path_tall,
+                                   path_species,
+                                   template,
+                                   path_schema,
+                                   tall_header,
+                                   tall_files_list = NULL) {
+
+  message("=== Starting Geo-Indicators Processing ===")
+
+  projectkey <- unique(tall_header$ProjectKey)
+
+  # --- CHECK DISK FOR SUBSETS ---
+  has_subsets <- dir.exists(file.path(path_tall, "subset"))
+
+  if (has_subsets) {
+    if ("subset_nbr" %in% colnames(tall_header))
+      subset_indices <- unique(tall_header$subset_nbr)
+    path_ingest_subset_root <- file.path(path_foringest, "subset_indicators")
+    if (!dir.exists(path_ingest_subset_root)) dir.create(path_ingest_subset_root, recursive = TRUE)
+
+    message("Found subset directories. Processing chunks...")
+  } else {
+    # No subsets exist. Run the entire dataset as a single pass.
+    subset_indices <- "root"
+    message("No subset directory found. Processing directly from root path_tall...")
+    path_ingest_subset_root <- path_foringest
+  }
+
+  lapply(subset_indices, function(s_nbr) {
+
+    if (s_nbr == "root") {
+      current_path_tall   <- path_tall
+      current_path_ingest <- file.path(path_ingest_subset_root, "root_run")
+      subset_header       <- tall_header
+      message("--- Generating Indicators for Global Dataset ---")
+    } else {
+      current_path_tall   <- file.path(path_tall, "subset", paste0("subset_", s_nbr))
+      current_path_ingest <- file.path(path_ingest_subset_root, paste0("subset_", s_nbr))
+      subset_header       <- tall_header %>% dplyr::filter(as.character(subset_nbr) == as.character(s_nbr))
+      message("--- Generating Indicators for Subset: ", s_nbr, " ---")
+    }
+
+    if (!dir.exists(current_path_ingest)) dir.create(current_path_ingest, recursive = TRUE)
+
+    if (s_nbr != "root") {
+      temp_header_path <- file.path(current_path_tall, "header.Rdata")
+      if (!dir.exists(current_path_tall)) dir.create(current_path_tall, recursive = TRUE)
+      saveRDS(subset_header, file = temp_header_path)
+      eval(substitute(on.exit(if (file.exists(P)) file.remove(P), add = TRUE), list(P = temp_header_path)))
+    }
+
+    for (projkey in projectkey) {
+      if (!(projkey %in% subset_header$ProjectKey)) next
+      path_specieslist <- paste0(path_species, projkey, ".csv")
+
+      geofiles(
+        path_foringest   = current_path_ingest,
+        path_tall        = current_path_tall,
+        header           = subset_header,
+        path_specieslist = path_specieslist,
+        template         = template,
+        path_schema      = path_schema,
+        doGSP            = FALSE,
+        verbose          = TRUE,
+        calculate_dead   = FALSE,
+        digits           = 6
+      )
+
+      # --- Handle geoIndicators ---
+      geo_file <- file.path(current_path_ingest, "geoIndicators.csv")
+      if (file.exists(geo_file)) {
+        geoind <- read.csv(geo_file) %>% dplyr::filter(ProjectKey == projkey)
+
+        suffix <- if(s_nbr == "root") "" else paste0("_sub", s_nbr)
+        new_name <- file.path(current_path_ingest, paste0("geoIndicators_", projkey, suffix, ".csv"))
+
+        write.csv(geoind, new_name, row.names = FALSE)
+        file.remove(geo_file)
+      }
+
+      # --- Handle geoIndicators_all_indicators ---
+      all_ind_file <- file.path(current_path_ingest, "geoIndicators_all_indicators.csv")
+      if (file.exists(all_ind_file)) {
+        all_ind <- read.csv(all_ind_file) %>% dplyr::filter(ProjectKey == projkey)
+
+        suffix <- if(s_nbr == "root") "" else paste0("_sub", s_nbr)
+        new_all_name <- file.path(current_path_ingest, paste0("geoIndicators_all_indicators_", projkey, suffix, ".csv"))
+
+        write.csv(all_ind, new_all_name, row.names = FALSE)
+        file.remove(all_ind_file)
+      }
+    }
+  })
+
+  message("\nMerging outputs into master file...")
+  all_geo_files <- list.files(path_ingest_subset_root, pattern = "^geoIndicators_[^all].*\\.csv", recursive = TRUE, full.names = TRUE)
+
+  if (length(all_geo_files) > 0) {
+    master_geo <- lapply(all_geo_files, read.csv) %>% dplyr::bind_rows()
+    write.csv(master_geo, file.path(path_foringest, "geoIndicators.csv"), row.names = FALSE)
+
+    # combined master file for ALL indicators across projects/subsets:
+    all_ind_files <- list.files(path_ingest_subset_root, pattern = "geoIndicators_all_indicators_.*\\.csv", recursive = TRUE, full.names = TRUE)
+    if (length(all_ind_files) > 0) {
+      master_all_ind <- lapply(all_ind_files, read.csv) %>% dplyr::bind_rows()
+      write.csv(master_all_ind, file.path(path_foringest, "geoIndicators_all_indicators.csv"), row.names = FALSE)
+    }
+
+    # --- cleanup files ---
+    if (has_subsets) {
+      # Safe to delete the temporary wrapper folder
+      unlink(path_ingest_subset_root, recursive = TRUE)
+    } else {
+      # ONLY delete the nested "root_run" folder, leaving your path_foringest pristine!
+      unlink(file.path(path_foringest, "root_run"), recursive = TRUE)
+    }
+  }
+}
+
+
+#' Generate and Merge GeoSpecies from Data Subsets or Lists
+#'
+#' @param path_foringest Character. Path where the final merged geoSpecies.csv will be saved.
+#' @param path_tall Character. Path to the directory containing subset folders
+#' @param path_species Character. Base path/prefix for species list CSVs.
+#' @param template Character. Path to the Excel template file.
+#' @param path_schema Character. Path to the schema file.
+#' @param tall_header Data frame. The header data containing \code{ProjectKey} and \code{subset_nbr}.
+#' @export
+generate_geoSpecies <- function(path_foringest,
+                                path_tall,
+                                path_species,
+                                template,
+                                path_schema,
+                                tall_header,
+                                verbose = TRUE,
+                                calculate_dead = FALSE,
+                                digits = 6,
+                                ingestion_date = NULL) {
+
+  message("=== Starting Geo-Species (GSP) Processing ===")
+
+  projectkey <- unique(tall_header$ProjectKey)
+
+  # --- CHECK DISK FOR SUBSETS ---
+  has_subsets <- dir.exists(file.path(path_tall, "subset"))
+
+  if (has_subsets) {
+    if ("subset_nbr" %in% colnames(tall_header))
+      subset_indices <- unique(tall_header$subset_nbr)
+    path_ingest_subset_root <- file.path(path_foringest, "subset_indicators")
+    if (!dir.exists(path_ingest_subset_root)) dir.create(path_ingest_subset_root, recursive = TRUE)
+
+    message("Found subset directories. Processing chunks...")
+  } else {
+    # No subsets exist. Run the entire dataset as a single pass.
+    subset_indices <- "root"
+    message("No subset directory found. Processing directly from root path_tall...")
+    path_ingest_subset_root <- path_foringest
+  }
+
+  lapply(subset_indices, function(s_nbr) {
+
+    if (s_nbr == "root") {
+      current_path_tall   <- path_tall
+      current_path_ingest <- file.path(path_ingest_subset_root, "root_run")
+      subset_header       <- tall_header
+      message("--- Generating GeoSpecies for Global Dataset ---")
+    } else {
+      current_path_tall   <- file.path(path_tall, "subset", paste0("subset_", s_nbr))
+      current_path_ingest <- file.path(path_ingest_subset_root, paste0("subset_", s_nbr))
+      subset_header       <- tall_header %>% dplyr::filter(as.character(subset_nbr) == as.character(s_nbr))
+      message("--- Generating GeoSpecies for Subset: ", s_nbr, " ---")
+    }
+
+    if (!dir.exists(current_path_ingest)) dir.create(current_path_ingest, recursive = TRUE)
+
+    # Only manage/save an environment header file if we are running real subset chunks
+    if (s_nbr != "root") {
+      temp_header_path <- file.path(current_path_tall, "header.Rdata")
+      if (!dir.exists(current_path_tall)) dir.create(current_path_tall, recursive = TRUE)
+      saveRDS(subset_header, file = temp_header_path)
+
+      eval(substitute(on.exit(if (file.exists(P)) file.remove(P), add = TRUE), list(P = temp_header_path)))
+    }
+
+    for (projkey in projectkey) {
+      if (!(projkey %in% subset_header$ProjectKey)) next
+      path_specieslist <- paste0(path_species, projkey, ".csv")
+
+      # Smart Reader function definition
+      smart_read <- function(base_path, base_filename) {
+        exts <- c(".rdata", ".Rdata", ".RDATA", ".csv", ".CSV")
+        for (ext in exts) {
+          full_path <- file.path(base_path, paste0(base_filename, ext))
+          if (file.exists(full_path)) {
+            if (grepl("\\.csv$", ext, ignore.case = TRUE)) {
+              return(read.csv(full_path, stringsAsFactors = FALSE))
+            } else {
+              res <- tryCatch({
+                readRDS(full_path)
+              }, error = function(e) {
+                tmp_env <- new.env()
+                load(full_path, envir = tmp_env)
+                tmp_env[[ls(tmp_env)[1]]]
+              })
+              return(res)
+            }
+          }
+        }
+        return(NULL)
+      }
+
+      if (is.null(ingestion_date)) {
+        ingestion_date <- format(x = Sys.time(), "%m/%d/%Y")
+      }
+
+      if (verbose) message("Reading in headers.")
+
+      # FIX: Read from current_path_tall so subset chunks are actually respected
+      header_data <- smart_read(current_path_tall, "header")
+      if (is.null(header_data)) {
+        # Fall back to incoming subset_header object directly if file isn't on disk yet
+        header_data <- subset_header
+      }
+
+      tall_filenames <- c("lpi_tall", "gap_tall", "height_tall",
+                          "species_inventory_tall", "soil_stability_tall",
+                          "rangelandhealth_tall")
+
+      if (verbose) message("Reading in tall data.")
+
+      # FIX: Read from current_path_tall instead of path_tall
+      data <- lapply(X = tall_filenames, function(X) {
+        current_data <- smart_read(current_path_tall, X)
+
+        if (!is.null(current_data)) {
+          current_data <- current_data |>
+            dplyr::filter(PrimaryKey %in% header_data$PrimaryKey)
+          if (nrow(current_data) > 0) return(current_data)
+        }
+        return(NULL)
+      }) |>
+        setNames(nm = tall_filenames)
+
+      data <- data[!sapply(X = data, FUN = is.null)]
+
+      if (verbose) {
+        message(paste0("The following data were successfully read in: ",
+                       paste(names(data), collapse = ", ")))
+      }
+
+      schema <- read.csv(path_schema) |> dplyr::distinct()
+      species_list <- read.csv(path_specieslist)
+
+      # Core calculation execution
+      accumulated_species_data <- accumulated_species(lpi_tall = data[["lpi_tall"]],
+                                                      height_tall = data[["height_tall"]],
+                                                      spp_inventory_tall = data[["species_inventory_tall"]],
+                                                      header = subset_header, # Use local slice loop header
+                                                      species_file = species_list,
+                                                      dead = calculate_dead,
+                                                      source = "DIMA",
+                                                      digits = digits,
+                                                      verbose = verbose) |>
+        dplyr::left_join(x = _,
+                         y = dplyr::select(.data = subset_header,
+                                           tidyselect::any_of(x = c("PrimaryKey",
+                                                                    "DateVisited",
+                                                                    "DBKey",
+                                                                    "ProjectKey"))) |>
+                           dplyr::distinct(),
+                         by = "PrimaryKey",
+                         relationship = "many-to-one") |>
+        dplyr::filter(.data = _,
+                      !(is.na(AH_SpeciesCover) &
+                          is.na(AH_SpeciesCover_n) &
+                          is.na(Hgt_Species_Avg) &
+                          is.na(Hgt_Species_Avg_n))) |>
+        dplyr::mutate(.data = _, DateLoadedInDb = ingestion_date)
+
+      accumulated_species_data <- translate_schema2(data = accumulated_species_data,
+                                                    schema = schema,
+                                                    datatype = "geoSpecies",
+                                                    dropcols = TRUE,
+                                                    verbose = verbose)
+
+      accumulated_species_data <- accumulated_species_data %>%
+        dplyr::filter(!is.na(Species),
+                      (AH_SpeciesCover != 0 | Hgt_Species_Avg != 0))
+
+      # FIX: Write directly to current_path_ingest so the renaming step below can see it!
+      write.csv(x = accumulated_species_data,
+                file = file.path(current_path_ingest, "geoSpecies.csv"),
+                row.names = FALSE)
+
+      # Rename subset output
+      spec_file <- file.path(current_path_ingest, "geoSpecies.csv")
+      if (file.exists(spec_file)) {
+        geosp <- read.csv(spec_file) %>% dplyr::filter(ProjectKey == projkey)
+
+        suffix <- if(s_nbr == "root") "" else paste0("_sub", s_nbr)
+        new_spec_name = file.path(current_path_ingest, paste0("geoSpecies_", projkey, suffix, ".csv"))
+
+        write.csv(geosp, new_spec_name, row.names = FALSE)
+        file.remove(spec_file)
+      }
+
+
+    }
+  })
+
+  # Master Merge
+  message("\nMerging all subset species into master file...")
+  all_spec_files <- list.files(path_ingest_subset_root, pattern = "geoSpecies_.*\\.csv", recursive = TRUE, full.names = TRUE)
+
+  if (length(all_spec_files) > 0) {
+    master_spec <- lapply(all_spec_files, read.csv) %>% dplyr::bind_rows()
+    write.csv(master_spec, file.path(path_foringest, "geoSpecies.csv"), row.names = FALSE)
+
+    # Safe cleanup separation
+    if (has_subsets) {
+      unlink(path_ingest_subset_root, recursive = TRUE)
+    } else {
+      unlink(file.path(path_foringest, "root_run"), recursive = TRUE)
+    }
+  }
+}
+
+

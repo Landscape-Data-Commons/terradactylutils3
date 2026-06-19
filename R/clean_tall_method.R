@@ -9,12 +9,12 @@
 #' @param lpi as a data.frame, the tall_lpi file
 #' @param dataHeader as a data.frame, the dataHeader file produced from terradactylutils2::create_header()
 #' @param path_tall where all tall files from terradactyl::gather_... were saved
-#'
+#' @param nonvasc_codes list of nonvascular codes in the LPI data
 #' @return updated tall file written to path_tall and a tall_lpi data frame in the console (unless saved to an object)
 #'
 #' @examples clean_tall_lpi(lpi = terradactyl::gather_lpi(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader), dataHeader = dataHeader, path_tall = file.path(path_parent, "Tall"))
 #' @export
-clean_tall_lpi <- function(lpi, dataHeader, path_tall){
+clean_tall_lpi <- function(lpi, dataHeader, path_tall, nonvasc_codes){
   if (any(class(lpi) %in% c("POSIXct", "POSIXt"))) {
     change_vars <- names(lpi)[do.call(rbind, vapply(lpi,
                                                     class))[, 1] %in% c("POSIXct", "POSIXt")]
@@ -41,8 +41,11 @@ clean_tall_lpi <- function(lpi, dataHeader, path_tall){
   ### remove duplicates and empty rows
 
 
-  lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
-
+  #lpi <- lpi |> tdact_remove_duplicates() |> tdact_remove_empty(datatype = "lpi")
+  lpi <- lpi |>
+    dplyr::as_tibble() |>
+    tdact_remove_duplicates() |>
+    tdact_remove_empty(datatype = "lpi")
 
   tall_lpi <- lpi
 
@@ -54,6 +57,33 @@ clean_tall_lpi <- function(lpi, dataHeader, path_tall){
   tall_lpi$code <- toupper(tall_lpi$code)
   tall_lpi$ProjectKey <- dataHeader$ProjectKey[match(tall_lpi$PrimaryKey, dataHeader$PrimaryKey)]
 
+
+  lpi <- lpi %>%
+    group_by(PrimaryKey, LineKey, PointNbr) %>%
+
+    # Flag if ANY of the bad codes are in the TopCanopy for this group
+    mutate(has_bad_top = any(layer == "TopCanopy" & code %in% nonvasc_codes)) %>%
+
+    # Mutate the layers for flagged groups
+    mutate(
+      layer = case_when(
+        !has_bad_top ~ layer,                   # Do nothing if no bad code on top
+        layer == "SoilSurface" ~ layer,          # Do nothing to SoilSurface
+        layer == "TopCanopy" ~ "Lower1",         # Bad code (TopCanopy) becomes Lower1
+
+        # Shift LowerX layers down by 1
+        str_detect(layer, "Lower") ~ {
+          old_num <- as.numeric(str_extract(layer, "\\d+"))
+          paste0("Lower", old_num + 1)
+        },
+
+        TRUE ~ layer
+      )
+    ) %>%
+    # Filter out remaining TopCanopy rows for flagged groups
+    filter(!(has_bad_top & layer == "TopCanopy")) %>%
+    select(-has_bad_top) %>%
+    ungroup()
 
   saveRDS(tall_lpi, file.path(path_tall, "lpi_tall.rds"))
   #write.csv(tall_lpi, file.path(path_tall, "lpi_tall.csv"), row.names = F)
@@ -216,7 +246,7 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
       source         = "DIMA",
       DateLoadedInDb = Sys.Date()
     )
-  saveRDS(tall_height, file.path(path_tall, "height_tall.rdata"))
+  saveRDS(tall_height, file.path(path_tall, "height_tall.rds"))
 
   #write.csv(tall_height, file.path(path_tall, "height_tall.csv"), row.names = F)
 
@@ -355,7 +385,12 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tblLPIDetail <- dima_data_list[["tblLPIDetail"]]
     tblLPIDetail$RecKey <- as.character(tblLPIDetail$RecKey)
     tblLPIDetail$SpeciesLowerHerb <- as.character(tblLPIDetail$SpeciesLowerHerb)
-
+    # Convert any column with "Chkbox" or "Checkbox" in its name to character
+    tblLPIDetail <- tblLPIDetail |>
+      dplyr::mutate(dplyr::across(
+        .cols = tidyselect::contains("chkbox", ignore.case = TRUE),
+        .fns = as.character
+      ))
     tall_height <- terradactyl::gather_height(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- tall_height
@@ -391,7 +426,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
   # Horizontal flux and DDT
   if (exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_BoxCollection"]]) && nrow(dima_data_list[["tblBSNE_BoxCollection"]]) > 0) {
     message("DIMA MWAC data found; processing")
-    tall_files_list$mwac <- terradactylutils3::create_mwac(tblBSNE_BoxCollection = dima_data_list[["tblBSNE_BoxCollection"]], gathered_data = gathered_data)
+    tall_files_list$HorizontalFlux <- terradactylutils3::create_mwac(tblBSNE_BoxCollection = dima_data_list[["tblBSNE_BoxCollection"]], gathered_data = gathered_data)
   } else {
     message("No DIMA MWAC data found")
   }
@@ -399,7 +434,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
   # DDT
   if (exists("dima_data_list") && !is.null(dima_data_list[["tblBSNE_TrapCollection"]]) && nrow(dima_data_list[["tblBSNE_TrapCollection"]]) > 0) {
     message("DIMA DDT data found; processing")
-    tall_files_list$ddt <- create_ddt(dima_data_list[["tblBSNE_TrapCollection"]], gathered_data = gathered_data)
+    tall_files_list$DustDeposition <- create_ddt(dima_data_list[["tblBSNE_TrapCollection"]], gathered_data = gathered_data)
   } else {
     message("No DIMA DDT data found")
   }
@@ -411,28 +446,23 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
 
 
 
-###################################
-#' clean all data
+#' clean all data from list or file paths
 #'
-#' clean any of the tall files available in the gathered_data folder
-#'
-#' @param data_source source, either "NRI", "AIM" or "DIMA"
+#' @param data_source source, either "NRI", "BLM_AIM" or "DIMA"
 #' @param dataHeader as data frame dataHeader
-#' @param path_tall path where cleaned tall files are/will be stored
-#' @param subset_to_filter number or numbers to process
-#' @param gathered_data file path where gathered data, not yet cleaned, will be saved
-#' @param data_list list of original fies
-#' @importFrom dplyr filter select mutate group_by ungroup
-#' @importFrom magrittr %>%
-#' @importFrom rlang .data !!
-#' @return saves CSVs of cleaned, LDC vars present, tall files to subset folders. if one subset, saved to subset_0
+#' @param path_tall path where cleaned tall files are/will be stored (used for downstream sub-functions)
+#' @param subset_to_filter number or numbers to process (used to adjust internal paths)
+#' @param gathered_data file path where gathered data CSVs are stored (used if data_list is NULL)
+#' @param data_list list of original files in memory (optional)
+#' @param gathered_data_list list of gathered files if not putting to gathered_data file path
+#' @param nonvasc_codes list of nonvascular codes in the LPI data
 #' @export
-clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE) {
+clean_tall_all <- function(data_source, gathered_data = NULL, dataHeader, path_tall, subset_to_filter = NULL, data_list = NULL, verbose = TRUE, nonvasc_codes = NULL, gathered_data_list = NULL) {
 
   start_total <- Sys.time()
   tall_files_list <- list()
 
-  # output path
+  # output path tracking for downstream tools
   output_dir <- if (!is.null(subset_to_filter)) {
     file.path(path_tall, "subset", paste0("subset_", subset_to_filter))
   } else {
@@ -441,38 +471,50 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
 
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-  # load data
+  # Expected element/file names
   tall_file_names <- c("lpi_tall", "height_tall", "gap_tall", "species_inventory_tall",
                        "soil_stability_tall", "rangelandhealth_tall", "header", "soil_horizons_tall",
                        "horizontalflux_tall", "dustdeposition_tall")
 
-
   loaded_data <- list()
 
+  # --- HYBRID DATA LOADING BLOCK ---
   for (file_name in tall_file_names) {
-    file_path <- file.path(gathered_data, paste0(file_name, ".csv"))
+    dat <- NULL
 
-    if (file.exists(file_path)) {
-      message("Reading: ", file_name, "...")
+    # Method A: Check if it exists in the provided in-memory list
+    if (!is.null(gathered_data_list) && !is.null(gathered_data_list[[file_name]])) {
+      message("Processing in-memory element: ", file_name, "...")
       load_start <- Sys.time()
-
-      # Using data.table::fread for speed
-      dat <- data.table::fread(file_path)
-
-
-      # Now perform the filtering
-      if (!is.null(subset_to_filter)) {
-        # Using .SD and column reference to ensure data.table scope
-        dat <- dat[as.numeric(get("subset_nbr")) == as.numeric(subset_to_filter), ]
-      }
-      # -------------------------------
-
-      loaded_data[[file_name]] <- dat
-
+      dat <- data.table::as.data.table(gathered_data_list[[file_name]])
       load_end <- Sys.time()
-      message("  Finished loading ", file_name, " in ", round(difftime(load_end, load_start, units = "secs"), 2), "s")
+      message("   Finished processing ", file_name, " from list in ", round(difftime(load_end, load_start, units = "secs"), 2), "s")
+
+      # Method B: Fallback to reading the physical CSV file path
+    } else if (!is.null(gathered_data)) {
+      file_path <- file.path(gathered_data, paste0(file_name, ".csv"))
+
+      if (file.exists(file_path)) {
+        message("Reading file from disk: ", file_name, ".csv ...")
+        load_start <- Sys.time()
+        dat <- data.table::fread(file_path)
+
+        # If running old file workflows, handle subset filtering if the column exists
+        if (!is.null(subset_to_filter) && "subset_nbr" %in% names(dat)) {
+          dat <- dat[as.numeric(get("subset_nbr")) == as.numeric(subset_to_filter), ]
+        }
+
+        load_end <- Sys.time()
+        message("   Finished loading ", file_name, " from disk in ", round(difftime(load_end, load_start, units = "secs"), 2), "s")
+      }
+    }
+
+    # Store data if found by either method
+    if (!is.null(dat)) {
+      loaded_data[[file_name]] <- dat
     }
   }
+  # ----------------------------------
 
   # get correct suffix based on source
   s_suffix <- data.table::fcase(
@@ -498,11 +540,19 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
   # standard args
   standard_args <- list(dataHeader = dataHeader, path_tall = output_dir)
 
-  # --- Method-Specific Calls ---
+  # --- Method-Specific Calls (Extracting Headers dynamically from list or standard args) ---
 
   # LPI
+  # Inside clean_tall_all, right before processing LPI:
   if (!is.null(loaded_data$lpi_tall)) {
-    tall_files_list$lpi <- do.call(run_process, c(list(protocol = "lpi", lpi = loaded_data$lpi_tall), standard_args))
+
+    # Safeguard: if it's NULL, convert it to character(0) so %in% doesn't complain downstream
+    passed_codes <- if (is.null(nonvasc_codes)) character(0) else nonvasc_codes
+
+    tall_files_list$lpi <- do.call(
+      run_process,
+      c(list(protocol = "lpi", lpi = loaded_data$lpi_tall, nonvasc_codes = passed_codes), standard_args)
+    )
   }
 
   # Gap
@@ -525,27 +575,6 @@ clean_tall_all <- function(data_source, gathered_data, dataHeader, path_tall, su
   # Species
   if (!is.null(loaded_data$species_inventory_tall)) {
     tall_files_list$species_inventory <- do.call(run_process, c(list(protocol = "species_inventory", tall_species = loaded_data$species_inventory_tall), standard_args))
-  }
-
-  # files without cleaning, directly saved to Tall
-  direct_save_map <- list(
-    rangehealth = "rangelandhealth_tall",
-    soil_horizons = "soil_horizons_tall",
-    horizontal_flux = "horizontalflux_tall",
-    dust_deposition = "dustdeposition_tall",
-    header = "header"
-  )
-
-  for (list_name in names(direct_save_map)) {
-    obj_name <- direct_save_map[[list_name]]
-    dat_obj <- loaded_data[[obj_name]]
-
-  #   if (!is.null(dat_obj)) {
-  #     tall_files_list[[list_name]] <- dat_obj
-  #     file_path <- file.path(output_dir, paste0(obj_name, ".rds"))
-  #     saveRDS(dat_obj, file = file_path)
-  #    message("Saved RDS for: ", obj_name)
-  #   }
   }
 
   end_total <- Sys.time()

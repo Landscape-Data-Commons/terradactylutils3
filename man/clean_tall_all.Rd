@@ -2,34 +2,37 @@
 % Please edit documentation in R/clean_tall_method.R
 \name{clean_tall_all}
 \alias{clean_tall_all}
-\title{clean all data}
+\title{clean all data from list or file paths}
 \usage{
 clean_tall_all(
   data_source,
-  gathered_data,
+  gathered_data = NULL,
   dataHeader,
   path_tall,
   subset_to_filter = NULL,
   data_list = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  nonvasc_codes = NULL,
+  gathered_data_list = NULL
 )
 }
 \arguments{
-\item{data_source}{source, either "NRI", "AIM" or "DIMA"}
+\item{data_source}{source, either "NRI", "BLM_AIM" or "DIMA"}
 
-\item{gathered_data}{file path where gathered data, not yet cleaned, will be saved}
+\item{gathered_data}{file path where gathered data CSVs are stored (used if data_list is NULL)}
 
 \item{dataHeader}{as data frame dataHeader}
 
-\item{path_tall}{path where cleaned tall files are/will be stored}
+\item{path_tall}{path where cleaned tall files are/will be stored (used for downstream sub-functions)}
 
-\item{subset_to_filter}{number or numbers to process}
+\item{subset_to_filter}{number or numbers to process (used to adjust internal paths)}
 
-\item{data_list}{list of original fies}
-}
-\value{
-saves CSVs of cleaned, LDC vars present, tall files to subset folders. if one subset, saved to subset_0
+\item{data_list}{list of original files in memory (optional)}
+
+\item{nonvasc_codes}{list of nonvascular codes in the LPI data}
+
+\item{gathered_data_list}{list of gathered files if not putting to gathered_data file path}
 }
 \description{
-clean any of the tall files available in the gathered_data folder
+clean all data from list or file paths
 }

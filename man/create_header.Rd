@@ -9,7 +9,7 @@ create_header(
   tblPlots,
   todaysDate,
   source,
-  by_species_key,
+  by_species_key = FALSE,
   gathered_data
 )
 }

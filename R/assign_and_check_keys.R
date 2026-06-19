@@ -64,27 +64,42 @@ assign_keys <- function(path_project, non_line_tables){
   # create PrimaryKeys by joining PlotKey to DateVisited. We first have to join to the header tables, then the detail tables
   header_tables <- lapply(X = all_dimas[names(all_dimas) |> stringr::str_detect("Header")],
                           function(X){
-                            # if there is already a PlotKey, no need to do anything, otherwise we need to join PlotKey to the table via tblLines
+                            # If there is already a PlotKey, no need to do anything, otherwise join via tblLines
                             if(!"PlotKey" %in% names(X)){
                               data_pk <- dplyr::left_join(
-                                X |> dplyr::mutate(LineKey = as.double(LineKey)),
+                                X |> dplyr::mutate(LineKey = as.character(LineKey)),
                                 all_dimas$tblLines |>
-                                  dplyr::mutate(LineKey = as.double(LineKey)) |>
+                                  dplyr::mutate(LineKey = as.character(LineKey)) |>
                                   dplyr::select(PlotKey, LineKey, project, dbname) |>
                                   dplyr::distinct(),
                                 relationship = "many-to-one")
-                            }else{
+                            } else {
                               data_pk <- X
                             }
-                            # Now generate Primarykey based on PlotKey and FormDate
+
+                            # PARSE EXCEL TEXT DATES USING BASE R ORIGIN
                             data_pk <- data_pk |>
                               dplyr::mutate(
-                                DateVisited = lubridate::parse_date_time(FormDate,
-                                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS","ymd HM", "mdy HM")),
-                                DateVisited = as.Date(DateVisited), # Ensure it's a Date object, not POSIXct
+                                # 1. Test if the value is purely a number (like "45716")
+                                is_numeric_date = !is.na(suppressWarnings(as.numeric(FormDate))),
+
+                                # 2. Convert based on whether it's a number or actual text
+                                DateVisited = dplyr::if_else(
+                                  is_numeric_date,
+                                  # Base R alternative to janitor:
+                                  as.Date(as.numeric(FormDate), origin = "1899-12-30"),
+                                  # If it's standard text, use lubridate
+                                  as.Date(suppressWarnings(
+                                    lubridate::parse_date_time(FormDate,
+                                                               orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))
+                                  ))
+                                ),
+
+                                # 3. Build your primary key and clean up temporary helper column
                                 PrimaryKey = paste0(PlotKey, DateVisited),
-                                FormDate = DateVisited # Keeping them synced
-                              )
+                                FormDate = DateVisited
+                              ) |>
+                              dplyr::select(-is_numeric_date) # Drop the helper column
                           })
 
 
@@ -104,11 +119,11 @@ assign_keys <- function(path_project, non_line_tables){
         data_pk <- dplyr::left_join(
           # Force RecKey to character in the Detail table
           tblDetail %>%
-            dplyr::mutate(RecKey = as.double(RecKey)),
+            dplyr::mutate(RecKey = as.character(RecKey)),
 
           # Force RecKey to character in the Header table
           tblHeader %>%
-            dplyr::mutate(RecKey = as.double(RecKey)) %>%
+            dplyr::mutate(RecKey = as.character(RecKey)) %>%
             dplyr::select_if(names(.) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
 
           relationship = "many-to-one"
@@ -211,13 +226,25 @@ assign_keys <- function(path_project, non_line_tables){
     # create PrimaryKey
     data_pk <- data_pk %>%
       dplyr::mutate(
-        # Ensure dates are in the correct format
-        collectDate = as.Date(lubridate::parse_date_time(collectDate,
-                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
-        DateVisited = as.Date(lubridate::parse_date_time(collectDate,
-                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
-        PrimaryKey = paste0(PlotKey, DateVisited)
-      )
+        # 1. Check if collectDate is a raw Excel numeric string
+        is_numeric_date = !is.na(suppressWarnings(as.numeric(collectDate))),
+
+        # 2. Parse safely: use origin if numeric, use lubridate if text
+        ParsedDate = dplyr::if_else(
+          is_numeric_date,
+          as.Date(as.numeric(collectDate), origin = "1899-12-30"),
+          as.Date(suppressWarnings(
+            lubridate::parse_date_time(collectDate,
+                                       orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))
+          ))
+        ),
+
+        # 3. Assign to both variables and create the PrimaryKey
+        collectDate = ParsedDate,
+        DateVisited = ParsedDate,
+        PrimaryKey  = paste0(PlotKey, DateVisited)
+      ) %>%
+      dplyr::select(-is_numeric_date, -ParsedDate) # Clean up temporary helper columns
 
     return(data_pk)
   })
@@ -249,13 +276,25 @@ assign_keys <- function(path_project, non_line_tables){
     # create PrimaryKey
     data_pk <- data_pk %>%
       dplyr::mutate(
-        # Ensure dates are in the correct format
-        collectDate = as.Date(lubridate::parse_date_time(collectDate,
-                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
-        DateVisited = as.Date(lubridate::parse_date_time(collectDate,
-                                                         orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))),
-        PrimaryKey = paste0(PlotKey, DateVisited)
-      )
+        # 1. Check if collectDate is a raw Excel numeric string
+        is_numeric_date = !is.na(suppressWarnings(as.numeric(collectDate))),
+
+        # 2. Parse safely: use origin if numeric, use lubridate if text
+        ParsedDate = dplyr::if_else(
+          is_numeric_date,
+          as.Date(as.numeric(collectDate), origin = "1899-12-30"),
+          as.Date(suppressWarnings(
+            lubridate::parse_date_time(collectDate,
+                                       orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))
+          ))
+        ),
+
+        # 3. Assign to both variables and create the PrimaryKey
+        collectDate = ParsedDate,
+        DateVisited = ParsedDate,
+        PrimaryKey  = paste0(PlotKey, DateVisited)
+      ) %>%
+      dplyr::select(-is_numeric_date, -ParsedDate) # Clean up temporary helper columns
 
     return(data_pk)
   })
@@ -417,6 +456,12 @@ assign_keys <- function(path_project, non_line_tables){
   }
 
 }
+
+
+
+###############################################
+
+
 
 
 ###############################################
@@ -700,4 +745,114 @@ assign_keys_all <- function(dsn = NULL, source, sensitive_data){
 
 
 
+}
+
+
+
+
+#' Quality Control Check for Primary Keys and Visit Dates
+#'
+#' @description
+#' Compares primary keys across plot data and unique data observations to flag
+#' orphaned records, generic plot IDs, and consecutive plots visited within a short
+#' window. Generates troubleshooting logs for data owners.
+#'
+#' @param all_dimas_pks A named list of data frames containing DIMA tables. Must
+#'   include `tblPlots`.
+#' @param unique_pks A data frame of compiled unique primary keys from data observation tables.
+#' @param path_qc Character. The directory path where output QC CSV files will be written.
+#'
+#' @return A data frame containing the complete primary key and date check report.
+#'
+#' @importFrom dplyr select mutate distinct bind_rows group_by arrange lead ungroup case_when left_join
+#' @importFrom tidyr pivot_wider
+#'
+#' @export
+check_pk_and_visit_dates <- function(all_dimas_pks, unique_pks, path_qc) {
+
+  # 1. Verification Check
+  if (!"tblPlots" %in% names(all_dimas_pks)) {
+    stop("The 'all_dimas_pks' list must contain a 'tblPlots' data frame.")
+  }
+  if (!dir.exists(path_qc)) {
+    dir.create(path_qc, recursive = TRUE)
+  }
+
+  message("--- Running PrimaryKey and DateVisited QC Check ---")
+
+  # 2. Join tblPlots to unique data observations and pivot wider to map presence
+  pk_date_check <- all_dimas_pks$tblPlots %>%
+    dplyr::select(PlotKey, PrimaryKey, DateVisited) %>%
+    dplyr::mutate(method = "tblPlots") %>%
+    dplyr::distinct() %>%
+    dplyr::bind_rows(unique_pks) %>%
+    dplyr::mutate(values = "yes") %>%
+    tidyr::pivot_wider(
+      names_from = method,
+      values_from = values,
+      values_fill = "no"
+    )
+
+  # 3. Track temporal spacing between consecutive plot visits under the same PlotKey
+  pk_date_check <- pk_date_check %>%
+    dplyr::group_by(PlotKey) %>%
+    dplyr::arrange(desc(DateVisited), .by_group = TRUE) %>%
+    dplyr::mutate(
+      ClosestDateVisited = dplyr::lead(DateVisited),
+      # Calculate differences in days explicitly and cast safely to numeric
+      DaysDiff = as.numeric(difftime(DateVisited, ClosestDateVisited, units = "days"))
+    ) %>%
+    dplyr::ungroup() %>%
+    # Assign Notes and recommended Actions based on time windows
+    dplyr::mutate(
+      Notes = dplyr::case_when(
+        DaysDiff <= 7 ~ "Visit within 7 days",
+        DaysDiff > 7  & DaysDiff <= 30  ~ "Visit within 7-30 days",
+        DaysDiff > 30 & DaysDiff <= 60  ~ "Visit within 30-60 days",
+        DaysDiff > 60 & DaysDiff <= 275 ~ "Visit within 30-275 days",
+        .default = NA_character_
+      ),
+      Action = dplyr::case_when(
+        DaysDiff > 7 & DaysDiff <= 275 ~ "Confirm date visited",
+        DaysDiff <= 7 ~ "Consider grouping date visits",
+        .default = NA_character_
+      )
+    ) %>%
+    # Bring PlotID back in to help users troubleshoot specific sites
+    dplyr::left_join(
+      all_dimas_pks[["tblPlots"]] %>%
+        dplyr::select(PrimaryKey, PlotKey, PlotID) %>%
+        dplyr::distinct() %>%
+        dplyr::filter(!is.na(PrimaryKey)),
+      by = c("PrimaryKey", "PlotKey")
+    )
+
+  # 4. Flag orphaned records and generic junk placeholder plots
+  pk_date_check <- pk_date_check %>%
+    dplyr::mutate(
+      Notes = dplyr::case_when(
+        is.na(PlotKey) ~ "Orphan records",
+        PlotKey %in% c("123123123", "999999999") ~ "Generic plots",
+        .default = Notes
+      ),
+      Action = dplyr::case_when(
+        is.na(PlotKey) ~ "Delete",
+        PlotKey %in% c("123123123", "999999999") ~ "Delete",
+        .default = Action
+      ),
+      DataOwnerResponse = NA_character_
+    )
+
+  # 5. Output reports to CSV
+  main_report_path <- file.path(path_qc, "primarykey_date_check.csv")
+  action_report_path <- file.path(path_qc, paste0("primarykey_resolve_", Sys.Date(), ".csv"))
+
+  write.csv(pk_date_check, main_report_path, row.names = FALSE)
+
+  action_needed_df <- pk_date_check %>% dplyr::filter(!is.na(Action))
+  write.csv(action_needed_df, action_report_path, row.names = FALSE)
+
+  message("QC Complete. Logs saved to:\n - ", main_report_path, "\n - ", action_report_path)
+
+  return(pk_date_check)
 }

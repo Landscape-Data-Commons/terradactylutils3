@@ -9,7 +9,8 @@ create_header_all(
   path_original_files = NULL,
   path_tall,
   dsn = NULL,
-  gathered_data
+  gathered_data,
+  by_species_key
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ create_header_all(
 \item{dsn}{dsn for AIM data only}
 
 \item{gathered_data}{path where gathered data will be stored}
+
+\item{by_species_key}{whether SpeciesState is by state for DIMA data}
 }
 \value{
 a dataHeader that is in the expected LDC format to the tall file path
