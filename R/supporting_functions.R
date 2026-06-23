@@ -1639,7 +1639,7 @@ safe_parse_date <- function(date_vec) {
 #' @param source Character string. The data source platform (e.g., "DIMA", "NRI").
 #' @param dataHeader Dataframe. The main header metadata frame mapping `PrimaryKey` and `ProjectKey` associations.
 #' @param gathered_file_list List. A named list containing un-segmented data asset dataframes.
-#' @param dima_data_list List. A named list of native DIMA source dataframes. Only required or evaluated if \code{source = "DIMA"}. Defaults to NULL.
+#' @param data_list List. A named list of native DIMA source dataframes. Only required or evaluated if \code{source = "DIMA"}. Defaults to NULL.
 #'
 #'
 #' @export
@@ -1649,7 +1649,7 @@ process_project_tall <- function(projectkey,
                                         source,
                                         dataHeader,
                                         gathered_file_list,
-                                        dima_data_list = NULL) {
+                                        data_list = NULL) {
 
   # Fetch non-vascular codes for all project keys upfront
   nonvasc_codes <- filter_nonvascular(project_keys = projectkey, path_species = path_species)
@@ -1727,11 +1727,11 @@ process_project_tall <- function(projectkey,
 
     sub_data_list <- NULL
     if (source == "DIMA") {
-      sub_data_list <- lapply(dima_data_list, function(df) {
+      sub_data_list <- lapply(data_list, function(df) {
         if ("PrimaryKey" %in% names(df)) return(df[df$PrimaryKey %in% valid_keys, , drop = FALSE])
         return(df)
       })
-      names(sub_data_list) <- names(dima_data_list)
+      names(sub_data_list) <- names(data_list)
     }
 
     process_and_save_tall(

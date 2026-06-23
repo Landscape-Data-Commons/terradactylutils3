@@ -11,7 +11,7 @@ process_project_tall(
   source,
   dataHeader,
   gathered_file_list,
-  dima_data_list = NULL
+  data_list = NULL
 )
 }
 \arguments{
@@ -27,7 +27,7 @@ process_project_tall(
 
 \item{gathered_file_list}{List. A named list containing un-segmented data asset dataframes.}
 
-\item{dima_data_list}{List. A named list of native DIMA source dataframes. Only required or evaluated if \code{source = "DIMA"}. Defaults to NULL.}
+\item{data_list}{List. A named list of native DIMA source dataframes. Only required or evaluated if \code{source = "DIMA"}. Defaults to NULL.}
 }
 \description{
 Iterates through a vector of project keys to clean, filter, and subset
