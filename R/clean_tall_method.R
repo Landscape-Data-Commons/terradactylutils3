@@ -341,7 +341,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tall_files_list$soil_stability_tall <- soilstab_tall
   } else if (exists("data_list") && !is.null(data_list[["tblSoilStabHeader"]]) && nrow(data_list[["tblSoilStabHeader"]]) > 0) {
     message("Found DIMA soil stability data; processing")
-    tall_soil_stability <- terradactyl::gather_soil_stability(source = source, tblSoilStabDetail = data_list[["tblSoilStabDetail"]], tblSoilStabHeader = data_list[["tblSoilStabHeader"]])
+    tall_soil_stability <- terradactyl::gather_soil_stability(source = "DIMA", tblSoilStabDetail = data_list[["tblSoilStabDetail"]], tblSoilStabHeader = data_list[["tblSoilStabHeader"]])
     write.csv(tall_soil_stability, paste0(gathered_data, "/soil_stability_tall.csv"))
     tall_files_list$soil_stability_tall <- tall_soil_stability
   } else if (source == "BLM_AIM") {
@@ -362,7 +362,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     message("Found DIMA species richness data; processing")
     tblSpecRichHeader <- data_list[["tblSpecRichHeader"]]
     tblSpecRichHeader$RecKey <- as.character(tblSpecRichHeader$RecKey)
-    tall_species <- terradactyl::gather_species_inventory(source = source, tblSpecRichDetail = data_list[["tblSpecRichDetail"]], tblSpecRichHeader = tblSpecRichHeader)
+    tall_species <- terradactyl::gather_species_inventory(source = "DIMA", tblSpecRichDetail = data_list[["tblSpecRichDetail"]], tblSpecRichHeader = tblSpecRichHeader)
     write.csv(tall_species, paste0(gathered_data, "/species_inventory_tall.csv"))
     tall_files_list$species_inventory_tall <- tall_species
   } else if (source == "BLM_AIM") {
@@ -391,7 +391,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
         .cols = tidyselect::contains("chkbox", ignore.case = TRUE),
         .fns = as.character
       ))
-    tall_height <- terradactyl::gather_height(source = source, tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
+    tall_height <- terradactyl::gather_height(source = "DIMA", tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- tall_height
   } else if (source == "BLM_AIM") {

@@ -270,12 +270,13 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
 #' @param path_foringest path where data for ingest are saved
 #' @param DateLoadedInDb in standard date format, the date you are running the code
 #' @param DBKey_date the date that will be associated with the DBKey. For DIMAs, this is the date the data were received in Y-m-d format
+#' @param source source indicating where the data are from
 #'
 #' @return CSVs of the for ingest files saved to the specified path_foringest
 #'
 #' @examples db_info(path_foringest = path_foringest,  DateLoadedInDb = format(Sys.Date(), "%m/%d/%Y"))
 #' @export
-db_info <- function(path_foringest, DateLoadedInDb, DBKey_date){
+db_info <- function(path_foringest, DateLoadedInDb, DBKey_date, source){
 
   # read in data
   header <- read.csv(paste0(path_foringest, "/dataHeader.csv"))
@@ -302,28 +303,34 @@ db_info <- function(path_foringest, DateLoadedInDb, DBKey_date){
 
   header$DateLoadedInDb <- rep(todaysDate)
   header$DBKey <- paste0(header$ProjectKey, DBKey_date)
+  header$source <- source
   ind$DateLoadedInDb <- header$DateLoadedInDb[match(ind$PrimaryKey, header$PrimaryKey)]
   ind$DBKey <- header$DBKey[match(ind$PrimaryKey, header$PrimaryKey)]
-
+  ind$source <- source
   if(file.exists(file.path(path_foringest, "/dataLPI.csv"))) {
     LPI$DateLoadedInDb <- header$DateLoadedInDb[match(LPI$PrimaryKey, header$PrimaryKey)]
-  LPI$DBKey <- header$DBKey[match(LPI$PrimaryKey, header$PrimaryKey)]}
+  LPI$DBKey <- header$DBKey[match(LPI$PrimaryKey, header$PrimaryKey)]
+  LPI$source <- source}
 
   if(file.exists(file.path(path_foringest, "/dataGap.csv"))) {
     gap$DateLoadedInDb <- header$DateLoadedInDb[match(gap$PrimaryKey, header$PrimaryKey)]
-gap$DBKey <- header$DBKey[match(gap$PrimaryKey, header$PrimaryKey)]}
+gap$DBKey <- header$DBKey[match(gap$PrimaryKey, header$PrimaryKey)]
+gap$source <- source}
 
   if(file.exists(file.path(path_foringest, "/dataHeight.csv"))) {
     hgt$DateLoadedInDb <- header$DateLoadedInDb[match(hgt$PrimaryKey, header$PrimaryKey)]
-  hgt$DBKey <- header$DBKey[match(hgt$PrimaryKey, header$PrimaryKey)]}
+  hgt$DBKey <- header$DBKey[match(hgt$PrimaryKey, header$PrimaryKey)]
+  hgt$source <- source}
 
   if(file.exists(file.path(path_foringest, "/dataSoilStability.csv"))) {
     ss$DateLoadedInDb <- header$DateLoadedInDb[match(ss$PrimaryKey, header$PrimaryKey)]
-  ss$DBKey <- header$DBKey[match(ss$PrimaryKey, header$PrimaryKey)]}
+  ss$DBKey <- header$DBKey[match(ss$PrimaryKey, header$PrimaryKey)]
+  ss$source <- source}
 
   if(file.exists(file.path(path_foringest, "/geoSpecies.csv"))) {
     sp$DateLoadedInDb <- header$DateLoadedInDb[match(sp$PrimaryKey, header$PrimaryKey)]
-  sp$DBKey <- header$DBKey[match(sp$PrimaryKey, header$PrimaryKey)]}
+  sp$DBKey <- header$DBKey[match(sp$PrimaryKey, header$PrimaryKey)]
+  sp$source <- source}
 
   if(file.exists(file.path(path_foringest, "/dataSpeciesInventory.csv"))) {
     spin$DateLoadedInDb <- header$DateLoadedInDb[match(spin$PrimaryKey, header$PrimaryKey)]
@@ -340,7 +347,8 @@ gap$DBKey <- header$DBKey[match(gap$PrimaryKey, header$PrimaryKey)]}
 
    if(file.exists(file.path(path_foringest, "/dataSoilHorizons.csv"))) {
     sh$DateLoadedInDb <- header$DateLoadedInDb[match(sh$PrimaryKey, header$PrimaryKey)]
-    sh$DBKey <- header$DBKey[match(sh$PrimaryKey, header$PrimaryKey)]}
+    sh$DBKey <- header$DBKey[match(sh$PrimaryKey, header$PrimaryKey)]
+    sh$source <- source}
 
 
 
