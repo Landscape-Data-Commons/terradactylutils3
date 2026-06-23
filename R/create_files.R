@@ -1013,6 +1013,7 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
 #' @param tblGapDetail_input Character string layer name or dataframe for localized Gap intercept measurements. Defaults to `NULL`.
 #' @param gap_detail_map Named list. Column mapping list for raw Gap segments. Defaults to `NULL`.
 #' @param crs_option Character. Spatial coordinate reference system projection choice. Options are `"NAD83"` (EPSG 4269) or `"WGS84"` (EPSG 4326). Defaults to `"NAD83"`.
+#' @param DBKey the name of the DBKey that will be added to tblPlots
 #' @export
 create_tables <- function(dsn = NULL,
                           csv_path = NULL,
@@ -1125,7 +1126,7 @@ create_tables <- function(dsn = NULL,
     tblPlots$DateVisited     <- smart_date(tblPlots$DateVisited)
 
     tblPlots$SiteKey         <- dplyr::coalesce(as.character(tblPlots$SiteKey), projectkey)
-
+    tblPlots$DBKey <- DBKey
     if ("PrimaryKey" %in% colnames(tblPlots)) {
       tblPlots <- tblPlots[!duplicated(tblPlots$PrimaryKey), ]
     }
