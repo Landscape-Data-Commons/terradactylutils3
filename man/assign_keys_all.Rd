@@ -4,18 +4,39 @@
 \alias{assign_keys_all}
 \title{Assign and QC Keys depending on the source}
 \usage{
-assign_keys_all(dsn = NULL, source, sensitive_data)
+assign_keys_all(
+  dsn = NULL,
+  source,
+  sensitive_data = NULL,
+  pkey_assigned = NULL,
+  path_original_files = NULL,
+  path_qc = NULL,
+  path_project = NULL,
+  DIMATables = NULL,
+  non_line_table_list = NULL,
+  date_pkey_qc_run = NULL
+)
 }
 \arguments{
-\item{dsn}{only applicable if source is NRI}
+\item{dsn}{Character string. The path to the data source network or directory. Only applicable if source is "NRI". Defaults to NULL.}
 
-\item{source}{as a character string, the data source such as "AIM", "NRI" or "DIMA"}
+\item{source}{Character string. The data source type; options include "NRI", "BLM_AIM", "DIMA", or "Other".}
 
-\item{sensitive_data}{if NRI, path to sensitive_data folder}
-}
-\value{
-if NRI, csvs and list of dataframes to the environment; if DIMA, data list and PrimaryKey QC
+\item{sensitive_data}{Character string. Path to the folder containing NRI sensitive data (only used if source is "NRI").}
+
+\item{pkey_assigned}{Logical. Indicates whether PrimaryKeys have already been assigned. Controls DIMA branching logic. Defaults to NULL.}
+
+\item{path_original_files}{Character string. Path to the directory where raw or original files (Rdata/CSVs) should be saved. Defaults to NULL.}
+
+\item{path_qc}{Character string. Path to the directory where QC files and reports will be saved. Defaults to NULL.}
+
+\item{path_project}{Character string. Path to the project folder containing the source datasets (e.g., DIMA tables/tblPlots). Defaults to NULL.}
+
+\item{non_line_table_list}{Character vector. A list of tables that do not contain line/transect data. Only used for DIMA key assignments. Defaults to NULL.}
+
+\item{date_pkey_qc_run}{Character string. A date string (e.g., "YYYYMMDD") used to dynamically look up or name the DIMA PrimaryKey resolution CSV. Defaults to NULL.}
 }
 \description{
-assing PrimaryKey and other relevant Keys depending on the source
+Assigns PrimaryKey and other relevant database keys depending on the data source,
+writes raw and processed tables, and executes quality control checks.
 }

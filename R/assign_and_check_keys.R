@@ -671,31 +671,48 @@ nri_table_qc <- function(nri, path_qc){
 ################################################
 
 
-###############################
 #' Assign and QC Keys depending on the source
 #'
-#'assing PrimaryKey and other relevant Keys depending on the source
+#' Assigns PrimaryKey and other relevant database keys depending on the data source,
+#' writes raw and processed tables, and executes quality control checks.
 #'
-#' @param sensitive_data if NRI, path to sensitive_data folder
-#' @param source as a character string, the data source such as "AIM", "NRI" or "DIMA"
-#' @param dsn only applicable if source is NRI
-#'
-#' @return if NRI, csvs and list of dataframes to the environment; if DIMA, data list and PrimaryKey QC
+#' @param dsn Character string. The path to the data source network or directory. Only applicable if source is "NRI". Defaults to NULL.
+#' @param source Character string. The data source type; options include "NRI", "BLM_AIM", "DIMA", or "Other".
+#' @param sensitive_data Character string. Path to the folder containing NRI sensitive data (only used if source is "NRI").
+#' @param pkey_assigned Logical. Indicates whether PrimaryKeys have already been assigned. Controls DIMA branching logic. Defaults to NULL.
+#' @param path_original_files Character string. Path to the directory where raw or original files (Rdata/CSVs) should be saved. Defaults to NULL.
+#' @param path_qc Character string. Path to the directory where QC files and reports will be saved. Defaults to NULL.
+#' @param path_project Character string. Path to the project folder containing the source datasets (e.g., DIMA tables/tblPlots). Defaults to NULL.
+#' @param non_line_table_list Character vector. A list of tables that do not contain line/transect data. Only used for DIMA key assignments. Defaults to NULL.
+#' @param date_pkey_qc_run Character string. A date string (e.g., "YYYYMMDD") used to dynamically look up or name the DIMA PrimaryKey resolution CSV. Defaults to NULL.
 #'
 #' @export
-assign_keys_all <- function(dsn = NULL, source, sensitive_data){
+assign_keys_all <- function(dsn = NULL,
+                            source,
+                            sensitive_data = NULL,
+                            pkey_assigned = NULL,
+                            path_original_files = NULL,
+                            path_qc = NULL,
+                            path_project = NULL,
+                            DIMATables = NULL,
+                            non_line_table_list = NULL,
+                            date_pkey_qc_run = NULL) {
 
-  if(source == "NRI"){
+  if (source == "NRI") {
 
     # add field names to package
     table_name <- terradactyl::table_name(nri_path = dsn)
 
-
-    # Read  NRI tables in and apply names
+    # Read NRI tables in and apply names
     data_list <- lapply(X = table_name, function(X) {
       print(X)
       # read all files for the table and merge
-      data <- terradactyl::read_nri_text( dsn = dsn, table_name = X, DBKey = "auto", GL_schema_path = "D:/LDC_data_10012025/NRI/og_data/Grazing_Land_Data_Guide.xlsx")
+      data <- terradactyl::read_nri_text(
+        dsn = dsn,
+        table_name = X,
+        DBKey = "auto",
+        GL_schema_path = "D:/LDC_data_10012025/NRI/og_data/Grazing_Land_Data_Guide.xlsx"
+      )
       return(data)
     })
 
@@ -703,7 +720,6 @@ assign_keys_all <- function(dsn = NULL, source, sensitive_data){
     names(data_list) <- toupper(table_name)
 
     data_list <- terradactyl::assign_pkey_nri(data_list = data_list, sensitive_data = sensitive_data)
-
 
     # save original file as Rdata
     saveRDS(data_list, paste0(path_original_files, "/NRI_raw_2024.Rdata"))
@@ -717,37 +733,140 @@ assign_keys_all <- function(dsn = NULL, source, sensitive_data){
         dat <- as.data.frame(data_list[[X]])
         dat$DBKey <- basename(dsn)
         dat <- dat %>% dplyr::distinct()
-        write.csv(dat, paste(path_original_files,"/", toupper(X), ".csv", sep = ""), row.names = FALSE)
+        write.csv(dat, paste0(path_original_files, "/", toupper(X), ".csv"), row.names = FALSE)
       })
 
-    #QC
+    # QC
     terradactylutils3::nri_table_qc(nri = data_list, path_qc = path_qc)
 
     return(data_list)
 
-  }else if(source == "BLM_AIM"){
+  } else if (source == "BLM_AIM") {
+
     message("PrimaryKey assigned by BLM")
-  }else{
+
+  } else if (source %in% c("DIMA", "Other") & is.null(pkey_assigned)) {
+
     ## function to assign keys (project, PrimaryKey, dbname, RecKey, LineKey) to each data file
-    terradactylutils3::assign_keys(path_project = path_project, non_line_tables = non_line_table_list )
+    terradactylutils3::assign_keys(path_project = path_project, non_line_tables = non_line_table_list)
 
     # using data produced from assign_keys function to produce QC files to review
-    data_list <- readRDS(paste0(path_qc,"/all_dimas_pks.Rdata") )
+    data_list <- readRDS(paste0(path_qc, "/all_dimas_pks.Rdata"))
 
     terradactylutils3::dima_table_qc(
-      dima_data_list = readRDS(paste0(path_qc, "/all_dimas_pks.Rdata")),
+      data_list = data_list,
       primarykey_qc = read.csv(paste0(path_qc, "/primarykey_resolve_", date_pkey_qc_run, ".csv")),
       path_qc = path_qc
     )
     return(data_list)
+
+  } else if (source == "DIMA" & !is.null(pkey_assigned)) {
+
+    # =========================================================================
+    # NEW: Scan and rename user-defined primary key column to 'PrimaryKey'
+    # =========================================================================
+    message(paste0("Scanning files to replace '", pkey_assigned, "' with 'PrimaryKey'..."))
+
+    # Gather all CSV files across BOTH path_project and DIMATables
+    all_project_files <- list.files(path_project, pattern = "\\.csv$", full.names = TRUE)
+    all_dima_files    <- list.files(DIMATables, pattern = "\\.csv$", full.names = TRUE)
+    files_to_rename   <- unique(c(all_project_files, all_dima_files))
+
+    for (file_path in files_to_rename) {
+      dat <- tryCatch(read.csv(file_path), error = function(e) return(NULL))
+      if (is.null(dat)) next
+
+      # Check if the user-specified column exists (case-insensitive check)
+      matching_col <- names(dat)[tolower(names(dat)) == tolower(pkey_assigned)]
+
+      if (length(matching_col) > 0) {
+        # Rename the matching column to PrimaryKey
+        names(dat)[names(dat) == matching_col] <- "PrimaryKey"
+        # Overwrite the original file with the updated column name
+        write.csv(dat, file_path, row.names = FALSE)
+      }
+    }
+
+    # =========================================================================
+    # CONTINUATION: Date Discrepancy QC and Data Import
+    # =========================================================================
+
+    # 1. Load tblPlots from path_project to get baseline PrimaryKeys and coordinates
+    tbl_plots_path <- list.files(path_project, pattern = "tblPlots", full.names = TRUE)
+    if(length(tbl_plots_path) == 0) stop("tblPlots file not found in path_project.")
+
+    tblPlots <- if(grepl("\\.csv$", tbl_plots_path[1], ignore.case = TRUE)) {
+      read.csv(tbl_plots_path[1])
+    } else {
+      readRDS(tbl_plots_path[1])
+    }
+
+    plots_base <- tblPlots %>%
+      dplyr::select(PrimaryKey, Latitude, Longitude) %>%
+      dplyr::distinct()
+
+    # 2. Scan all CSV files in DIMATables for DateVisited and PrimaryKey
+    all_files <- list.files(DIMATables, pattern = "\\.csv$", full.names = TRUE)
+
+    scan_results <- lapply(all_files, function(file_path) {
+      dat <- tryCatch(read.csv(file_path), error = function(e) return(NULL))
+      if (is.null(dat)) return(NULL)
+
+      # Standardize column naming for evaluation
+      names(dat) <- toupper(names(dat))
+
+      if ("PRIMARYKEY" %in% names(dat) & "DATEVISITED" %in% names(dat)) {
+        res <- dat %>%
+          dplyr::select(PrimaryKey = PRIMARYKEY, DateVisited = DATEVISITED) %>%
+          dplyr::distinct() %>%
+          dplyr::mutate(
+            file_name = basename(file_path),
+            from_target_method = ifelse(grepl("LPI|Gap|SpeciesInventory", file_name, ignore.case = TRUE), "Yes", "No")
+          )
+        return(res)
+      }
+      return(NULL)
+    })
+
+    # Combine scanned combinations
+    scanned_df <- dplyr::bind_rows(scan_results)
+
+    if (nrow(scanned_df) > 0) {
+      # 3. Calculate date differences within 1 year (365 days) for identical PrimaryKeys
+      scanned_df$DateVisited <- as.Date(scanned_df$DateVisited)
+
+      date_qc_report <- scanned_df %>%
+        dplyr::group_by(PrimaryKey) %>%
+        dplyr::reframe(
+          Date_1 = rep(DateVisited, each = dplyr::n()),
+          Date_2 = rep(DateVisited, times = dplyr::n()),
+          File_1 = rep(file_name, each = dplyr::n()),
+          File_2 = rep(file_name, times = dplyr::n()),
+          From_Target_1 = rep(from_target_method, each = dplyr::n()),
+          From_Target_2 = rep(from_target_method, times = dplyr::n())
+        ) %>%
+        dplyr::filter(File_1 != File_2) %>%
+        dplyr::mutate(Date_Diff_Days = as.numeric(abs(difftime(Date_1, Date_2, units = "days")))) %>%
+        dplyr::filter(Date_Diff_Days <= 365 & Date_Diff_Days > 0) %>%
+        dplyr::left_join(plots_base, by = "PrimaryKey") %>%
+        dplyr::distinct()
+
+      # Save to QC path instead of returning it
+      write.csv(date_qc_report, paste0(path_qc, "/date_discrepancy_report.csv"), row.names = FALSE)
+    } else {
+      message("No matching tables with PrimaryKey and DateVisited found to evaluate for QC.")
+    }
+
+    # 4. Read all tables from DIMATables path to build and return the dima_data_list
+    csv_files <- list.files(path = DIMATables, pattern = "\\.csv$", full.names = TRUE)
+
+    data_list <- csv_files |>
+      purrr::map(readr::read_csv, show_col_types = FALSE) |>
+      purrr::set_names(tools::file_path_sans_ext(basename(csv_files)))
+
+    return(data_list)
   }
-
-
-
-
 }
-
-
 
 
 #' Quality Control Check for Primary Keys and Visit Dates
