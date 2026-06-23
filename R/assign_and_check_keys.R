@@ -84,12 +84,9 @@ assign_keys <- function(path_project, non_line_tables){
                                 is_numeric_date = !is.na(suppressWarnings(as.numeric(FormDate))),
 
                                 # 2. Convert based on whether it's a number or actual text
-                                DateVisited = dplyr::if_else(
-                                  is_numeric_date,
-                                  # Base R alternative to janitor:
-                                  as.Date(as.numeric(FormDate), origin = "1899-12-30"),
-                                  # If it's standard text, use lubridate
-                                  as.Date(suppressWarnings(
+                                DateVisited = dplyr::case_when(
+                                  is_numeric_date ~ as.Date(suppressWarnings(as.numeric(FormDate)), origin = "1899-12-30"),
+                                  .default = as.Date(suppressWarnings(
                                     lubridate::parse_date_time(FormDate,
                                                                orders = c("ymd", "mdy", "dmy", "ymd HMS", "mdy HMS", "ymd HM", "mdy HM"))
                                   ))
@@ -101,7 +98,6 @@ assign_keys <- function(path_project, non_line_tables){
                               ) |>
                               dplyr::select(-is_numeric_date) # Drop the helper column
                           })
-
 
   # join header and detail tables to add PrimaryKey
   detail_list <- names(all_dimas)[names(all_dimas) |> stringr::str_detect("Detail")]
