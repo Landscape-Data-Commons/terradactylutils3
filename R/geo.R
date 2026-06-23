@@ -1279,3 +1279,120 @@ generate_geoSpecies <- function(path_foringest,
 }
 
 
+#' Split Main Header and Generate Geographic Indicators
+#'
+#' Reads a master header file, subdivides it into project-specific folders
+#' based on unique Project Keys, and executes geographic indicator/species generators
+#' for ingestion.
+#'
+#' @param path_tall Character string. The base target folder path containing the master "header.csv" and where subfolders will be created.
+#' @param path_foringest Character string. Target directory path where generated geofiles will be written for ingestion.
+#' @param path_species Character string. The file path leading to the reference species lookup database or folder.
+#' @param template Character string or object. The structural template layout required by the generator routines.
+#' @param path_schema Character string. The file path or schema object definition defining formatting validation boundaries.
+#' @param BSNE_only Logical. If TRUE, skips geo-indicator and geo-species generation entirely. Defaults to FALSE.
+#' @param doGSP Logical. Controls execution of the `generate_geoSpecies()` processing sequence if \code{BSNE_only = FALSE}. Defaults to TRUE.
+#'
+#' @return Silently returns NULL. Generates project-level `header.csv` files and processes geo-indicators/species assets to disk.
+#'
+#' @export
+generate_project_geofiles <- function(path_tall,
+                                      path_foringest,
+                                      path_species,
+                                      template,
+                                      path_schema,
+                                      BSNE_only = FALSE,
+                                      doGSP = TRUE) {
+
+  # Clean up trailing slashes
+  base_path_tall <- gsub("/$", "", path_tall)
+  master_header_path <- file.path(base_path_tall, "header.csv")
+
+  if (!file.exists(master_header_path)) {
+    stop("The master header.csv file was not found in: ", base_path_tall)
+  }
+
+  # Read master header file using readr
+  header <- readr::read_csv(master_header_path, show_col_types = FALSE)
+  projects_to_run <- unique(header$ProjectKey)
+
+  # =========================================================================
+  # STEP 1: SUBDIVIDE MASTER HEADER INTO PROJECT SUBFOLDERS
+  # =========================================================================
+  message("Subdividing master header into project-specific folders...")
+  for (project in projects_to_run) {
+    if (is.na(project) || project == "") next
+
+    # Filter the header data to only keep rows matching the current project
+    project_data <- header[header$ProjectKey == project, ]
+
+    # Construct the target subfolder path and ensure it exists
+    project_folder <- file.path(base_path_tall, project)
+    if (!dir.exists(project_folder)) {
+      dir.create(project_folder, recursive = TRUE)
+    }
+
+    # Save the subdivided dataframe as header.csv
+    write.csv(project_data, file = file.path(project_folder, "header.csv"), row.names = FALSE)
+  }
+
+  # =========================================================================
+  # STEP 2: GENERATE GEOFILES (INDICATORS & SPECIES)
+  # =========================================================================
+  if (BSNE_only == TRUE) {
+    message("BSNE_only is set to TRUE. Skipping indicator and species geofile generation.")
+    return(invisible(NULL))
+  }
+
+  # Combined into a single loop to avoid reading header files off the disk multiple times
+  for (project in projects_to_run) {
+    if (is.na(project) || project == "") next
+
+    message("Processing indicators and species for project: ", project)
+
+    current_project_path <- file.path(base_path_tall, project)
+    header_file_path     <- file.path(current_project_path, "header.csv")
+
+    if (!file.exists(header_file_path)) {
+      warning("Skipping ", project, " because header.csv was not found.")
+      next
+    }
+
+    # Read the specific scoped dataHeader for this project
+    dataHeader <- read.csv(header_file_path, stringsAsFactors = FALSE)
+
+    # Automatically inventory the tall data files inside this project folder
+    project_files <- list.files(path = current_project_path,
+                                pattern = "\\.(csv|rdata|RData)$",
+                                full.names = TRUE)
+
+    # 2A. Run Geographic Indicator Engine
+    generate_geoIndicators(
+      path_foringest  = path_foringest,
+      path_tall       = current_project_path,
+      path_species    = path_species,
+      template        = template,
+      path_schema     = path_schema,
+      tall_header     = dataHeader,
+      tall_files_list = project_files
+    )
+
+    # 2B. Run Geographic Species Engine (Conditional)
+    if (doGSP) {
+      generate_geoSpecies(
+        path_foringest  = path_foringest,
+        path_tall       = current_project_path,
+        path_species    = path_species,
+        template        = template,
+        path_schema     = path_schema,
+        tall_header     = dataHeader,
+        verbose         = TRUE,
+        calculate_dead  = FALSE,
+        digits          = 6,
+        ingestion_date  = NULL
+      )
+    }
+  }
+
+  return(invisible(NULL))
+}
