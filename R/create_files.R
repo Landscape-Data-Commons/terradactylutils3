@@ -578,8 +578,8 @@ create_aim_og_files <- function(dsn, path_parent){
 
 # write the DIMATables
 #st_layers(dsn)
-DIMATables <- file.path(path_parent, "DIMATables")
-if(!dir.exists(DIMATables)) dir.create(DIMATables)
+Tables <- file.path(path_parent, "Tables")
+if(!dir.exists(Tables)) dir.create(Tables)
 
 tblLPIDetail <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblLPIDetail")
 tblGapDetail <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblGapDetail")
@@ -591,12 +591,12 @@ tblPlots <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblPlots")
 
 
 
-write.csv(tblLPIDetail, paste0(DIMATables, "/tblLPIDetail.csv"))
-write.csv(tblGapDetail, paste0(DIMATables, "/tblGapDetail.csv"))
-write.csv(tblSoilStabDetail, paste0(DIMATables, "/tblSoilStabDetail.csv"))
-write.csv(tblLPIHeader, paste0(DIMATables, "/tblLPIHeader.csv"))
-write.csv(tblLines, paste0(DIMATables, "/tblLines.csv"))
-write.csv(tblPlots, paste0(DIMATables, "/tblPlots.csv"))
+write.csv(tblLPIDetail, paste0(Tables, "/tblLPIDetail.csv"))
+write.csv(tblGapDetail, paste0(Tables, "/tblGapDetail.csv"))
+write.csv(tblSoilStabDetail, paste0(Tables, "/tblSoilStabDetail.csv"))
+write.csv(tblLPIHeader, paste0(Tables, "/tblLPIHeader.csv"))
+write.csv(tblLines, paste0(Tables, "/tblLines.csv"))
+write.csv(tblPlots, paste0(Tables, "/tblPlots.csv"))
 
 }
 

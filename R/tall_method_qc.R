@@ -1434,3 +1434,112 @@ qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
     message("No height data found")
   }
 }
+
+
+
+
+
+#' QC by ProjectKey
+#'
+#' Identifies which project directories physically exist within the tall output directory,
+#' and executes qc_tall_all checks. It dynamically determines whether a project
+#' has been broken down into multi-part subset chunks, processing chunks sequentially or
+#' processing the project as a single entity.
+#'
+#' @param projectkey Character vector. A list of target project identification strings/keys to validate.
+#' @param path_tall Character string. The base target folder path containing the project subdirectories.
+#' @param path_qc Character string. The base directory path where QC output project subfolders will be target routed.
+#' @param source Character string. The data source type; options include "BLM_AIM", "DIMA", or "NRI".
+#' @param speciescode Character vector or dataframe. Reference species code lookup table for checking data taxonomies.
+#' @param USDA_plants Dataframe or object. Reference matching layout for validation against the USDA PLANTS database.
+#' @param dima_data_list List. A named list of native DIMA source dataframes. Only required if \code{source = "DIMA"}. Defaults to NULL.
+#' @param nri List or object. Cleaned/parsed NRI master data list asset object. Only required if \code{source = "NRI"}. Defaults to NULL.
+#' @param DIMATables Character string. Path to the folder containing raw DIMA tables. Only evaluated if \code{source = "BLM_AIM"}. Defaults to NULL.
+#'
+#' @return Silently returns NULL. Executes processing validation and writes out metrics/reports directly to disk.
+#'
+#' @export
+qc_by_projkey <- function(projectkey,
+                                    path_tall,
+                                    path_qc,
+                                    source,
+                                    speciescode,
+                                    USDA_plants,
+                                    dima_data_list = NULL,
+                                    nri = NULL,
+                                    DIMATables = NULL) {
+
+  # =========================================================================
+  # HELPER INNER FUNCTION: EXECUTE QC ENGINE ROUTINES
+  # =========================================================================
+  execute_qc_call <- function(source, path_t, path_q, subset_nbr = NULL) {
+    if (source == "BLM_AIM") {
+      qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
+                  USDA_plants = USDA_plants, data_list = NULL, path_qc = path_q,
+                  DIMATables = DIMATables, subset_nbr = subset_nbr)
+    } else if (source == "DIMA") {
+      qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
+                  USDA_plants = USDA_plants, data_list = dima_data_list,
+                  path_qc = path_q, subset_nbr = subset_nbr)
+    } else if (source == "NRI") {
+      qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
+                  USDA_plants = USDA_plants, data_list = nri,
+                  path_qc = path_q, subset_nbr = subset_nbr)
+    }
+  }
+
+  # =========================================================================
+  # STEP 1: RESOLVE VALID SYSTEM DIRECTORIES
+  # =========================================================================
+  # List all immediate directories inside path_tall
+  all_dirs <- list.dirs(path_tall, full.names = TRUE, recursive = FALSE)
+  dir_names <- basename(all_dirs)
+
+  # Define project_folders as only the project keys that physically exist as folders
+  project_folders <- dir_names[dir_names %in% projectkey]
+
+  if (length(project_folders) == 0) {
+    warning("No directories matching the provided 'projectkey' vector were found in: ", path_tall)
+    return(invisible(NULL))
+  }
+
+  # =========================================================================
+  # STEP 2: LOOP & EVALUATE METADATA SUBSETS
+  # =========================================================================
+  lapply(project_folders, function(proj) {
+
+    message("--- Starting QC for Project: ", proj, " ---")
+
+    # Define clean paths pointing directly to the project roots
+    current_path_tall <- file.path(path_tall, proj)
+    current_path_qc   <- file.path(path_qc, proj)
+
+    # Ensure target QC output folder structure exists before processing
+    if (!dir.exists(current_path_qc)) {
+      dir.create(current_path_qc, recursive = TRUE)
+    }
+
+    # Check if this specific project folder contains subset files
+    sub_files <- list.files(current_path_tall, pattern = "^subset\\d+_", full.names = FALSE)
+
+    if (length(sub_files) > 0) {
+      # Extract unique subset numbers found in this folder (e.g., "1", "2")
+      unique_subsets <- unique(gsub("^subset(\\d+)_.*$", "\\1", sub_files))
+      message("Found ", length(unique_subsets), " subset chunks inside ", proj, ". Processing sequentially...")
+
+      # Loop through each subset chunk present
+      for (s_nbr in unique_subsets) {
+        execute_qc_call(source, current_path_tall, current_path_qc, subset_nbr = s_nbr)
+      }
+
+    } else {
+      # No subsets found! Process the entire project asset as a single entity
+      message("No subsets found. Processing whole project at once...")
+      execute_qc_call(source, current_path_tall, current_path_qc, subset_nbr = NULL)
+    }
+
+    message("--- Finished QC for Project: ", proj, " ---")
+  })
+
+  return(invisible(NULL))
+}
