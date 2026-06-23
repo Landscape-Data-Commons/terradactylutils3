@@ -17,5 +17,5 @@ QC_all_post_prep(source, path_foringest, path_parent)
 verbose about quality control of data and data frames where issues need to be investigated
 }
 \description{
-provide dialogue and data frames that are helpful for quality control of data from all method types
+Provide dialogue and data frames that are helpful for quality control of data from all method types
 }
