@@ -755,7 +755,7 @@ assign_keys_all <- function(dsn = NULL,
     data_list <- readRDS(paste0(path_qc, "/all_dimas_pks.Rdata"))
 
     terradactylutils3::dima_table_qc(
-      data_list = data_list,
+      dima_data_list = data_list,
       primarykey_qc = read.csv(paste0(path_qc, "/primarykey_resolve_", date_pkey_qc_run, ".csv")),
       path_qc = path_qc
     )
