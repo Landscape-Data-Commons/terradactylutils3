@@ -25,38 +25,43 @@ assign_keys <- function(path_project, non_line_tables){
       names = c("project", "dbname", "table"),
       cols_remove = FALSE)
 
-
-
-
-
-
-
-  # this code reads all CSVs at once, appends and assigns table name
   # read all DIMA types and append
   all_dimas <- lapply(X = unique(dima_export_files$table),
                       FUN = function(X) {
                         # read each file associated with a data_type
                         file_list <- dima_export_files$file_path[dima_export_files$table==X]
-                        # read the all files associated with a particular DIMA table type and append
-                        data <- do.call(rbind, lapply(X = file_list,
-                                                      FUN = function(X) {
-                                                        print(X)
-                                                        data <- read.csv(paste0(path_project,X),
-                                                                         # change blanks to NA
-                                                                         na.strings = c("", "NA")) |>
-                                                          # add file path
-                                                          dplyr::mutate(file_path = X) |>
-                                                          # join to dima_export file to get project, dbname, and table name
-                                                          dplyr::left_join(dima_export_files) |>
-                                                          dplyr::select(-c(file_path, table))
-                                                      })
-                        )
+
+                        # --- HARMONIZED COMBINATION BLOCK ---
+                        raw_df_list <- lapply(X = file_list, FUN = function(X_file) {
+                          print(X_file)
+                          read.csv(paste0(path_project, X_file), na.strings = c("", "NA")) |>
+                            dplyr::mutate(file_path = X_file) |>
+                            dplyr::left_join(dima_export_files, by = "file_path") |>
+                            dplyr::select(-c(file_path, table))
+                        })
+
+                        # Find intersection & capture missing plot key variants
+                        common_cols <- purrr::reduce(lapply(raw_df_list, colnames), intersect)
+                        all_cols_present <- unique(unlist(lapply(raw_df_list, colnames)))
+                        critical_keys_to_keep <- all_cols_present[stringr::str_detect(all_cols_present, "(?i)plot.*key")]
+                        final_cols_to_retain <- unique(c(common_cols, critical_keys_to_keep))
+
+                        # Safe padding of structural discrepancies
+                        harmonized_df_list <- lapply(raw_df_list, function(df) {
+                          missing_keys <- setdiff(final_cols_to_retain, colnames(df))
+                          if (length(missing_keys) > 0) {
+                            for (mk in missing_keys) df[[mk]] <- NA
+                          }
+                          return(df[, final_cols_to_retain, drop = FALSE])
+                        })
+
+                        data <- do.call(rbind, harmonized_df_list)
+                        return(data)
+                        # --- END HARMONIZED BLOCK ---
                       })
 
   #name all of the tables in the all_dimas list
   names(all_dimas) <- unique(dima_export_files$table) |> stringr::str_remove(".csv")
-
-
 
   # the primary key is assigned from the large (appended) CSV with name from table assigned to each observation - however
   # this is done in multiple parts depending on the table type
