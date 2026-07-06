@@ -927,11 +927,13 @@ validate_spatial_coordinates <- function(header,
 QC_all_post_prep <- function(source, path_foringest, path_parent) {
 
   # BG CHECK
-  if (source == "DIMA" && exists("dima_data_list") && !is.null(dima_data_list$tblLPIDetail) | source == "BLM_AIM") {
+  if (source == "DIMA" && exists("dima_data_list") && !is.null(dima_data_list$tblLPIDetail) ) {
     terradactylutils3::bare_soil_comparison(DIMATables = DIMATables, path_foringest = path_foringest, recursive = FALSE)
   } else if (source == "NRI" && exists("nri") && !is.null(nri$POINTCOORDINATES)) {
     terradactylutils3::bare_soil_comparison_nri(path_original_files = path_original_files, path_foringest = path_foringest, recursive = FALSE)
-  } else {
+  } else if (source == "BLM_AIM") {
+    terradactylutils3::bare_soil_comparison(DIMATables = Tables, path_foringest = path_foringest, recursive = FALSE)
+  }else {
     message("No LPI detected for QC")
   }
 

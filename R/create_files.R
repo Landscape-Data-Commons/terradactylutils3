@@ -597,7 +597,8 @@ write.csv(tblSoilStabDetail, paste0(Tables, "/tblSoilStabDetail.csv"))
 write.csv(tblLPIHeader, paste0(Tables, "/tblLPIHeader.csv"))
 write.csv(tblLines, paste0(Tables, "/tblLines.csv"))
 write.csv(tblPlots, paste0(Tables, "/tblPlots.csv"))
-
+# Return the path string to the environment
+return(Tables)
 }
 
 
