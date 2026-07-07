@@ -119,7 +119,55 @@ geofiles <- function(path_foringest,
                                                  header = header,
                                                  species_file = path_specieslist,
                                                  verbose = verbose,
-                                                 digits = digits) |>
+                                                 digits = digits,
+                                                 indicators_vars = list(
+                                                   first = list(
+                                                     c("Duration", "GrowthHabitSub"),
+                                                     c("Duration", "ForbGraminoid"),
+                                                     c("GrowthHabitSub"),
+                                                     c("SG_Group"),
+                                                     c("Noxious", "Duration", "GrowthHabitSub"),
+                                                     c("between_plant"),
+                                                     c("Litter"),
+                                                     c("Lichen"),
+                                                     c("TotalLitter"),
+                                                     c("Moss")
+                                                   ),
+                                                   any = list(
+                                                     c("Plant"),
+                                                     c("GrowthHabit"),
+                                                     c("GrowthHabitSub"),
+                                                     c("Duration", "GrowthHabit"),
+                                                     c("Duration", "GrowthHabitSub"),
+                                                     c("Duration", "ForbGraminoid"),
+                                                     c("ShrubSucculent"),
+                                                     c("Noxious"),
+                                                     c("Litter"),
+                                                     c("TotalLitter"),
+                                                     c("SG_Group"),
+                                                     c("SG_Group", "Live"),
+                                                     c("Grass"),
+                                                     c("Duration", "Grass"),
+                                                     c("C3", "Duration", "Grass"),
+                                                     c("C4", "Duration", "Grass"),
+                                                     c("Native"),
+                                                     c("Invasive"),
+                                                     c("Invasive", "Duration", "GrowthHabitSub"),
+                                                     c("Invasive", "Duration", "ShrubSucculent"),
+                                                     c("Invasive", "Duration", "Grass"),
+                                                     c("Invasive", "Duration", "ForbGrass"),
+                                                     c("Conifer"),
+                                                     c("PJ"),
+                                                     c("Moss"),
+                                                     c("Rock"),
+                                                     c("Biocrust"),
+                                                     c("Lichen")
+                                                   ),
+                                                   basal = list(
+                                                     c("Duration", "Grass"),
+                                                     c("Plant")
+                                                   )
+                                                 )) |>
       dplyr::rename(.data = _,
                     # Because lpi_calc() calls it BareSoilCover and the LDC
                     # (rightfully) does not include "Cover"
@@ -446,7 +494,55 @@ geofiles_nri <- function(path_foringest,
                                                  header = header,
                                                  species_file = path_specieslist,
                                                  verbose = verbose,
-                                                 digits = digits) |>
+                                                 digits = digits,
+                                                indicators_vars =  list(
+                                                   first = list(
+                                                     c("Duration", "GrowthHabitSub"),
+                                                     c("Duration", "ForbGraminoid"),
+                                                     c("GrowthHabitSub"),
+                                                     c("SG_Group"),
+                                                     c("Noxious", "Duration", "GrowthHabitSub"),
+                                                     c("between_plant"),
+                                                     c("Litter"),
+                                                     c("Lichen"),
+                                                     c("TotalLitter"),
+                                                     c("Moss")
+                                                   ),
+                                                   any = list(
+                                                     c("Plant"),
+                                                     c("GrowthHabit"),
+                                                     c("GrowthHabitSub"),
+                                                     c("Duration", "GrowthHabit"),
+                                                     c("Duration", "GrowthHabitSub"),
+                                                     c("Duration", "ForbGraminoid"),
+                                                     c("ShrubSucculent"),
+                                                     c("Noxious"),
+                                                     c("Litter"),
+                                                     c("TotalLitter"),
+                                                     c("SG_Group"),
+                                                     c("SG_Group", "Live"),
+                                                     c("Grass"),
+                                                     c("Duration", "Grass"),
+                                                     c("C3", "Duration", "Grass"),
+                                                     c("C4", "Duration", "Grass"),
+                                                     c("Native"),
+                                                     c("Invasive"),
+                                                     c("Invasive", "Duration", "GrowthHabitSub"),
+                                                     c("Invasive", "Duration", "ShrubSucculent"),
+                                                     c("Invasive", "Duration", "Grass"),
+                                                     c("Invasive", "Duration", "ForbGrass"),
+                                                     c("Conifer"),
+                                                     c("PJ"),
+                                                     c("Moss"),
+                                                     c("Rock"),
+                                                     c("Biocrust"),
+                                                     c("Lichen")
+                                                   ),
+                                                   basal = list(
+                                                     c("Duration", "Grass"),
+                                                     c("Plant")
+                                                   )
+                                                 )) |>
       dplyr::rename(.data = _,
                     # Because lpi_calc() calls it BareSoilCover and the LDC
                     # (rightfully) does not include "Cover"
