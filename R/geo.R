@@ -167,7 +167,7 @@ geofiles <- function(path_foringest,
                                                      c("Duration", "Grass"),
                                                      c("Plant")
                                                    )
-                                                 )) |>
+                                                 ),apply_species_adjustment = TRUE) |>
       dplyr::rename(.data = _,
                     # Because lpi_calc() calls it BareSoilCover and the LDC
                     # (rightfully) does not include "Cover"
@@ -542,7 +542,8 @@ geofiles_nri <- function(path_foringest,
                                                      c("Duration", "Grass"),
                                                      c("Plant")
                                                    )
-                                                 )) |>
+                                                 ),
+                                                apply_species_adjustment = TRUE) |>
       dplyr::rename(.data = _,
                     # Because lpi_calc() calls it BareSoilCover and the LDC
                     # (rightfully) does not include "Cover"
