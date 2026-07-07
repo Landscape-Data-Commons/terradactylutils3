@@ -283,7 +283,12 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
 gather_all <- function(source, path_original_files = NULL, gathered_data, path_tall, path_schema, dsn = NULL, data_list = NULL) {
   # Initialize a list to store the data frames
   tall_files_list <- list()
-
+  if(source == "DIMA"){data_list <- lapply(data_list, function(df) {
+    if ("RecKey" %in% names(df)) {
+      df$RecKey <- as.character(df$RecKey)
+    }
+    return(df)
+  })}
   ## 8.1 LPI
   if (exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0) {
     message("Found NRI LPI data; processing")
