@@ -686,6 +686,7 @@ nri_table_qc <- function(nri, path_qc){
 #' @param path_project Character string. Path to the project folder containing the source datasets (e.g., DIMA tables/tblPlots). Defaults to NULL.
 #' @param non_line_table_list Character vector. A list of tables that do not contain line/transect data. Only used for DIMA key assignments. Defaults to NULL.
 #' @param date_pkey_qc_run Character string. A date string (e.g., "YYYYMMDD") used to dynamically look up or name the DIMA PrimaryKey resolution CSV. Defaults to NULL.
+#' @param dima_data_list The list of dataframes from the DIMA data. Defaults to NULL.
 #'
 #' @export
 assign_keys_all <- function(dsn = NULL,
@@ -697,7 +698,8 @@ assign_keys_all <- function(dsn = NULL,
                             path_project = NULL,
                             DIMATables = NULL,
                             non_line_table_list = NULL,
-                            date_pkey_qc_run = NULL) {
+                            date_pkey_qc_run = NULL,
+                            dima_data_list = NULL) {
 
   if (source == "NRI") {
 
@@ -752,14 +754,14 @@ assign_keys_all <- function(dsn = NULL,
     terradactylutils3::assign_keys(path_project = path_project, non_line_tables = non_line_table_list)
 
     # using data produced from assign_keys function to produce QC files to review
-    data_list <- readRDS(paste0(path_qc, "/all_dimas_pks.Rdata"))
+    data <- readRDS(paste0(path_qc, "/all_dimas_pks.Rdata"))
 
     terradactylutils3::dima_table_qc(
-      dima_data_list = data_list,
+      dima_data_list = dima_data_list,
       primarykey_qc = read.csv(paste0(path_qc, "/primarykey_resolve_", date_pkey_qc_run, ".csv")),
       path_qc = path_qc
     )
-    return(data_list)
+    return(data)
 
   } else if (source == "DIMA" & !is.null(pkey_assigned)) {
 
