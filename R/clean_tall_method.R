@@ -120,7 +120,7 @@ clean_tall_gap <- function(tall_gap, dataHeader, path_tall, tblGapHeader){
       ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
 
       # Pulling from tblGapHeader
-      DateVisited = tblGapHeader$DateVisited[match(PrimaryKey, tblGapHeader$PrimaryKey)],
+      DateVisited = tblGapHeader$FormDate[match(PrimaryKey, tblGapHeader$PrimaryKey)],
       Direction   = tblGapHeader$Direction[match(PrimaryKey, tblGapHeader$PrimaryKey)]
     )
   saveRDS(tall_gap, file.path(path_tall, "gap_tall.rds"))
@@ -239,7 +239,7 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
 
       # Mapping from tblLPIHeader
       FormType       = tblLPIHeader$FormType[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
-      DateVisited    = tblLPIHeader$DateVisited[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
+      DateVisited    = tblLPIHeader$FormDate[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
       FormDate       = tblLPIHeader$FormDate[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
 
       # Constants
