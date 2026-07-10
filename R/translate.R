@@ -63,10 +63,9 @@ translate_schema2 <- function(data,
     dplyr::filter(DropColumn)
 
   ## run translation and add data
-  outdata <- dplyr::rename_at(.tbl = data,
-                              .vars = ChangeColumn$terradactylAlias,
-                              .funs = ~ ChangeColumn$Field) |>
-    `is.na<-`(AddColumn$Field |> unique())
+  rename_vector <- setNames(ChangeColumn$terradactylAlias, ChangeColumn$Field)
+  outdata <- data |>
+    dplyr::rename(any_of(rename_vector))
 
 
   # select only the tables in the out schema
