@@ -328,10 +328,20 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tblGapDetail2 <- tblGapDetail2 %>% mutate(FormDate = NULL)
 
     tall_gap <- terradactyl::gather_gap(source = "DIMA", tblGapHeader = data_list[["tblGapHeader"]], tblGapDetail = tblGapDetail2) %>% dplyr::filter(PrimaryKey %in% pkeys)
+    if ("DateVisited.x" %in% names(tall_gap)) {
+      tall_gap <- tall_gap %>%
+        rename(DateVisited = DateVisited.x) %>%
+        select(-any_of("DateVisited.y"))
+    }
     write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
     tall_files_list$gap_tall <- tall_gap
   } else if (source == "BLM_AIM") {
     tall_gap <- gather_gap_terradat(dsn = dsn)
+    if ("DateVisited.x" %in% names(tall_gap)) {
+      tall_gap <- tall_gap %>%
+        rename(DateVisited = DateVisited.x) %>%
+        select(-any_of("DateVisited.y"))
+    }
     write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
     tall_files_list$gap_tall <- tall_gap
   } else {
@@ -397,10 +407,18 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
         .fns = as.character
       ))
     tall_height <- terradactyl::gather_height(source = "DIMA", tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
+    if ("DateVisited.x" %in% names(tall_height)) {
+      tall_height <- tall_height %>%
+        rename(DateVisited = DateVisited.x) %>%
+        select(-any_of("DateVisited.y"))
+    }
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- tall_height
   } else if (source == "BLM_AIM") {
     tall_height <- gather_height_terradat(dsn = dsn)
+    tall_height <- tall_height %>%
+      rename(DateVisited = DateVisited.x) %>%
+      select(-any_of("DateVisited.y"))
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- tall_height
   } else {
