@@ -197,8 +197,12 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
     print("Translating height data")
     tall_ht$DateVisited <- as.Date(tall_ht$DateVisited, format = "%Y-%m-%d")
     tall_ht <- tall_ht |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
-    dataHeight <- tall_ht |>
+      left_join(dataHeader |> select(PrimaryKey, DateVisited), by = "PrimaryKey") |>
+            mutate(DateVisited = coalesce(DateVisited.x, DateVisited.y)) |>
+
+      # 3. Drop the temporary .x and .y columns
+      select(-DateVisited.x, -DateVisited.y)
+        dataHeight <- tall_ht |>
       translate_schema2(schema = schema,
                         datatype = "dataHeight",
                         dropcols = TRUE,
@@ -245,8 +249,9 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   if(!is.null(tall_gap)){
     print("Translating canopy gap data")
     tall_gap <- tall_gap |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
-
+      left_join(dataHeader |> select(PrimaryKey, DateVisited), by = "PrimaryKey") |>
+            mutate(DateVisited = coalesce(DateVisited.x, DateVisited.y)) |>
+            select(-DateVisited.x, -DateVisited.y)
     dataGap <- tall_gap |>
       translate_schema2(schema = schema,
                         datatype = "dataGap",
