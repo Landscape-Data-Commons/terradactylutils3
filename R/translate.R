@@ -198,10 +198,9 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
     tall_ht$DateVisited <- as.Date(tall_ht$DateVisited, format = "%Y-%m-%d")
     tall_ht <- tall_ht |>
       left_join(dataHeader |> select(PrimaryKey, DateVisited), by = "PrimaryKey") |>
-            mutate(DateVisited = coalesce(DateVisited.x, DateVisited.y)) |>
-
-      # 3. Drop the temporary .x and .y columns
-      select(-DateVisited.x, -DateVisited.y)
+            mutate(DateVisited = lubridate::as_date(coalesce(as.character(DateVisited.x),
+                                                       as.character(DateVisited.y)))) |>
+            select(-DateVisited.x, -DateVisited.y)
         dataHeight <- tall_ht |>
       translate_schema2(schema = schema,
                         datatype = "dataHeight",
@@ -250,8 +249,9 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
     print("Translating canopy gap data")
     tall_gap <- tall_gap |>
       left_join(dataHeader |> select(PrimaryKey, DateVisited), by = "PrimaryKey") |>
-            mutate(DateVisited = coalesce(DateVisited.x, DateVisited.y)) |>
-            select(-DateVisited.x, -DateVisited.y)
+      mutate(DateVisited = lubridate::as_date(coalesce(as.character(DateVisited.x),
+                                                       as.character(DateVisited.y)))) |>
+      select(-DateVisited.x, -DateVisited.y)
     dataGap <- tall_gap |>
       translate_schema2(schema = schema,
                         datatype = "dataGap",
