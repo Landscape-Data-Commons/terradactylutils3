@@ -120,7 +120,7 @@ clean_tall_gap <- function(tall_gap, dataHeader, path_tall, tblGapHeader){
       ProjectKey  = dataHeader$ProjectKey[match(PrimaryKey, dataHeader$PrimaryKey)],
 
       # Pulling from tblGapHeader
-      DateVisited = tblGapHeader$DateVisited[match(PrimaryKey, tblGapHeader$PrimaryKey)],
+      DateVisited = tblGapHeader$FormDate[match(PrimaryKey, tblGapHeader$PrimaryKey)],
       Direction   = tblGapHeader$Direction[match(PrimaryKey, tblGapHeader$PrimaryKey)]
     )
   saveRDS(tall_gap, file.path(path_tall, "gap_tall.rds"))
@@ -239,7 +239,7 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
 
       # Mapping from tblLPIHeader
       FormType       = tblLPIHeader$FormType[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
-      DateVisited    = tblLPIHeader$DateVisited[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
+      DateVisited    = tblLPIHeader$FormDate[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
       FormDate       = tblLPIHeader$FormDate[match(PrimaryKey, tblLPIHeader$PrimaryKey)],
 
       # Constants
@@ -283,7 +283,12 @@ clean_tall_height <- function(tall_height, dataHeader, tblLPIHeader,   path_tall
 gather_all <- function(source, path_original_files = NULL, gathered_data, path_tall, path_schema, dsn = NULL, data_list = NULL) {
   # Initialize a list to store the data frames
   tall_files_list <- list()
-
+  if(source == "DIMA"){data_list <- lapply(data_list, function(df) {
+    if ("RecKey" %in% names(df)) {
+      df$RecKey <- as.character(df$RecKey)
+    }
+    return(df)
+  })}
   ## 8.1 LPI
   if (exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0) {
     message("Found NRI LPI data; processing")
@@ -323,10 +328,24 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tblGapDetail2 <- tblGapDetail2 %>% mutate(FormDate = NULL)
 
     tall_gap <- terradactyl::gather_gap(source = "DIMA", tblGapHeader = data_list[["tblGapHeader"]], tblGapDetail = tblGapDetail2) %>% dplyr::filter(PrimaryKey %in% pkeys)
+    if ("DateVisited.x" %in% names(tall_gap)) {
+      tall_gap <- tall_gap %>%
+        # Overwrite the empty DateVisited with .x data, falling back to .y if needed
+        mutate(DateVisited = coalesce(DateVisited.x, DateVisited.y)) %>%
+        # Now safely drop the .x and .y columns
+        select(-DateVisited.x, -DateVisited.y)
+    }
     write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
     tall_files_list$gap_tall <- tall_gap
   } else if (source == "BLM_AIM") {
     tall_gap <- gather_gap_terradat(dsn = dsn)
+    if ("DateVisited.x" %in% names(tall_gap)) {
+      tall_gap <- tall_gap %>%
+        # Overwrite the empty DateVisited with .x data, falling back to .y if needed
+        mutate(DateVisited = coalesce(DateVisited.x, DateVisited.y)) %>%
+        # Now safely drop the .x and .y columns
+        select(-DateVisited.x, -DateVisited.y)
+    }
     write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
     tall_files_list$gap_tall <- tall_gap
   } else {
@@ -392,10 +411,24 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
         .fns = as.character
       ))
     tall_height <- terradactyl::gather_height(source = "DIMA", tblLPIDetail = tblLPIDetail, tblLPIHeader = tblLPIHeader)
+    if ("DateVisited.x" %in% names(tall_height)) {
+      tall_height <- tall_height %>%
+        # Overwrite the empty DateVisited with .x data, falling back to .y if needed
+        mutate(DateVisited = coalesce(DateVisited.x, DateVisited.y)) %>%
+        # Now safely drop the .x and .y columns
+        select(-DateVisited.x, -DateVisited.y)
+    }
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- tall_height
   } else if (source == "BLM_AIM") {
     tall_height <- gather_height_terradat(dsn = dsn)
+    if ("DateVisited.x" %in% names(tall_height)) {
+      tall_height <- tall_height %>%
+        # Overwrite the empty DateVisited with .x data, falling back to .y if needed
+        mutate(DateVisited = coalesce(DateVisited.x, DateVisited.y)) %>%
+        # Now safely drop the .x and .y columns
+        select(-DateVisited.x, -DateVisited.y)
+    }
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- tall_height
   } else {

@@ -63,10 +63,9 @@ translate_schema2 <- function(data,
     dplyr::filter(DropColumn)
 
   ## run translation and add data
-  outdata <- dplyr::rename_at(.tbl = data,
-                              .vars = ChangeColumn$terradactylAlias,
-                              .funs = ~ ChangeColumn$Field) |>
-    `is.na<-`(AddColumn$Field |> unique())
+  rename_vector <- setNames(ChangeColumn$terradactylAlias, ChangeColumn$Field)
+  outdata <- data |>
+    dplyr::rename(any_of(rename_vector))
 
 
   # select only the tables in the out schema
@@ -198,8 +197,11 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
     print("Translating height data")
     tall_ht$DateVisited <- as.Date(tall_ht$DateVisited, format = "%Y-%m-%d")
     tall_ht <- tall_ht |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
-    dataHeight <- tall_ht |>
+      left_join(dataHeader |> select(PrimaryKey, DateVisited), by = "PrimaryKey") |>
+            mutate(DateVisited = lubridate::as_date(coalesce(as.character(DateVisited.x),
+                                                       as.character(DateVisited.y)))) |>
+            select(-DateVisited.x, -DateVisited.y)
+        dataHeight <- tall_ht |>
       translate_schema2(schema = schema,
                         datatype = "dataHeight",
                         dropcols = TRUE,
@@ -246,8 +248,10 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   if(!is.null(tall_gap)){
     print("Translating canopy gap data")
     tall_gap <- tall_gap |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
-
+      left_join(dataHeader |> select(PrimaryKey, DateVisited), by = "PrimaryKey") |>
+      mutate(DateVisited = lubridate::as_date(coalesce(as.character(DateVisited.x),
+                                                       as.character(DateVisited.y)))) |>
+      select(-DateVisited.x, -DateVisited.y)
     dataGap <- tall_gap |>
       translate_schema2(schema = schema,
                         datatype = "dataGap",
