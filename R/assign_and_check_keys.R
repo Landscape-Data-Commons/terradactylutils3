@@ -354,8 +354,11 @@ assign_keys <- function(path_project, non_line_tables){
 
 
   # put all the tables together
-  all_dimas_pks <- c(plots_pks, data_no_lines[!names(data_no_lines) %in% table_plots], detail_header)
-
+  all_dimas_pks <- c(
+    plots_pks,
+    data_no_lines[!names(data_no_lines) %in% table_plots & !names(data_no_lines) %in% names(detail_header)],
+    detail_header
+  )
   # QC
   # First, check that all tables have a PrimaryKey and DateVisited assigned
   primarykey_check <- do.call(
