@@ -467,7 +467,7 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
   # DDT
   if (exists("data_list") && !is.null(data_list[["tblBSNE_TrapCollection"]]) && nrow(data_list[["tblBSNE_TrapCollection"]]) > 0) {
     message("DIMA DDT data found; processing")
-    tall_files_list$DustDeposition <- create_ddt(data_list[["tblBSNE_TrapCollection"]], gathered_data = gathered_data)
+    tall_files_list$DustDeposition <- create_ddt(data_list[["tblBSNE_TrapCollection"]], gathered_data = gathered_data, path_schema = path_schema)
   } else {
     message("No DIMA DDT data found")
   }
