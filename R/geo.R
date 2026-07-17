@@ -189,7 +189,8 @@ geofiles <- function(path_foringest,
       message("Calculating height indicators")
     }
     height_tall <- data[["height_tall"]]
-    species_file <- read_csv(path_specieslist) %>% mutate(SpeciesState = NA)
+    #species_file <- read_csv(path_specieslist) %>% mutate(SpeciesState = NA)
+    species_file <- path_specieslist
 
     indicators_vars = list(
       first = list(
