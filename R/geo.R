@@ -189,9 +189,10 @@ geofiles <- function(path_foringest,
       message("Calculating height indicators")
     }
     height_tall <- data[["height_tall"]]
+    projectkey <- header$ProjectKey
     # Check if "SpeciesState" exists in your header data frame
     if ("SpeciesState" %in% names(header)) {
-      species_file <- read_csv(path_specieslist) %>% mutate(SpeciesState = NA)
+      species_file <- read_csv(path_specieslist) %>% mutate(SpeciesState = projectkey)
 
     } else {
       species_file <- read_csv(path_specieslist)
@@ -503,6 +504,8 @@ geofiles <- function(path_foringest,
     height_tall <- lpi_species_filtered %>%
       # Keep only the columns that are present in the height_tall dataframe
       select(any_of(names(height_tall)))
+    species_file$SpeciesState <- NULL
+
     indicators[["height"]] <- terradactyl::height_calc(height_tall = height_tall,
                                                        header = header,
                                                        source = "DIMA",
