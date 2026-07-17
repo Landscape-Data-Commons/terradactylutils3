@@ -453,13 +453,15 @@ geofiles <- function(path_foringest,
     }
 
     #### Plant --------------
-    if (all(c("GrowthHabitSub", "Species") %in% names(data))) {
+    if (all(c("GrowthHabit", "GrowthHabitSub", "Species") %in% names(data))) {
       data <- dplyr::mutate(.data = data,
+                            Plant = dplyr::case_when(
+                              (!(GrowthHabitSub %in% c("growthhabitsub_irrelevant")) &
+                                 GrowthHabit != "Nonvascular" &
+                                 stringi::stri_length(Species) >= 3) ~ "Plant",
 
-                            Plant = dplyr::case_when(!(GrowthHabitSub %in% c("growthhabitsub_irrelevant")) &
-                                                       GrowthHabit != "Nonvascular"&
-                                                       stringi::stri_length(Species) >= 3 ~ "Plant",
-                                                     .default = NA)
+                              .default = NA
+                            )
       )
     }
 
