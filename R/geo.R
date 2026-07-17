@@ -188,10 +188,317 @@ geofiles <- function(path_foringest,
     if (verbose) {
       message("Calculating height indicators")
     }
-    indicators[["height"]] <- terradactyl::height_calc(height_tall = data[["height_tall"]],
+    height_tall <- data[["height_tall"]]
+    species_file <- read_csv(path_specieslist) %>% mutate(SpeciesState = NA)
+
+    indicators_vars = list(
+      first = list(
+        c("Duration", "GrowthHabitSub"),
+        c("Duration", "ForbGraminoid"),
+        c("GrowthHabitSub"),
+        c("SG_Group"),
+        c("Noxious", "Duration", "GrowthHabitSub"),
+        c("between_plant"),
+        c("Litter"),
+        c("Lichen"),
+        c("TotalLitter"),
+        c("Moss")
+      ),
+      any = list(
+        c("Plant"),
+        c("GrowthHabit"),
+        c("GrowthHabitSub"),
+        c("Duration", "GrowthHabit"),
+        c("Duration", "GrowthHabitSub"),
+        c("Duration", "ForbGraminoid"),
+        c("ShrubSucculent"),
+        c("Noxious"),
+        c("Litter"),
+        c("TotalLitter"),
+        c("SG_Group"),
+        c("SG_Group", "Live"),
+        c("Grass"),
+        c("Duration", "Grass"),
+        c("C3", "Duration", "Grass"),
+        c("C4", "Duration", "Grass"),
+        c("Native"),
+        c("Invasive"),
+        c("Invasive", "Duration", "GrowthHabitSub"),
+        c("Invasive", "Duration", "ShrubSucculent"),
+        c("Invasive", "Duration", "Grass"),
+        c("Invasive", "Duration", "ForbGrass"),
+        c("Conifer"),
+        c("PJ"),
+        c("Moss"),
+        c("Rock"),
+        c("Biocrust"),
+        c("Lichen")
+      ),
+      basal = list(
+        c("Duration", "Grass"),
+        c("Plant")
+      )
+    )
+
+    species_code_var = "SpeciesCode"
+    generic_species_file = NULL
+
+
+    nonstandard_indicator_lookup <- c("FH_BareSoilCover" = "BareSoilCover",
+                                      "AH_SagebrushLiveCover" = "AH_SagebrushCover_Live",
+                                      "AH_BasalPlantCover" = "AH_BasalCover")
+    #### Grouping variables lists ------------------------------------------------
+
+
+    extraneous_names <- setdiff(x = names(indicators_vars),
+                                y = c("any", "first", "basal"))
+
+
+    indicators_vars <- indicators_vars[intersect(x = names(indicators_vars),
+                                                 y = c("any", "first", "basal"))]
+
+
+
+    indicators_vars_lists <- sapply(X = indicators_vars, FUN = is.list)
+
+
+    indicators_vars_character <- unlist(indicators_vars) |>
+      sapply(FUN = is.character) # Switched to is.character to accurately validate strings
+
+
+    variable_groups <- indicators_vars
+
+
+    #### Handling header and raw data ############################################
+
+
+    lpi_tall_header <- dplyr::left_join(x = dplyr::select(.data = header,
+                                                          tidyselect::any_of(c("PrimaryKey",
+                                                                               "SpeciesState",
+                                                                               "State",
+                                                                               "County"))),
+                                        y = height_tall,
+                                        relationship = "one-to-many",
+                                        by = "PrimaryKey")
+
+    if (verbose) {
+      message("Checking species_file and reading in as necessary.")
+    }
+
+    if (is.character(species_file)) {
+      current_species_file_extension <- tools::file_ext(species_file)
+
+      if (nchar(current_species_file_extension) == 0) {
+        stop("When species_file is a character string, it must be a filepath to either a CSV or a GDB (geodatabase).")
+      } else if (current_species_file_extension %in% c("CSV", "csv")) {
+        if (!file.exists(species_file)) {
+          stop(paste0("The provided species_file value, ", species_file, ", points to a file that does not exist."))
+        }
+        species_list <- read.csv(file = species_file, stringsAsFactors = FALSE)
+      } else if (current_species_file_extension %in% c("GDB", "gdb")) {
+        species_list <- species_read_aim(dsn = species_file, verbose = verbose)
+      }
+    } else if (is.data.frame(species_file)) {
+      species_list <- species_file
+    } else {
+      stop("species_file must either be a filepath to a CSV or a GDB file or a data frame.")
+    }
+
+    if (verbose) {
+      message("Attempting to join the species list to the LPI data.")
+    }
+
+    lpi_species <- species_join(data = sf::st_drop_geometry(lpi_tall_header),
+                                data_code = "Species",
+                                species_file = species_list,
+                                species_code = species_code_var,
+                                species_growth_habit_code = "GrowthHabitSub",
+                                species_duration = "Duration",
+                                species_property_vars = c("GrowthHabit",
+                                                          "GrowthHabitSub",
+                                                          "Duration",
+                                                          "Family",
+                                                          "SG_Group",
+                                                          "HigherTaxon",
+                                                          "Nonnative",
+                                                          "Invasive",
+                                                          "Noxious",
+                                                          "SpecialStatus",
+                                                          "Photosynthesis",
+                                                          "PJ",
+                                                          "CurrentPLANTSCode"),
+                                growth_habit_file = "",
+                                growth_habit_code = "Code",
+                                overwrite_generic_species = FALSE,
+                                generic_species_file = generic_species_file,
+                                update_species_codes = FALSE,
+                                by_species_key = FALSE,
+                                check_species = FALSE,
+                                verbose = verbose)
+
+    ##### Sanitization/harmonization #############################################
+    data = lpi_species
+    fail_on_missing = FALSE
+
+    # This is a list of all the various bits of definitions for modifying the
+    # species attributes in accordance with AIM definitions
+    definitions_list <- terradactyl::lpi_indicator_definitions()
+
+    if (verbose) {
+      message("Harmonizing species characteristics with AIM indicator needs.")
+    }
+
+    # Let's check for the required variables for all these.
+    # If any are missing, we can warn the user that those variables will be
+    # created but populated with NA and so no indicators that involve them will
+    # be calculated.
+    expected_variables <- c("GrowthHabit",
+                            "GrowthHabitSub",
+                            "Duration",
+                            "Family",
+                            "HigherTaxon",
+                            "Nonnative",
+                            "Invasive",
+                            "Noxious",
+                            "SpecialStatus",
+                            "Photosynthesis",
+                            "PJ",
+                            "chckbox")
+
+    missing_expected_variables <- setdiff(x = expected_variables,
+                                          names(data))
+
+    if (length(missing_expected_variables) > 0) {
+      if (fail_on_missing) {
+        stop(paste0("The provided species information does not contain all expected variables required for the standard set of indicators. Set fail_on_missing = FALSE to skip indicators which cannot be calculated. The variables in question are: ",
+                    paste(missing_expected_variables,
+                          collapse = ", ")))
+      }
+      warning(paste0("The provided species information does not contain all expected variables required for the standard set of indicators. Indicators which depend on those variables will not be calculated. The variables in question are: ",
+                     paste(missing_expected_variables,
+                           collapse = ", ")))
+      # This makes a new data frame without any data in it consisting of only the
+      # missing variables and a number of rows equal to the number of lpi_species
+      # records then binds them together.
+      data <- matrix(nrow = nrow(data),
+                     ncol = length(missing_expected_variables)) |>
+        as.data.frame() |>
+        setNames(object = _,
+                 nm = missing_expected_variables) |>
+        dplyr::bind_cols(data,
+                         .x = _)
+    }
+
+
+    #### Duration ----------
+    if (all(c("Duration") %in% names(data))) {
+      data <- dplyr::mutate(.data = data,
+                            Duration = dplyr::case_when(grepl(x = Duration,
+                                                              pattern = "perennial",
+                                                              ignore.case = TRUE) ~ "Peren",
+                                                        grepl(x = Duration,
+                                                              pattern = "(annual)|(biennial)",
+                                                              ignore.case = TRUE) ~ "Ann",
+                                                        is.na(Duration) ~ "duration_irrelevant",
+                                                        .default = Duration)
+      )
+    }
+
+    #### GrowthHabit ------------
+    if (all(c("GrowthHabit") %in% names(data))) {
+      data <- dplyr::mutate(.data = data,
+                            GrowthHabit = dplyr::case_when(grepl(x = GrowthHabit,
+                                                                 pattern = "^non-?woody$",
+                                                                 ignore.case = TRUE) ~ "NonWoody",
+                                                           grepl(x = GrowthHabitSub,
+                                                                 pattern = "^non-?vascular$",
+                                                                 ignore.case = TRUE) ~ "Nonvascular",
+                                                           # This removes sedges from consideration???
+                                                           # Maybe an artifact of trying to avoid spitting
+                                                           # out unused indicators
+                                                           # GrowthHabitSub == "Sedge" ~ "growthhabit_irrelevant",
+                                                           # For first-hit calculations
+                                                           # is.na(GrowthHabit) ~ "growthhabit_irrelevant",
+                                                           .default = GrowthHabit)
+      )
+    }
+
+    #### GrowthHabitSub -----------
+    if (all(c("GrowthHabitSub") %in% names(data))) {
+      data <- dplyr::mutate(.data = data,
+                            GrowthHabitSub = dplyr::case_when(grepl(x = GrowthHabitSub,
+                                                                    pattern = "forb",
+                                                                    ignore.case = TRUE) ~ "Forb",
+                                                              grepl(x = GrowthHabitSub,
+                                                                    pattern = "^sub-?shrub$",
+                                                                    ignore.case = TRUE) ~ "SubShrub",
+                                                              # Not sure why we're removing non-vasculars??
+                                                              # Maybe an artifact of trying to avoid spitting
+                                                              # out unused indicators. Blame Alaska.
+                                                              grepl(x = GrowthHabitSub,
+                                                                    pattern = "^non-?vascular$",
+                                                                    ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
+                                                              # Anyway, doing the exact same to moss
+                                                              grepl(x = GrowthHabitSub,
+                                                                    pattern = "^moss$",
+                                                                    ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
+                                                              # And to lichen
+                                                              grepl(x = GrowthHabitSub,
+                                                                    pattern = "^lichen$",
+                                                                    ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
+                                                              # For first-hit calculations
+                                                              # is.na(GrowthHabit) ~ "growthhabitsub_irrelevant",
+                                                              .default = GrowthHabitSub)
+      )
+    }
+
+    #### Plant --------------
+    if (all(c("GrowthHabitSub", "Species") %in% names(data))) {
+      data <- dplyr::mutate(.data = data,
+
+                            Plant = dplyr::case_when(!(GrowthHabitSub %in% c("growthhabitsub_irrelevant")) &
+                                                       GrowthHabit != "Nonvascular"&
+                                                       stringi::stri_length(Species) >= 3 ~ "Plant",
+                                                     .default = NA)
+      )
+    }
+
+
+
+    lpi_species <- data
+
+
+    # check for nonumerics
+    non_numeric_count <- sum(is.na(suppressWarnings(as.numeric(lpi_species$Height))) & !is.na(lpi_species$Height))
+
+    if (non_numeric_count > 0) {
+      warning(paste(
+        "Warning:", non_numeric_count,
+        "non-numeric value(s) found in the 'Height' column. Converting them to NA."
+      ))
+
+      # Convert the column to numeric (coerces characters/strings to NA)
+      lpi_species <- lpi_species %>%
+        mutate(Height = suppressWarnings(as.numeric(Height)))
+    }
+    lpi_species_filtered <- lpi_species %>%
+      filter(
+        (
+          is.na(Species) |
+            Species %in% c("None", "N", "") |
+            Plant %in% "Plant" |
+            # OR keep if GrowthHabitSub is NA but HigherTaxon is NOT liverwort/moss
+            (is.na(GrowthHabitSub) & !HigherTaxon %in% c("liverwort", "moss"))
+        )
+      )
+
+    height_tall <- lpi_species_filtered %>%
+      # Keep only the columns that are present in the height_tall dataframe
+      select(any_of(names(height_tall)))
+    indicators[["height"]] <- terradactyl::height_calc(height_tall = height_tall,
                                                        header = header,
                                                        source = "DIMA",
-                                                       species_file = path_specieslist,
+                                                       species_file = species_file,
                                                        verbose = verbose,
                                                        digits = digits)
   }
