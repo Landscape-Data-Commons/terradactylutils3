@@ -104,6 +104,15 @@ assign_keys <- function(path_project, non_line_tables){
                               dplyr::select(-is_numeric_date) # Drop the helper column
                           })
 
+  #_#_#_#_#_#_#_#
+  # ???????????????
+  # TODO: Check this to make sure it's not adding extraneous variables to detail
+  #
+  # Previously, we were adding FormDate and other variables when we really only
+  # wanted PrimaryKey
+  #
+  #_#_#_#_#_#_#_#
+
   # join header and detail tables to add PrimaryKey
   detail_list <- names(all_dimas)[names(all_dimas) |> stringr::str_detect("Detail")]
   detail_tables <- lapply(
@@ -119,13 +128,17 @@ assign_keys <- function(path_project, non_line_tables){
       if(!is.null(tblHeader)){
         data_pk <- dplyr::left_join(
           # Force RecKey to character in the Detail table
-          tblDetail %>%
+          x = tblDetail %>%
             dplyr::mutate(RecKey = as.character(RecKey)),
 
           # Force RecKey to character in the Header table
-          tblHeader %>%
+          y = tblHeader %>%
             dplyr::mutate(RecKey = as.character(RecKey)) %>%
-            dplyr::select_if(names(.) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
+            dplyr::select(.data = .,
+                          tidyselect::any_of(x = c("RecKey",
+                                                   "PrimaryKey"))) |>
+            dplyr::distinct(),
+          # dplyr::select_if(names(.) %in% c("PlotKey", "LineKey", "RecKey", "FormDate", "PrimaryKey", "DateVisited", "project", "dbname")),
 
           relationship = "many-to-one"
         )
@@ -134,6 +147,27 @@ assign_keys <- function(path_project, non_line_tables){
         all_dimas[[X]]
       }
     })
+
+  #_#_#_#_#_#_#_#_#
+  #
+  # TODO: Use this to flag detail records that won't inherit dates because they
+  # don't have a corresponding header record according to RecKey.
+  # This uses PrimaryKey also because we added that above.
+  # It should be a data frame that's the subset of tblDetail that didn't match.
+  #
+  # Make sure this comes in some kind of output!
+  #
+  #_#_#_#_#_#_#_#_#
+  dateless_detail_records <- dplyr::anti_join(x = tblDetail,
+                                              y = tblHeader,
+                                              by = dplyr::join_by(c("PrimaryKey",
+                                                                    "RecKey")))
+  # dateless_detail_records <- terradactyl::check_orphaned_records(x = tblDetail,
+  #                                                         y = tblHeader,
+  #                                                         joining_variables = c("PrimaryKey",
+  #                                                                               "RecKey"),
+  #                                                         symmetric = FALSE)
+
 
   names(detail_tables) <- detail_list
 
@@ -311,21 +345,21 @@ assign_keys <- function(path_project, non_line_tables){
 
 
   # get all of the unique method PrimaryKeys
-  unique_pks <- do.call(rbind,
-                        lapply(X = names(detail_header),
-                               FUN = function(X){
-                                 print(X)
-                                 # If PlotKey exists, we'll merge
-                                 if("PlotKey" %in% names(detail_header[[X]])){
+  unique_pks <- dplyr::bind_rows(lapply(X = names(detail_header),
+                                        FUN = function(X){
+                                          print(X)
+                                          # If PlotKey exists, we'll merge
+                                          if("PlotKey" %in% names(detail_header[[X]])){
 
-                                   data <-detail_header[[X]] |>
-                                     dplyr::select(PlotKey, PrimaryKey, DateVisited, project, dbname) |>
-                                     dplyr::mutate(method = X) |>
-                                     dplyr::distinct()
-                                 }else{
-                                   message(paste("No PlotKeys found in table", X, ". This table will be dropped from output"))
-                                 }
-                               })
+                                            data <- detail_header[[X]] |>
+                                              dplyr::select(.data = _,
+                                                            tidyselect::any_of(x = c("PlotKey", "PrimaryKey", "DateVisited", "project", "dbname"))) |>
+                                              dplyr::mutate(method = X) |>
+                                              dplyr::distinct()
+                                          }else{
+                                            message(paste("No PlotKeys found in table", X, ". This table will be dropped from output"))
+                                          }
+                                        })
   ) |>
     # make sure the methods are distinct, regardless of Header or Detail
     dplyr::mutate(method = method |> stringr::str_remove_all(
