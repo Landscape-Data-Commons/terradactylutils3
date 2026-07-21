@@ -189,16 +189,26 @@ geofiles <- function(path_foringest,
       message("Calculating height indicators")
     }
     height_tall <- data[["height_tall"]]
-    projectkey <- header$ProjectKey
-    # Check if "SpeciesState" exists in your header data frame
-    if ("SpeciesState" %in% names(header)) {
-      species_file <- read_csv(path_specieslist) %>% mutate(SpeciesState = NA)
-      header$SpeciesState <- NA
+    # Extract project key as fallback
+    projectkey <- unique(header$ProjectKey)
+
+    # Read species file first so we can check its column names
+    species_file <- read_csv(path_specieslist)
+
+    # Check if "SpeciesState" exists in BOTH header AND species_file
+    if ("SpeciesState" %in% names(header) && "SpeciesState" %in% names(species_file)) {
+      # Keep existing SpeciesState values in both
+      # (No extra mutation needed for species_file unless you need to pull unique header states)
 
     } else {
-      species_file <- read_csv(path_specieslist)
-      species_file$SpeciesState <- NULL
+      # Fallback: Assign ProjectKey as SpeciesState to both data frames
+      header <- header %>%
+        mutate(SpeciesState = projectkey)
+
+      species_file <- species_file %>%
+        mutate(SpeciesState = projectkey)
     }
+
 
     indicators_vars = list(
       first = list(
