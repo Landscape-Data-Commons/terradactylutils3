@@ -168,7 +168,7 @@ geofiles <- function(path_foringest,
                                                      c("Plant")
                                                    )
                                                  ),apply_species_adjustment = TRUE,
-                                                 expected_indicator_names = expected_indicator_names = c("TotalFoliarCover" = "AH_PlantCover",
+                                                 expected_indicator_names =  c("TotalFoliarCover" = "AH_PlantCover",
                                                                                                          "BareSoilCover" = "FH_BareSoilCover",
                                                                                                          "AH_ForbCover",
                                                                                                          "AH_PerenForbCover",
