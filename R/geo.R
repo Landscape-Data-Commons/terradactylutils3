@@ -167,7 +167,8 @@ geofiles <- function(path_foringest,
                                                      c("Duration", "Grass"),
                                                      c("Plant")
                                                    )
-                                                 ),apply_species_adjustment = TRUE) |>
+                                                 ),apply_species_adjustment = TRUE,
+                                                 expected_indicator_names = default_lpi_indicators(source = 'terradat')) |>
       dplyr::rename(.data = _,
                     # Because lpi_calc() calls it BareSoilCover and the LDC
                     # (rightfully) does not include "Cover"
