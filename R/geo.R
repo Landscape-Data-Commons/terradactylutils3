@@ -502,15 +502,19 @@ geofiles <- function(path_foringest,
       lpi_species <- lpi_species %>%
         mutate(Height = suppressWarnings(as.numeric(Height)))
     }
+    moss_lichen_codes <- c("LC", "2LICHN", "2LICHN1", "VL", "M", "2MOSS", "2MOSS1")
+
     lpi_species_filtered <- lpi_species %>%
       filter(
         (
           is.na(Species) |
             Species %in% c("None", "N", "") |
             Plant %in% "Plant" |
-            # OR keep if GrowthHabitSub is NA but HigherTaxon is NOT liverwort/moss
+            # Keep if GrowthHabitSub is NA but HigherTaxon is NOT liverwort/moss
             (is.na(GrowthHabitSub) & !HigherTaxon %in% c("liverwort", "moss"))
-        )
+        ) &
+          # Filter out specified moss and lichen species codes
+          !Species %in% moss_lichen_codes
       )
 
     height_tall <- lpi_species_filtered %>%
