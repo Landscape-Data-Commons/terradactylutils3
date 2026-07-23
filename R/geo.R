@@ -1633,10 +1633,15 @@ generate_geoSpecies <- function(path_foringest,
 
       schema <- read.csv(path_schema) |> dplyr::distinct()
       species_list <- read.csv(path_specieslist)
+      subset_header$State <- NA
+      subset_header$SpeciesState <- NA
+      height_tall = data[["height_tall"]]
+      badcodes <- c(""," ","N","None")
+      height_tall <- height_tall %>% dplyr::filter(!Species %in% badcodes)
 
       # Core calculation execution
       accumulated_species_data <- accumulated_species(lpi_tall = data[["lpi_tall"]],
-                                                      height_tall = data[["height_tall"]],
+                                                      height_tall = height_tall,
                                                       spp_inventory_tall = data[["species_inventory_tall"]],
                                                       header = subset_header, # Use local slice loop header
                                                       species_file = species_list,
