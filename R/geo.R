@@ -521,8 +521,8 @@ geofiles <- function(path_foringest,
       # Keep only the columns that are present in the height_tall dataframe
       select(any_of(names(height_tall)))
 species_file$SpeciesState <- NULL
-height_tall$SpeciesState <-NA
-
+header$SpeciesState <-NA
+height_tall$SpeciesState <- NULL
     indicators[["height"]] <- terradactyl::height_calc(height_tall = height_tall,
                                                        header = header,
                                                        source = "DIMA",
