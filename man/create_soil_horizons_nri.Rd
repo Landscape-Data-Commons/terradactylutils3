@@ -4,20 +4,28 @@
 \alias{create_soil_horizons_nri}
 \title{Gather soil horizons for NRI}
 \usage{
-create_soil_horizons_nri(nri, gathered_data, dataHeader, path_schema)
+create_soil_horizons_nri(dsn, gathered_data, dataHeader, path_schema)
+
+create_soil_horizons_nri(dsn, gathered_data, dataHeader, path_schema)
 }
 \arguments{
-\item{nri}{list of nri data frames}
+\item{dsn}{dsn}
 
 \item{gathered_data}{path where gathered files are stored}
 
 \item{dataHeader}{as dataframe dataHeader}
 
 \item{path_schema}{file path to LDC schema plan}
+
+\item{nri}{list of nri data frames}
 }
 \value{
+gathered soil horizon table to path_tall
+
 gathered soil horizon table to path_tall
 }
 \description{
 create soil horizon file from NRI tables
+
+create soil horizon file from lmf dsn
 }
