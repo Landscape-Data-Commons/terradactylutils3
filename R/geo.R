@@ -521,7 +521,6 @@ geofiles <- function(path_foringest,
       # Keep only the columns that are present in the height_tall dataframe
       select(any_of(names(height_tall)))
 species_file$SpeciesState <- NULL
-header$SpeciesState <-NA
 height_tall$SpeciesState <- NULL
     indicators[["height"]] <- terradactyl::height_calc(height_tall = height_tall,
                                                        header = header,
@@ -530,6 +529,7 @@ height_tall$SpeciesState <- NULL
                                                        verbose = verbose,
                                                        digits = digits)
   }
+  header$SpeciesState <-NA
 
   if ("species_inventory_tall" %in% names(data)) {
     if (verbose) {
