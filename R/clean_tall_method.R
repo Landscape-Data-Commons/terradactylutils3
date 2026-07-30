@@ -311,7 +311,11 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tall_lpi <- gather_lpi_terradat(dsn = dsn)
     write.csv(tall_lpi, paste0(gathered_data, "/lpi_tall.csv"))
     tall_files_list$lpi_tall <- tall_lpi
-  } else {
+  } else if (source == "lmf"){tall_lpi <- gather_lpi_lmf(dsn = dsn,
+                                                         file_type = "gdb")
+  write.csv(tall_lpi, paste0(gathered_data, "/lpi_tall.csv"))
+  tall_files_list$lpi_tall <- tall_lpi
+  }else {
     message("No LPI data found")
   }
 
@@ -348,7 +352,12 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     }
     write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
     tall_files_list$gap_tall <- tall_gap
-  } else {
+  } else if (source == "lmf"){
+    tall_gap <- gather_gap_lmf(dsn = dsn,
+                               file_type = "gdb")
+    write.csv(tall_gap, paste0(gathered_data, "/gap_tall.csv"))
+    tall_files_list$gap_tall <- tall_gap
+  }else {
     message("No Gap data found")
   }
 
@@ -367,7 +376,13 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tall_soilstability <- gather_soil_stability_terradat(dsn = dsn)
     write.csv(tall_soilstability, paste0(gathered_data, "/soil_stability_tall.csv"))
     tall_files_list$soil_stability_tall <- tall_soilstability
-  } else {
+  } else if (source == "lmf"){
+    tall_soilstability <- gather_soil_stability_lmf(dsn = dsn,
+                                                    file_type = "gdb")
+
+    write.csv(tall_soilstability, paste0(gathered_data, "/soil_stability_tall.csv"))
+    tall_files_list$soil_stability_tall <- tall_soilstability
+  }else {
     message("No soil stability data found")
   }
 
@@ -386,6 +401,11 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     tall_files_list$species_inventory_tall <- tall_species
   } else if (source == "BLM_AIM") {
     tall_sr <- gather_species_inventory_terradat(dsn = dsn)
+    write.csv(tall_sr, paste0(gathered_data, "/species_inventory_tall.csv"))
+    tall_files_list$species_inventory_tall <- tall_sr
+  }else if (source == "lmf"){
+    tall_sr <- gather_species_inventory_lmf(dsn = dsn,
+                                            file_type = "gdb")
     write.csv(tall_sr, paste0(gathered_data, "/species_inventory_tall.csv"))
     tall_files_list$species_inventory_tall <- tall_sr
   } else {
@@ -431,6 +451,12 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     }
     write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
     tall_files_list$height_tall <- tall_height
+  }else if (source == "lmf"){
+    tall_height <- gather_height_lmf(dsn = dsn,
+                                     file_type = "gdb")
+
+    write.csv(tall_height, paste0(gathered_data, "/height_tall.csv"))
+    tall_files_list$height_tall <- tall_height
   } else {
     message("No height data found")
   }
@@ -442,8 +468,13 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     rangehealth_tall <- gather_rangeland_health(source = "NRI", RANGEHEALTH = read.csv(paste0(output, "/RANGEHEALTH.csv")))
     write.csv(rangehealth_tall, paste0(gathered_data, "/rangelandhealth_tall.csv"))
     tall_files_list$rangelandhealth_tall <- rangehealth_tall
+  }else if (source == "lmf"){
+    rangehealth_tall <- gather_rangeland_health_lmf(dsn = dsn,
+                                                        file_type = "gdb")
+    write.csv(rangehealth_tall, paste0(gathered_data, "/rangelandhealth_tall.csv"))
+    tall_files_list$rangelandhealth_tall <- rangehealth_tall
   } else {
-    message("No RH NRI data found")
+    message("No RH data found")
   }
 
   # Soil horizons
@@ -452,6 +483,9 @@ gather_all <- function(source, path_original_files = NULL, gathered_data, path_t
     # Assuming this function handles its own output or returns something useful
     header <- read.csv(paste0(path_tall, "/header.csv"))
     tall_files_list$soil_horizons <- terradactylutils3::create_soil_horizons_nri(nri = nri, gathered_data = gathered_data, path_schema = path_schema, dataHeader = header)
+  }else if (source == "lmf"){
+    tall_files_list$soil_horizons <- terradactylutils3::create_soil_horizons_lmf(dsn = dsn, gathered_data = gathered_data, path_schema = path_schema, dataHeader = header)
+
   } else {
     message("No NRI soil horizon data found")
   }

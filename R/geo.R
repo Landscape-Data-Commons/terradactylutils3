@@ -659,7 +659,7 @@ height_tall$SpeciesState <- NULL
       # keeping it here just in case it was load-bearing.
       dplyr::distinct()
     species_list <- read.csv(path_specieslist)
-
+header$source<-
     accumulated_species_data <- accumulated_species(lpi_tall = data[["lpi_tall"]],
                                                     height_tall = data[["height_tall"]],
                                                     spp_inventory_tall = data[["species_inventory_tall"]],

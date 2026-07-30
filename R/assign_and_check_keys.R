@@ -745,7 +745,7 @@ assign_keys_all <- function(dsn = NULL,
 
     return(data_list)
 
-  } else if (source == "BLM_AIM") {
+  } else if (source %in% c("BLM_AIM", "lmf")) {
 
     message("PrimaryKey assigned by BLM")
 

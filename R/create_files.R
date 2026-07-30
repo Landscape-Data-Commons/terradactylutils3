@@ -312,6 +312,27 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
     write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
+  }else if(source == "lmf"){
+    POINT <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_POINT") # point info
+    ptcoords <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_POINTCOORDINATES") #coords
+    GPS <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_GPS") #elev etc
+    ESFSG <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_ESFSG") #mlra and coverage
+
+    header <- gather_header_lmf(dsn = dsn, POINT = POINT, source == "LMF",
+                                POINTCOORDINATES = ptcoords,
+                                GPS = GPS,
+                                ESFSG = ESFSG,
+                                verbose = verbose)
+    dataHeader$LocationStatus <- "Reported"
+    #header$State <- NA
+    #remove NAs
+    dataHeader <- dataHeader[!is.na(dataHeader$DateVisited),]
+    #dropcols_header <- header %>% dplyr::select(-"DBKey", -"DateLoadedInDb")
+    #header <- header[which(!duplicated(dropcols_header)),]
+    dataHeader$SpeciesState <- rep(projectkey)
+    write.csv(dataHeader, file.path(path_tall, "header.csv"), row.names = F)
+    saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
+
   }else{
     gathered_data <- paste0(path_parent,"/gathered_data")
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
@@ -1252,4 +1273,193 @@ create_tables <- function(dsn = NULL,
   }
 
   message("Table rendering batch finished successfully!")
+}
+
+
+
+###################################
+#' Gather soil horizons for lmf
+#'
+#' create soil horizon file from lmf dsn
+#'
+#' @param dsn dsn
+#' @param gathered_data path where gathered files are stored
+#' @param dataHeader as dataframe dataHeader
+#' @param path_schema file path to LDC schema plan
+#'
+#' @return gathered soil horizon table to path_tall
+#'
+#' @export
+create_soil_horizons_nri <- function(dsn, gathered_data, dataHeader, path_schema){
+
+  soilh <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_SOILHORIZON")
+
+  SH <- soilh
+  #drop duplicates
+  dropcols_hf <- SH  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
+  SH <- SH[which(!duplicated(dropcols_hf)),]
+
+  na_cols <- c("HorizonKey", "HorizonName", "pH", "EC", "ClayPct", "SandPct",
+               "SiltPct", "StructureGrade", "StructureSize", "StructureType",
+               "StructureQuality", "Hue", "Value", "Chroma", "ColorMoistDry",
+               "FragVolGravel", "FragVolCobble", "FragVolStone",
+               "FragVolNodule", "FragVolDurinode")
+  # Pre-create the columns
+  SH[na_cols] <- NA
+  # match columns to expected naming in LDC
+  SH <- SH %>%
+    # many cols are NA, assigning
+    mutate(across(all_of(na_cols), ~NA)) %>%
+    # match the remaining cols
+    mutate(
+      ProjectKey        = "NRI",
+      DateLoadedInDb    = todaysDate,
+      HorizonDepthUpper = DEPTH * 2.54,
+      HorizonDepthLower = DEPTH * 2.54,
+      DepthUOM          = "cm",
+      Texture           = HORIZON_TEXTURE,
+      TextureModifier   = TEXTURE_MODIFIER,
+      Effervescence     = EFFERVESCENCE_CLASS,
+      HorizonNotes      = UNUSUAL_FEATURES,
+      HorizonNumber     = SEQNUM,
+      source            = "NRI"
+    )
+  #match is failing - retrieving DateVisited
+  dates <- dataHeader %>%
+    select(PrimaryKey, DateVisited) %>%
+    distinct(PrimaryKey, .keep_all = TRUE) # Ensures one date per Key
+
+  #join to SH
+  SH <- SH %>%
+    left_join(dates, by = "PrimaryKey")
+
+  # only keep data in schema
+  schema <- read.csv(path_schema)
+  schema <- schema %>% dplyr::filter(Table == "dataSoilHorizons")
+  # schema column order
+  ordered_cols <- schema$Field
+
+  # reorder, keeping schema cols
+  SH <- SH %>%
+    dplyr::select(all_of(ordered_cols))
+
+
+  write.csv(SH, paste0(path_tall, "/soil_horizons_tall.csv"), row.names = FALSE)
+  write.csv(SH, paste0(path_foringest, "/dataSoilHorizons.csv"), row.names = FALSE)
+}
+
+
+#' Read and Process Plot Characterization Data
+#'
+#' @description Reads terrestrial AIM/LMF spatial feature classes from a geodatabase,
+#'   joins plot spatial attributes (coordinates, GPS, and point information) to a base
+#'   header dataset, aligns the output columns to a specified schema, and exports
+#'   the resulting table as a CSV file.
+#'
+#' @param dsn Character. The Data Source Name or path to the File Geodatabase (.gdb)
+#'   containing the AIM feature layers.
+#' @param dataHeader Data frame or tibble. The base header dataset containing
+#'   core plot fields (e.g., `ProjectKey`, `PrimaryKey`, `DateVisited`, etc.).
+#' @param path_schema Character. File path to the CSV schema definition file.
+#' @param path_foringest Character. Directory path where the processed
+#'   `dataPlotCharacterization.csv` output should be written.
+#'
+#' @return A tibble of the `dataPlotCharacterization` table, invisibly returning
+#'   the processed dataset alongside saving the CSV.
+#'
+#' @importFrom sf st_read
+#' @importFrom readr read_csv write_csv
+#' @importFrom dplyr %>% select filter pull left_join rename mutate all_of
+#'
+#' @export
+create_plot_characterization_lmf <- function(dsn,
+                                          dataHeader,
+                                          path_schema,
+                                          path_foringest) {
+
+  # --- 1. Read Spatial Layers ---
+  ptcoords <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_POINTCOORDINATES", quiet = TRUE)
+  gps      <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_GPS", quiet = TRUE)
+  pt       <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_POINT", quiet = TRUE)
+
+  # Supplementary layers (loaded in original script for downstream use)
+  concern  <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_CONCERN", quiet = TRUE)
+  disturb  <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_DISTURBANCE", quiet = TRUE)
+  esfsg    <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_ESFSG", quiet = TRUE)
+  ptwgt    <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_POINTWEIGHT", quiet = TRUE)
+
+  # --- 2. Extract Schema Field Order ---
+  schema <- readr::read_csv(path_schema, show_col_types = FALSE)
+
+  correct_field_order <- schema %>%
+    dplyr::filter(Table == "dataPlotCharacterization") %>%
+    dplyr::pull(Field)
+
+  # --- 3. Process & Join Data ---
+  dataPlotCharacterization <- dataHeader %>%
+    dplyr::select(
+      ProjectKey,
+      PrimaryKey,
+      DateVisited,
+      EcologicalSiteID,
+      Longitude_NAD83,
+      Latitude_NAD83,
+      DBKey,
+      DateLoadedInDb,
+      source
+    ) %>%
+    dplyr::rename(EcolSite = EcologicalSiteID) %>%
+
+    # Join coordinates & location metadata
+    dplyr::left_join(
+      ptcoords %>% dplyr::select(PrimaryKey, EstablishDate, STATE, COUNTY),
+      by = "PrimaryKey"
+    ) %>%
+    dplyr::rename(
+      State = STATE,
+      County = COUNTY
+    ) %>%
+
+    # Join elevation
+    dplyr::left_join(
+      gps %>% dplyr::select(PrimaryKey, ELEVATION),
+      by = "PrimaryKey"
+    ) %>%
+    dplyr::rename(Elevation = ELEVATION) %>%
+
+    # Join slope and aspect metadata
+    dplyr::left_join(
+      pt %>% dplyr::select(
+        PrimaryKey,
+        VERTICAL_SLOPE_SHAPE,
+        HORIZONTAL_SLOPE_SHAPE,
+        SLOPE_PERCENT,
+        SLOPE_ASPECT,
+        MLRA
+      ),
+      by = "PrimaryKey"
+    ) %>%
+    dplyr::rename(
+      SlopeShapeVertical   = VERTICAL_SLOPE_SHAPE,
+      SlopeShapeHorizontal = HORIZONTAL_SLOPE_SHAPE,
+      Slope                = SLOPE_PERCENT,
+      Aspect               = SLOPE_ASPECT
+    ) %>%
+
+    # Add required placeholder columns
+    dplyr::mutate(
+      LandscapeType          = NA_character_,
+      LandscapeTypeSecondary = NA_character_,
+      ParentMaterial         = NA_character_,
+      SoilSeries             = NA_character_
+    ) %>%
+
+    # Dynamic reordering based on schema definition
+    dplyr::select(dplyr::all_of(correct_field_order))
+
+  # --- 4. Export & Return ---
+  output_path <- file.path(path_foringest, "dataPlotCharacterization.csv")
+  readr::write_csv(dataPlotCharacterization, output_path)
+
+  return(dataPlotCharacterization)
 }
