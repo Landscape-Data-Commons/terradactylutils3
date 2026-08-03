@@ -1523,7 +1523,6 @@ generate_geoSpecies <- function(path_foringest,
 
   message("=== Starting Geo-Species (GSP) Processing ===")
 
-  projectkey <- unique(tall_header$ProjectKey)
 
   # --- HELPER: SMART READER ---
   smart_read <- function(base_path, base_filename) {
@@ -1552,18 +1551,20 @@ generate_geoSpecies <- function(path_foringest,
     ingestion_date <- format(x = Sys.time(), "%m/%d/%Y")
   }
 
+  projectkey <- unique(tall_header$ProjectKey)
+
   # --- CHECK DISK FOR SUBSETS ---
   has_subsets <- dir.exists(file.path(path_tall, "subset"))
 
   if (has_subsets) {
-    if ("subset_nbr" %in% colnames(tall_header)) {
+    if ("subset_nbr" %in% colnames(tall_header))
       subset_indices <- unique(tall_header$subset_nbr)
-    }
     path_ingest_subset_root <- file.path(path_foringest, "subset_indicators")
     if (!dir.exists(path_ingest_subset_root)) dir.create(path_ingest_subset_root, recursive = TRUE)
 
     message("Found subset directories. Processing chunks...")
   } else {
+    # No subsets exist. Run the entire dataset as a single pass.
     subset_indices <- "root"
     message("No subset directory found. Processing directly from root path_tall...")
     path_ingest_subset_root <- path_foringest
@@ -1579,12 +1580,13 @@ generate_geoSpecies <- function(path_foringest,
     } else {
       current_path_tall   <- file.path(path_tall, "subset", paste0("subset_", s_nbr))
       current_path_ingest <- file.path(path_ingest_subset_root, paste0("subset_", s_nbr))
-      subset_header       <- subset(tall_header, as.character(subset_nbr) == as.character(s_nbr))
+      subset_header       <- tall_header %>% dplyr::filter(as.character(subset_nbr) == as.character(s_nbr))
       message("--- Generating GeoSpecies for Subset: ", s_nbr, " ---")
     }
 
     if (!dir.exists(current_path_ingest)) dir.create(current_path_ingest, recursive = TRUE)
 
+    # Only manage/save an environment header file if we are running real subset chunks
     if (s_nbr != "root") {
       temp_header_path <- file.path(current_path_tall, "header.Rdata")
       if (!dir.exists(current_path_tall)) dir.create(current_path_tall, recursive = TRUE)
@@ -1593,9 +1595,10 @@ generate_geoSpecies <- function(path_foringest,
       eval(substitute(on.exit(if (file.exists(P)) file.remove(P), add = TRUE), list(P = temp_header_path)))
     }
 
+
     for (projkey in projectkey) {
       if (!(projkey %in% subset_header$ProjectKey)) next
-      path_specieslist <- file.path(path_species, paste0(projkey, ".csv"))
+      path_specieslist <- paste0(path_species, paste0(projkey, ".csv"))
 
       if (verbose) message("Reading in headers.")
 
@@ -1648,140 +1651,181 @@ generate_geoSpecies <- function(path_foringest,
       species_code_var <- "SpeciesCode"
       generic_species_file <- NULL
 
-      # Link header metadata to height_tall
-      hgt_tall_raw <- if ("height_tall" %in% names(data)) data[["height_tall"]] else data.frame()
+      # Dynamic lookup for tall inputs
+      # (hgt_tall_raw safely stays NULL/empty if missing)
+      hgt_tall_raw <- if ("height_tall" %in% names(data)) data[["height_tall"]] else NULL
 
-      hgt_tall_header <- dplyr::left_join(
-        x = dplyr::select(.data = header_data, tidyselect::any_of(c("PrimaryKey", "State", "County"))),
-        y = hgt_tall_raw,
-        relationship = "one-to-many",
-        by = "PrimaryKey"
-      )
+      # Height processing ONLY runs if height_tall actually exists and has data
+      height_tall_clean <- NULL
 
-      if (verbose) message("Attempting to join the species list to the height data.")
+      if (!is.null(hgt_tall_raw) && nrow(hgt_tall_raw) > 0) {
 
-      hgt_species <- species_join(data = sf::st_drop_geometry(hgt_tall_header),
-                                  data_code = "Species",
-                                  species_file = species_file,
-                                  species_code = species_code_var,
-                                  species_growth_habit_code = "GrowthHabitSub",
-                                  species_duration = "Duration",
-                                  species_property_vars = c("GrowthHabit",
-                                                            "GrowthHabitSub",
-                                                            "Duration",
-                                                            "Family",
-                                                            "SG_Group",
-                                                            "HigherTaxon",
-                                                            "Nonnative",
-                                                            "Invasive",
-                                                            "Noxious",
-                                                            "SpecialStatus",
-                                                            "Photosynthesis",
-                                                            "PJ",
-                                                            "CurrentPLANTSCode"),
-                                  growth_habit_file = "",
-                                  growth_habit_code = "Code",
-                                  overwrite_generic_species = FALSE,
-                                  generic_species_file = generic_species_file,
-                                  update_species_codes = FALSE,
-                                  by_species_key = FALSE,
-                                  check_species = FALSE,
-                                  verbose = verbose)
+        hgt_tall_header <- dplyr::left_join(
+          x = dplyr::select(.data = header_data, tidyselect::any_of(c("PrimaryKey", "State", "County"))),
+          y = hgt_tall_raw,
+          relationship = "one-to-many",
+          by = "PrimaryKey"
+        )
 
-      # Sanitization / Harmonization
-      expected_variables <- c("GrowthHabit", "GrowthHabitSub", "Duration", "Family",
-                              "HigherTaxon", "Nonnative", "Invasive", "Noxious",
-                              "SpecialStatus", "Photosynthesis", "PJ", "chckbox")
+        if (verbose) message("Attempting to join the species list to the height data.")
 
-      missing_expected_variables <- setdiff(x = expected_variables, names(hgt_species))
+        hgt_species <- species_join(
+          data = sf::st_drop_geometry(hgt_tall_header),
+          data_code = "Species",
+          species_file = species_file,
+          species_code = species_code_var,
+          species_growth_habit_code = "GrowthHabitSub",
+          species_duration = "Duration",
+          species_property_vars = c("GrowthHabit", "GrowthHabitSub", "Duration", "Family",
+                                    "SG_Group", "HigherTaxon", "Nonnative", "Invasive",
+                                    "Noxious", "SpecialStatus", "Photosynthesis", "PJ",
+                                    "CurrentPLANTSCode"),
+          growth_habit_file = "",
+          growth_habit_code = "Species",
+          overwrite_generic_species = FALSE,
+          generic_species_file = generic_species_file,
+          update_species_codes = FALSE,
+          by_species_key = FALSE,
+          check_species = FALSE,
+          verbose = verbose
+        )
 
-      if (length(missing_expected_variables) > 0) {
-        warning(paste0("Missing expected variables for standard indicators: ",
-                       paste(missing_expected_variables, collapse = ", ")))
+        # Sanitization / Harmonization
+        expected_variables <- c("GrowthHabit", "GrowthHabitSub", "Duration", "Family",
+                                "HigherTaxon", "Nonnative", "Invasive", "Noxious",
+                                "SpecialStatus", "Photosynthesis", "PJ", "chckbox")
 
-        missing_df <- matrix(nrow = nrow(hgt_species), ncol = length(missing_expected_variables)) %>%
-          as.data.frame() %>%
-          setNames(nm = missing_expected_variables)
+        missing_expected_variables <- setdiff(x = expected_variables, names(hgt_species))
 
-        hgt_species <- dplyr::bind_cols(hgt_species, missing_df)
-      }
+        if (length(missing_expected_variables) > 0) {
+          if (verbose) {
+            warning(paste0("Missing expected variables for standard indicators: ",
+                           paste(missing_expected_variables, collapse = ", ")))
+          }
 
-      # Standardize Attributes
-      if ("Duration" %in% names(hgt_species)) {
-        hgt_species <- hgt_species %>%
-          dplyr::mutate(Duration = dplyr::case_when(
-            grepl("perennial", Duration, ignore.case = TRUE) ~ "Peren",
-            grepl("(annual)|(biennial)", Duration, ignore.case = TRUE) ~ "Ann",
-            is.na(Duration) ~ "duration_irrelevant",
-            TRUE ~ Duration
-          ))
-      }
+          missing_df <- matrix(nrow = nrow(hgt_species), ncol = length(missing_expected_variables)) %>%
+            as.data.frame() %>%
+            setNames(nm = missing_expected_variables)
 
-      if ("GrowthHabit" %in% names(hgt_species)) {
-        hgt_species <- hgt_species %>%
-          dplyr::mutate(GrowthHabit = dplyr::case_when(
-            grepl("^non-?woody$", GrowthHabit, ignore.case = TRUE) ~ "NonWoody",
-            grepl("^non-?vascular$", GrowthHabitSub, ignore.case = TRUE) ~ "Nonvascular",
-            TRUE ~ GrowthHabit
-          ))
-      }
+          hgt_species <- dplyr::bind_cols(hgt_species, missing_df)
+        }
 
-      if ("GrowthHabitSub" %in% names(hgt_species)) {
-        hgt_species <- hgt_species %>%
-          dplyr::mutate(GrowthHabitSub = dplyr::case_when(
-            grepl("forb", GrowthHabitSub, ignore.case = TRUE) ~ "Forb",
-            grepl("^sub-?shrub$", GrowthHabitSub, ignore.case = TRUE) ~ "SubShrub",
-            grepl("^non-?vascular$", GrowthHabitSub, ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
-            grepl("^moss$", GrowthHabitSub, ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
-            grepl("^lichen$", GrowthHabitSub, ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
-            TRUE ~ GrowthHabitSub
-          ))
-      }
+        # Standardize Attributes
+        if ("Duration" %in% names(hgt_species)) {
+          hgt_species <- hgt_species %>%
+            dplyr::mutate(Duration = dplyr::case_when(
+              grepl("perennial", Duration, ignore.case = TRUE) ~ "Peren",
+              grepl("(annual)|(biennial)", Duration, ignore.case = TRUE) ~ "Ann",
+              is.na(Duration) ~ "duration_irrelevant",
+              TRUE ~ Duration
+            ))
+        }
 
-      if (all(c("GrowthHabit", "GrowthHabitSub", "Species") %in% names(hgt_species))) {
-        hgt_species <- hgt_species %>%
-          dplyr::mutate(Plant = dplyr::case_when(
-            (!GrowthHabitSub %in% c("growthhabitsub_irrelevant")) &
-              GrowthHabit != "Nonvascular" &
-              stringi::stri_length(Species) >= 3 ~ "Plant",
-            TRUE ~ NA_character_
-          ))
-      }
+        if ("GrowthHabit" %in% names(hgt_species)) {
+          hgt_species <- hgt_species %>%
+            dplyr::mutate(GrowthHabit = dplyr::case_when(
+              grepl("^non-?woody$", GrowthHabit, ignore.case = TRUE) ~ "NonWoody",
+              grepl("^non-?vascular$", GrowthHabitSub, ignore.case = TRUE) ~ "Nonvascular",
+              TRUE ~ GrowthHabit
+            ))
+        }
 
-      # Validate and Clean Height values
-      if ("Height" %in% names(hgt_species)) {
-        non_numeric_count <- sum(is.na(suppressWarnings(as.numeric(hgt_species$Height))) & !is.na(hgt_species$Height))
-        if (non_numeric_count > 0) {
-          warning(paste("Warning:", non_numeric_count, "non-numeric Height value(s) converted to NA."))
+        if ("GrowthHabitSub" %in% names(hgt_species)) {
+          hgt_species <- hgt_species %>%
+            dplyr::mutate(GrowthHabitSub = dplyr::case_when(
+              grepl("forb", GrowthHabitSub, ignore.case = TRUE) ~ "Forb",
+              grepl("^sub-?shrub$", GrowthHabitSub, ignore.case = TRUE) ~ "SubShrub",
+              grepl("^non-?vascular$", GrowthHabitSub, ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
+              grepl("^moss$", GrowthHabitSub, ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
+              grepl("^lichen$", GrowthHabitSub, ignore.case = TRUE) ~ "growthhabitsub_irrelevant",
+              TRUE ~ GrowthHabitSub
+            ))
+        }
+
+        if (all(c("GrowthHabit", "GrowthHabitSub", "Species") %in% names(hgt_species))) {
+          hgt_species <- hgt_species %>%
+            dplyr::mutate(Plant = dplyr::case_when(
+              (!GrowthHabitSub %in% c("growthhabitsub_irrelevant")) &
+                GrowthHabit != "Nonvascular" &
+                stringi::stri_length(Species) >= 3 ~ "Plant",
+              TRUE ~ NA_character_
+            ))
+        }
+
+        # Validate and Clean Height values
+        if ("Height" %in% names(hgt_species)) {
+          non_numeric_count <- sum(is.na(suppressWarnings(as.numeric(hgt_species$Height))) & !is.na(hgt_species$Height))
+          if (non_numeric_count > 0 && verbose) {
+            warning(paste("Warning:", non_numeric_count, "non-numeric Height value(s) converted to NA."))
+          }
           hgt_species <- hgt_species %>%
             dplyr::mutate(Height = suppressWarnings(as.numeric(Height)))
         }
-      }
 
-      moss_lichen_codes <- c("LC", "2LICHN", "2LICHN1", "VL", "M", "2MOSS", "2MOSS1")
+        moss_lichen_codes <- c("LC", "2LICHN", "2LICHN1", "VL", "M", "2MOSS", "2MOSS1")
 
-      hgt_species_filtered <- hgt_species %>%
-        dplyr::filter(
-          (is.na(Species) |
-             Species %in% c("None", "N", "") |
-             Plant %in% "Plant" |
-             (is.na(GrowthHabitSub) & !HigherTaxon %in% c("liverwort", "moss"))) &
-            !Species %in% moss_lichen_codes
+        hgt_species_filtered <- hgt_species %>%
+          dplyr::filter(
+            (is.na(Species) |
+               Species %in% c("None", "N", "") |
+               Plant %in% "Plant" |
+               (is.na(GrowthHabitSub) & !HigherTaxon %in% c("liverwort", "moss"))) &
+              !Species %in% moss_lichen_codes
+          )
+
+        height_tall_clean <- hgt_species_filtered %>%
+          dplyr::filter(!Species %in% c("", " ", "N", "None"))
+        # Define the vector of joined columns to drop
+        cols_to_drop <- c(
+          "ScientificName", "ScientificNameFormatted", "CommonName",
+          "GrowthHabit", "Duration", "GrowthHabitSub", "CurrentPLANTSCode",
+          "Notes", "Family", "Noxious", "Invasive", "SG_Group",
+          "HigherTaxon", "Nonnative", "SpecialStatus", "Photosynthesis", "PJ"
         )
 
-      height_tall_clean <- hgt_species_filtered %>%
-        dplyr::filter(!Species %in% c("", " ", "N", "None"))
+        # Strip existing species traits from height_tall (Element 2)
+        height_tall_clean <- height_tall_clean |>
+          dplyr::select(-dplyr::any_of(cols_to_drop))
+        if ("SpeciesState" %in% names(height_tall_clean)) {
+          height_tall_clean$SpeciesState <- NULL
+        }
+      }
+
+      subset_header$State <- NA
+      subset_header$SpeciesState <- NA
+      species_list$SpeciesState <- NULL
+
+      # -------------------------------------------------------------
+      # DYNAMIC ACCUMULATION ARGUMENTS
+      # Build args list conditionally so missing elements are never passed
+      # -------------------------------------------------------------
+      accum_args <- list(
+        header       = subset_header,
+        species_file = species_list,
+        dead         = calculate_dead,
+        source       = "DIMA",
+        digits       = digits,
+        verbose      = verbose
+      )
+
+      # Conditionally append tall datasets if present and populated
+      if (!is.null(data[["lpi_tall"]]) && nrow(data[["lpi_tall"]]) > 0) {
+        accum_args$lpi_tall <- data[["lpi_tall"]]
+      }else{accum_args$lpi_tall <- NULL}
+
+      if (!is.null(height_tall_clean) && nrow(height_tall_clean) > 0) {
+        accum_args$height_tall <- height_tall_clean
+      }else{accum_args$height_tall <- NULL}
+
+      if (!is.null(data[["species_inventory_tall"]]) && nrow(data[["species_inventory_tall"]]) > 0) {
+        accum_args$spp_inventory_tall <- data[["species_inventory_tall"]]
+      }else{accum_args$spp_inventory_tall <- NULL}
+
+      # Pass dynamic list using do.call
+      accumulated_species_data <- do.call(accumulated_species, accum_args)
 
       # Execute core calculations
-      accumulated_species_data <- accumulated_species(lpi_tall = data[["lpi_tall"]],
-                                                      height_tall = height_tall_clean,
-                                                      spp_inventory_tall = data[["species_inventory_tall"]],
-                                                      header = subset_header,
-                                                      species_file = species_list,
-                                                      dead = calculate_dead,
-                                                      source = "DIMA",
-                                                      digits = digits,
-                                                      verbose = verbose) %>%
+      accumulated_species_data <- accumulated_species_data %>%
         dplyr::left_join(y = dplyr::select(subset_header,
                                            tidyselect::any_of(c("PrimaryKey", "DateVisited", "DBKey", "ProjectKey"))),
                          by = "PrimaryKey",
