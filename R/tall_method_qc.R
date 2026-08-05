@@ -1488,15 +1488,15 @@ qc_by_projkey <- function(projectkey,
     if (source == "BLM_AIM") {
       qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
                   USDA_plants = USDA_plants, data_list = NULL, path_qc = path_q,
-                  DIMATables = DIMATables, subset_nbr = subset_nbr)
+                  DIMATables = DIMATables, subset_nbr = subset_nbr, projectkey = projectkey)
     } else if (source == "DIMA") {
       qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
                   USDA_plants = USDA_plants, data_list = dima_data_list,
-                  path_qc = path_q, subset_nbr = subset_nbr)
+                  path_qc = path_q, subset_nbr = subset_nbr, projectkey = projectkey)
     } else if (source == "NRI") {
       qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
                   USDA_plants = USDA_plants, data_list = nri,
-                  path_qc = path_q, subset_nbr = subset_nbr)
+                  path_qc = path_q, subset_nbr = subset_nbr, projectkey = projectkey)
     }
   }
 
