@@ -279,9 +279,9 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   # --- 8. Horizontal Flux ---
   tall_hf <- smart_read(path_tall, "horizontalflux_tall")
   if(!is.null(tall_hf)){
-    print("Translating dust deposition data")
+    print("Translating horizontal flux data")
 
-    dataDustDeposition <- tall_hf |>
+    dataHorizontalFlux <- tall_hf |>
       translate_schema2(schema = schema,
                         datatype = "dataHorizontalFlux",
                         dropcols = TRUE,
