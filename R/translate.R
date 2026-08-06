@@ -261,6 +261,35 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   } else {
     print("Gap data not found")
   }
+  # --- 7. DDT ---
+  tall_ddt <- smart_read(path_tall, "dustdeposition_tall")
+  if(!is.null(tall_ddt)){
+    print("Translating dust deposition data")
+
+    dataDustDeposition <- tall_ddt |>
+      translate_schema2(schema = schema,
+                        datatype = "dataDustDeposition",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataDustDeposition, file.path(path_out, "dataDustDeposition.csv"), row.names = FALSE)
+  } else {
+    print("Dust deposition data not found")
+  }
+
+  # --- 8. Horizontal Flux ---
+  tall_hf <- smart_read(path_tall, "horizontalflux_tall")
+  if(!is.null(tall_hf)){
+    print("Translating dust deposition data")
+
+    dataDustDeposition <- tall_hf |>
+      translate_schema2(schema = schema,
+                        datatype = "dataHorizontalFlux",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataHorizontalFlux, file.path(path_out, "dataHorizontalFlux.csv"), row.names = FALSE)
+  } else {
+    print("Horizontal Flux data not found")
+  }
 
 }
 
