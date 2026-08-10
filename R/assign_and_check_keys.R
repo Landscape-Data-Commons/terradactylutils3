@@ -831,9 +831,13 @@ assign_keys_all <- function(dsn = NULL,
           if ("PlotKey" %in% names(df)) {
             res <- df %>% dplyr::select(PrimaryKey, PlotKey)
           } else if ("LineKey" %in% names(df) && !is.null(lines_lookup)) {
-            res <- df %>%
+            # Ensure join keys are character type to prevent join type errors
+            df_line <- df %>% dplyr::mutate(LineKey = as.character(LineKey))
+            lines_lkp <- lines_lookup %>% dplyr::mutate(LineKey = as.character(LineKey), PlotKey = as.character(PlotKey))
+
+            res <- df_line %>%
               dplyr::select(PrimaryKey, LineKey) %>%
-              dplyr::left_join(lines_lookup, by = "LineKey") %>%
+              dplyr::left_join(lines_lkp, by = "LineKey") %>%
               dplyr::select(PrimaryKey, PlotKey)
           } else {
             res <- df %>%
@@ -842,8 +846,13 @@ assign_keys_all <- function(dsn = NULL,
           }
 
           res <- res %>%
+            # FORCE column types to character before binding to prevent data type collisions
+            dplyr::mutate(
+              PrimaryKey = as.character(PrimaryKey),
+              PlotKey    = as.character(PlotKey)
+            ) %>%
             dplyr::distinct() %>%
-            dplyr::filter(!is.na(PrimaryKey)) %>%
+            dplyr::filter(!is.na(PrimaryKey) & PrimaryKey != "") %>%
             dplyr::mutate(Table_Name = tbl_name)
 
           harvested_list[[fpath]] <- res
