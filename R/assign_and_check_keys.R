@@ -931,9 +931,17 @@ assign_keys_all <- function(dsn = NULL,
       }
     }
 
-    # Save modified tables back to disk
+    # =========================================================================
+    # STEP 3: Save ONLY files in DIMATables to disk (preserve path_project files)
+    # =========================================================================
     for (fpath in names(loaded_tables)) {
-      write.csv(loaded_tables[[fpath]], fpath, row.names = FALSE)
+      # Normalize paths to ensure accurate sub-path detection
+      norm_fpath <- normalizePath(fpath, mustWork = FALSE)
+      norm_dima  <- normalizePath(DIMATables, mustWork = FALSE)
+
+      if (startsWith(norm_fpath, norm_dima)) {
+        write.csv(loaded_tables[[fpath]], fpath, row.names = FALSE)
+      }
     }
 
     # =========================================================================
@@ -1026,6 +1034,24 @@ assign_keys_all <- function(dsn = NULL,
       # Save to QC path
       write.csv(date_qc_report, paste0(path_qc, "/date_discrepancy_report.csv"), row.names = FALSE)
     }
+
+    # =========================================================================
+    # STEP 4: Return named list of DIMATables data frames (stripped of .csv extension)
+    # =========================================================================
+    dima_data_list <- list()
+
+    for (fpath in names(loaded_tables)) {
+      norm_fpath <- normalizePath(fpath, mustWork = FALSE)
+      norm_dima  <- normalizePath(DIMATables, mustWork = FALSE)
+
+      if (startsWith(norm_fpath, norm_dima)) {
+        # Extract table name without .csv suffix
+        clean_name <- gsub("\\.csv$", "", basename(fpath), ignore.case = TRUE)
+        dima_data_list[[clean_name]] <- loaded_tables[[fpath]]
+      }
+    }
+
+    return(dima_data_list)
   }
 }
 
