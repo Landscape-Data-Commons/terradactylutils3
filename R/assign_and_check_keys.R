@@ -938,6 +938,9 @@ assign_keys_all <- function(dsn = NULL,
 
         loaded_tables[[fpath]] <- df
       }
+
+
+
     }
 
     # =========================================================================
@@ -952,6 +955,8 @@ assign_keys_all <- function(dsn = NULL,
         write.csv(loaded_tables[[fpath]], fpath, row.names = FALSE)
       }
     }
+
+
 
     # =========================================================================
     # CONTINUATION: Date Discrepancy QC and Data Import
@@ -1044,9 +1049,6 @@ assign_keys_all <- function(dsn = NULL,
       write.csv(date_qc_report, paste0(path_qc, "/date_discrepancy_report.csv"), row.names = FALSE)
     }
 
-    # =========================================================================
-    # STEP 4: Return named list of DIMATables data frames (stripped of .csv extension)
-    # =========================================================================
     dima_data_list <- list()
 
     for (fpath in names(loaded_tables)) {
