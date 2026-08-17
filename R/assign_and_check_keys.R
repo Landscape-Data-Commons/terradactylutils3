@@ -789,7 +789,11 @@ assign_keys_all <- function(dsn = NULL,
 
       loaded_tables[[file_path]] <- dat
     }
+    key_cols <- c("PrimaryKey", "PlotKey", "LineKey", "RecKey")
 
+    loaded_tables <- lapply(loaded_tables, function(df) {
+      df %>% dplyr::mutate(across(intersect(names(.), key_cols), as.character))
+    })
     # Check if ALL loaded tables possess PrimaryKey
     all_have_pk <- all(sapply(loaded_tables, function(df) "PrimaryKey" %in% names(df)))
 
@@ -963,7 +967,7 @@ assign_keys_all <- function(dsn = NULL,
     # =========================================================================
 
     # 1. Load tblPlots from path_project to get baseline PrimaryKeys and coordinates
-    tbl_plots_path <- list.files(path_project, pattern = "tblPlots", full.names = TRUE, recursive = TRUE)
+    tbl_plots_path <- list.files(DIMATables, pattern = "tblPlots", full.names = TRUE, recursive = TRUE)
     if(length(tbl_plots_path) == 0) stop("tblPlots file not found in path_project.")
 
     tblPlots <- if(grepl("\\.csv$", tbl_plots_path[1], ignore.case = TRUE)) {
