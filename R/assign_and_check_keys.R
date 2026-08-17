@@ -1065,7 +1065,90 @@ assign_keys_all <- function(dsn = NULL,
         dima_data_list[[clean_name]] <- loaded_tables[[fpath]]
       }
     }
+    # Getting DateVisited for these DIMA tables
+    # -----------------------------------------------------------------------------
+    # STEP 1: Parse FormDate ONLY IF DateVisited doesn't already exist
+    # -----------------------------------------------------------------------------
+    dima_data_list <- map(dima_data_list, function(df) {
+      # Keep existing DateVisited if it already exists
+      if ("DateVisited" %in% names(df)) {
+        # Ensure it's formatted as character standard YYYY-MM-DD string
+        return(df %>% mutate(DateVisited = as.character(DateVisited)))
+      }
 
+      # Parse FormDate if DateVisited is missing but FormDate exists
+      if ("FormDate" %in% names(df)) {
+        df <- df %>%
+          mutate(
+            parsed_date = lubridate::parse_date_time(
+              FormDate,
+              orders = c("ymd", "mdy", "dmy", "Ymd HMS", "mdy HMS", "dmy HMS")
+            ),
+            DateVisited = as.character(format(parsed_date, "%Y-%m-%d"))
+          ) %>%
+          select(-parsed_date)
+      }
+
+      return(df)
+    })
+
+    # -----------------------------------------------------------------------------
+    # STEP 2: Build Master Lookup of earliest DateVisited per PrimaryKey
+    # -----------------------------------------------------------------------------
+    primarykey_date_lookup <- map_dfr(dima_data_list, function(df) {
+      if (all(c("PrimaryKey", "DateVisited") %in% names(df))) {
+        df %>%
+          select(PrimaryKey, DateVisited) %>%
+          mutate(
+            PrimaryKey  = as.character(PrimaryKey),
+            DateVisited = as.character(DateVisited)
+          ) %>%
+          filter(!is.na(PrimaryKey) & PrimaryKey != "" & !is.na(DateVisited) & DateVisited != "")
+      } else {
+        NULL
+      }
+    }) %>%
+      group_by(PrimaryKey) %>%
+      summarise(
+        DateVisited = min(DateVisited, na.rm = TRUE),
+        .groups = "drop"
+      )
+
+    # -----------------------------------------------------------------------------
+    # STEP 3: Fallback join for remaining tables missing DateVisited
+    # -----------------------------------------------------------------------------
+    dima_data_list <- map(dima_data_list, function(df) {
+      if (!"DateVisited" %in% names(df) && "PrimaryKey" %in% names(df)) {
+        df %>%
+          mutate(PrimaryKey = as.character(PrimaryKey)) %>%
+          left_join(primarykey_date_lookup, by = "PrimaryKey")
+      } else {
+        df
+      }
+    })
+
+    # -----------------------------------------------------------------------------
+    # STEP 4: Write CSVs to "DIMATables" directory using list element names
+    # -----------------------------------------------------------------------------
+    output_dir <- DIMATables
+    if (!dir.exists(output_dir)) {
+      dir.create(output_dir, recursive = TRUE)
+    }
+
+    iwalk(dima_data_list, function(df, tbl_name) {
+      # Append .csv extension if the element name doesn't already end in .csv
+      out_filename <- if (grepl("\\.csv$", tbl_name, ignore.case = TRUE)) {
+        tbl_name
+      } else {
+        paste0(tbl_name, ".csv")
+      }
+
+      file_path <- file.path(output_dir, out_filename)
+
+      # Export using readr::write_csv
+      readr::write_csv(df, file_path, na = "")
+      message("Saved: ", file_path)
+    })
     return(dima_data_list)
   }
 }
