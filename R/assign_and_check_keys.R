@@ -767,15 +767,16 @@ assign_keys_all <- function(dsn = NULL,
   } else if (source == "DIMA" & !is.null(pkey_assigned)) {
 
     # =========================================================================
-    # STEP 1: Scan, Load, and Rename 'pkey_assigned' to 'PrimaryKey'
+    # STEP 1: Scan, Load, Rename 'pkey_assigned', and Assign 'project' & 'dbname'
     # =========================================================================
-    message(paste0("Scanning files to replace '", pkey_assigned, "' with 'PrimaryKey'..."))
+    message(paste0("Scanning files to replace '", pkey_assigned, "' with 'PrimaryKey' and assign project/dbname..."))
 
     all_project_files <- list.files(path_project, pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
     all_dima_files    <- list.files(DIMATables, pattern = "\\.csv$", full.names = TRUE)
-
-    # Target files to rename/process
     files_to_rename   <- unique(c(all_project_files, all_dima_files))
+
+    # Determine fallback anchor folder name from path_project
+    project_anchor_name <- tolower(basename(normalizePath(path_project, mustWork = FALSE)))
 
     # Read all CSV files into a named list for in-memory processing
     loaded_tables <- list()
@@ -783,11 +784,38 @@ assign_keys_all <- function(dsn = NULL,
       dat <- tryCatch(read.csv(file_path, stringsAsFactors = FALSE), error = function(e) return(NULL))
       if (is.null(dat)) next
 
-      # Case-insensitive column matching for pkey_assigned
+      # Case-insensitive column matching for pkey_assigned -> PrimaryKey
       matching_col <- names(dat)[tolower(names(dat)) == tolower(pkey_assigned)]
       if (length(matching_col) > 0) {
         names(dat)[names(dat) == matching_col] <- "PrimaryKey"
       }
+
+      # -----------------------------------------------------------------------
+      # Extract 'project' and 'dbname' from file directory path
+      # -----------------------------------------------------------------------
+      clean_path_parts <- unlist(strsplit(chartr("\\", "/", file_path), "/"))
+
+      # Priority 1: Search for 'dima_exports'
+      dima_idx <- which(tolower(clean_path_parts) == "dima_exports")[1]
+
+      proj_val <- NA_character_
+      db_val   <- NA_character_
+
+      if (!is.na(dima_idx)) {
+        if (length(clean_path_parts) >= (dima_idx + 1)) proj_val <- clean_path_parts[dima_idx + 1]
+        if (length(clean_path_parts) >= (dima_idx + 2)) db_val   <- clean_path_parts[dima_idx + 2]
+      } else {
+        # Priority 2 Fallback: Search for path_project directory name
+        proj_idx <- which(tolower(clean_path_parts) == project_anchor_name)[1]
+        if (!is.na(proj_idx)) {
+          if (length(clean_path_parts) >= (proj_idx + 1)) proj_val <- clean_path_parts[proj_idx + 1]
+          if (length(clean_path_parts) >= (proj_idx + 2)) db_val   <- clean_path_parts[proj_idx + 2]
+        }
+      }
+
+      # Assign extracted project and dbname if valid
+      if (!is.na(proj_val) && proj_val != "") dat$project <- proj_val
+      if (!is.na(db_val)   && db_val != "")   dat$dbname  <- db_val
 
       loaded_tables[[file_path]] <- dat
     }
@@ -812,7 +840,6 @@ assign_keys_all <- function(dsn = NULL,
         gsub("Header$|Detail$|Notes$|BoxCollection$", "", fname, ignore.case = TRUE)
       }
 
-      # Prefer tblLines from DIMATables to avoid reading raw project files
       lines_path <- names(loaded_tables)[grepl("tblLines(\\.csv)?$", names(loaded_tables), ignore.case = TRUE)][1]
       tblLines_ref <- if (!is.na(lines_path)) loaded_tables[[lines_path]] else NULL
 
@@ -877,7 +904,7 @@ assign_keys_all <- function(dsn = NULL,
         warning("The following PrimaryKey values lack a corresponding PlotKey:\n  - ", warning_info, call. = FALSE)
       }
 
-      # Assign PrimaryKey using Cascade
+      # Cascade PrimaryKey to tables missing it
       for (fpath in names(loaded_tables)) {
         df <- loaded_tables[[fpath]]
         if ("PrimaryKey" %in% names(df)) next
@@ -936,18 +963,15 @@ assign_keys_all <- function(dsn = NULL,
     }
 
     # =========================================================================
-    # STEP 3: Save ALL updated tables to the target DIMATables directory
+    # STEP 3: Save ALL updated tables into the target DIMATables directory
     # =========================================================================
     if (!dir.exists(DIMATables)) {
       dir.create(DIMATables, recursive = TRUE)
     }
 
     for (fpath in names(loaded_tables)) {
-      # Extract just the filename (e.g. "tblPlots.csv")
       fname <- basename(fpath)
       target_path <- file.path(DIMATables, fname)
-
-      # Write updated data directly into the argument directory passed to DIMATables
       write.csv(loaded_tables[[fpath]], target_path, row.names = FALSE)
     }
 
@@ -955,7 +979,7 @@ assign_keys_all <- function(dsn = NULL,
     # STEP 4: Date Discrepancy QC and Final Import (STRICTLY FROM DIMATables DISK)
     # =========================================================================
 
-    # 1. Re-read updated CSVs strictly from DIMATables directory on disk
+    # 1. Re-read updated CSVs directly from the target DIMATables folder
     dima_file_paths <- list.files(DIMATables, pattern = "\\.csv$", full.names = TRUE)
 
     dima_data_list <- list()
@@ -967,7 +991,7 @@ assign_keys_all <- function(dsn = NULL,
       }
     }
 
-    # 2. Get baseline tblPlots from DIMATables with flexible regex
+    # 2. Extract baseline tblPlots from dima_data_list safely
     tbl_plots_idx <- which(grepl("^tblPlots(\\..*)?$", names(dima_data_list), ignore.case = TRUE))[1]
 
     if (is.na(tbl_plots_idx)) {
@@ -988,7 +1012,8 @@ assign_keys_all <- function(dsn = NULL,
     plots_base <- tblPlots %>%
       dplyr::select(PrimaryKey, Latitude, Longitude) %>%
       dplyr::distinct()
-    # 3. Scan DIMATables for DateQC
+
+    # 3. Scan DIMATables for Date QC
     scan_results <- lapply(names(dima_data_list), function(tbl_name) {
       dat <- dima_data_list[[tbl_name]]
       if (is.null(dat)) return(NULL)
@@ -1112,7 +1137,9 @@ assign_keys_all <- function(dsn = NULL,
       message("Saved: ", file_path)
     })
 
-    return(dima_data_list)}
+    return(dima_data_list)
+  }
+
 }
 
 
