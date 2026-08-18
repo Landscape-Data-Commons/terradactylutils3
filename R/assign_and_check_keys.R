@@ -773,6 +773,8 @@ assign_keys_all <- function(dsn = NULL,
 
     all_project_files <- list.files(path_project, pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
     all_dima_files    <- list.files(DIMATables, pattern = "\\.csv$", full.names = TRUE)
+
+    # Target files to rename/process
     files_to_rename   <- unique(c(all_project_files, all_dima_files))
 
     # Read all CSV files into a named list for in-memory processing
@@ -789,32 +791,30 @@ assign_keys_all <- function(dsn = NULL,
 
       loaded_tables[[file_path]] <- dat
     }
+
     key_cols <- c("PrimaryKey", "PlotKey", "LineKey", "RecKey")
 
     loaded_tables <- lapply(loaded_tables, function(df) {
       df %>% dplyr::mutate(across(intersect(names(.), key_cols), as.character))
     })
+
     # Check if ALL loaded tables possess PrimaryKey
     all_have_pk <- all(sapply(loaded_tables, function(df) "PrimaryKey" %in% names(df)))
 
     # =========================================================================
-    # STEP 2: Conditional Logic for Missing PrimaryKeys
+    # STEP 2: Conditional Logic for Missing PrimaryKeys (Cascading Strategy)
     # =========================================================================
     if (!all_have_pk) {
       message("Not all tables have PrimaryKey. Building Master PrimaryKey-PlotKey Map...")
 
-      # --- Helper function to extract method name (e.g. tblLPIHeader.csv -> LPI) ---
       get_method_name <- function(path) {
         fname <- gsub("^tbl|\\.csv$", "", basename(path), ignore.case = TRUE)
         gsub("Header$|Detail$|Notes$|BoxCollection$", "", fname, ignore.case = TRUE)
       }
 
-      # Locate tblLines to perform LineKey -> PlotKey resolution
-      lines_path <- files_to_rename[grepl("tblLines\\.csv$", files_to_rename, ignore.case = TRUE)][1]
-      tblLines_ref <- NULL
-      if (!is.na(lines_path) && lines_path %in% names(loaded_tables)) {
-        tblLines_ref <- loaded_tables[[lines_path]]
-      }
+      # Prefer tblLines from DIMATables to avoid reading raw project files
+      lines_path <- names(loaded_tables)[grepl("tblLines(\\.csv)?$", names(loaded_tables), ignore.case = TRUE)][1]
+      tblLines_ref <- if (!is.na(lines_path)) loaded_tables[[lines_path]] else NULL
 
       lines_lookup <- NULL
       if (!is.null(tblLines_ref) && all(c("LineKey", "PlotKey") %in% names(tblLines_ref))) {
@@ -824,7 +824,7 @@ assign_keys_all <- function(dsn = NULL,
           dplyr::filter(!is.na(LineKey) & !is.na(PlotKey))
       }
 
-      # --- Build Master PrimaryKey <-> PlotKey Map ---
+      # Build Master Map
       harvested_list <- list()
 
       for (fpath in names(loaded_tables)) {
@@ -835,7 +835,6 @@ assign_keys_all <- function(dsn = NULL,
           if ("PlotKey" %in% names(df)) {
             res <- df %>% dplyr::select(PrimaryKey, PlotKey)
           } else if ("LineKey" %in% names(df) && !is.null(lines_lookup)) {
-            # Ensure join keys are character type to prevent join type errors
             df_line <- df %>% dplyr::mutate(LineKey = as.character(LineKey))
             lines_lkp <- lines_lookup %>% dplyr::mutate(LineKey = as.character(LineKey), PlotKey = as.character(PlotKey))
 
@@ -850,7 +849,6 @@ assign_keys_all <- function(dsn = NULL,
           }
 
           res <- res %>%
-            # FORCE column types to character before binding to prevent data type collisions
             dplyr::mutate(
               PrimaryKey = as.character(PrimaryKey),
               PlotKey    = as.character(PlotKey)
@@ -865,7 +863,6 @@ assign_keys_all <- function(dsn = NULL,
 
       harvested_df <- dplyr::bind_rows(harvested_list)
 
-      # Group by PrimaryKey & PlotKey, appending source table names together
       master_key_map <- harvested_df %>%
         dplyr::group_by(PrimaryKey, PlotKey) %>%
         dplyr::summarise(
@@ -874,14 +871,13 @@ assign_keys_all <- function(dsn = NULL,
         ) %>%
         dplyr::distinct()
 
-      # Warn for missing PlotKeys
       na_pk_rows <- master_key_map %>% dplyr::filter(is.na(PlotKey))
       if (nrow(na_pk_rows) > 0) {
         warning_info <- paste0(na_pk_rows$PrimaryKey, " (from ", na_pk_rows$SourceTables, ")", collapse = "\n  - ")
         warning("The following PrimaryKey values lack a corresponding PlotKey:\n  - ", warning_info, call. = FALSE)
       }
 
-      # --- Assign PrimaryKey to tables missing it using cascade strategy ---
+      # Assign PrimaryKey using Cascade
       for (fpath in names(loaded_tables)) {
         df <- loaded_tables[[fpath]]
         if ("PrimaryKey" %in% names(df)) next
@@ -889,14 +885,12 @@ assign_keys_all <- function(dsn = NULL,
         tbl_name <- basename(fpath)
         method_name <- get_method_name(tbl_name)
 
-        # Identify associated Header file (if exists)
         header_path <- names(loaded_tables)[
-          grepl(paste0("tbl", method_name, "Header\\.csv$"), names(loaded_tables), ignore.case = TRUE)
+          grepl(paste0("tbl", method_name, "Header(\\.csv)?$"), names(loaded_tables), ignore.case = TRUE)
         ][1]
 
         assigned <- FALSE
 
-        # Strategy A: Method Header/Detail pair matching via RecKey
         if (!is.na(header_path) && header_path != fpath) {
           header_df <- loaded_tables[[header_path]]
           if ("PrimaryKey" %in% names(header_df) && "RecKey" %in% names(header_df) && "RecKey" %in% names(df)) {
@@ -910,13 +904,11 @@ assign_keys_all <- function(dsn = NULL,
           }
         }
 
-        # Strategy B: Direct PlotKey join against Master Map
         if (!assigned && "PlotKey" %in% names(df)) {
           df <- df %>% dplyr::left_join(dplyr::select(master_key_map, PlotKey, PrimaryKey), by = "PlotKey")
           assigned <- "PrimaryKey" %in% names(df)
         }
 
-        # Strategy C: LineKey -> tblLines -> PlotKey -> Master Map
         if (!assigned && "LineKey" %in% names(df) && !is.null(lines_lookup)) {
           df <- df %>%
             dplyr::left_join(lines_lookup, by = "LineKey") %>%
@@ -924,7 +916,6 @@ assign_keys_all <- function(dsn = NULL,
           assigned <- "PrimaryKey" %in% names(df)
         }
 
-        # Strategy D: RecKey -> Method Header -> LineKey -> tblLines -> PlotKey -> Master Map
         if (!assigned && "RecKey" %in% names(df) && !is.na(header_path)) {
           header_df <- loaded_tables[[header_path]]
           if ("LineKey" %in% names(header_df) && "RecKey" %in% names(header_df) && !is.null(lines_lookup)) {
@@ -942,16 +933,12 @@ assign_keys_all <- function(dsn = NULL,
 
         loaded_tables[[fpath]] <- df
       }
-
-
-
     }
 
     # =========================================================================
-    # STEP 3: Save ONLY files in DIMATables to disk (preserve path_project files)
+    # STEP 3: Save ONLY files targeting DIMATables to disk
     # =========================================================================
     for (fpath in names(loaded_tables)) {
-      # Normalize paths to ensure accurate sub-path detection
       norm_fpath <- normalizePath(fpath, mustWork = FALSE)
       norm_dima  <- normalizePath(DIMATables, mustWork = FALSE)
 
@@ -960,55 +947,50 @@ assign_keys_all <- function(dsn = NULL,
       }
     }
 
-
-
     # =========================================================================
-    # CONTINUATION: Date Discrepancy QC and Data Import
+    # STEP 4: Date Discrepancy QC and Final Processing (STRICTLY IN-MEMORY)
     # =========================================================================
 
-    # 1. Load tblPlots from path_project to get baseline PrimaryKeys and coordinates
-    tbl_plots_path <- list.files(DIMATables, pattern = "tblPlots", full.names = TRUE, recursive = TRUE)
-    if(length(tbl_plots_path) == 0) stop("tblPlots file not found in path_project.")
+    # 1. Retrieve tblPlots directly from updated loaded_tables in memory
+    tbl_plots_key <- names(loaded_tables)[grepl("tblPlots(\\.csv)?$", names(loaded_tables), ignore.case = TRUE)][1]
 
-    tblPlots <- if(grepl("\\.csv$", tbl_plots_path[1], ignore.case = TRUE)) {
-      read.csv(tbl_plots_path[1], stringsAsFactors = FALSE)
-    } else {
-      readRDS(tbl_plots_path[1])
+    if (is.na(tbl_plots_key) || is.null(loaded_tables[[tbl_plots_key]])) {
+      stop("tblPlots object not found in loaded_tables list.")
     }
+
+    tblPlots <- loaded_tables[[tbl_plots_key]]
 
     plots_base <- tblPlots %>%
       dplyr::select(PrimaryKey, Latitude, Longitude) %>%
       dplyr::distinct()
 
-    # 2. Scan all CSV files in DIMATables for DateVisited or FormDate, and PrimaryKey
-    all_files <- list.files(DIMATables, pattern = "\\.csv$", full.names = TRUE)
+    # 2. Filter loaded_tables strictly for DIMATables elements for Date QC
+    dima_memory_tables <- loaded_tables[
+      startsWith(normalizePath(names(loaded_tables), mustWork = FALSE), normalizePath(DIMATables, mustWork = FALSE))
+    ]
 
-    scan_results <- lapply(all_files, function(file_path) {
-      dat <- tryCatch(read.csv(file_path, stringsAsFactors = FALSE), error = function(e) return(NULL))
+    scan_results <- lapply(names(dima_memory_tables), function(file_path) {
+      dat <- dima_memory_tables[[file_path]]
       if (is.null(dat)) return(NULL)
 
-      # Standardize column naming for evaluation
-      names(dat) <- toupper(names(dat))
-
-      has_pk <- "PRIMARYKEY" %in% names(dat)
-      has_date_visited <- "DATEVISITED" %in% names(dat)
-      has_form_date <- "FORMDATE" %in% names(dat)
+      temp_names <- toupper(names(dat))
+      has_pk <- "PRIMARYKEY" %in% temp_names
+      has_date_visited <- "DATEVISITED" %in% temp_names
+      has_form_date <- "FORMDATE" %in% temp_names
 
       if (has_pk && (has_date_visited || has_form_date)) {
-
-        # Pick DateVisited first, fallback to FormDate
-        if (has_date_visited) {
-          res <- dat %>%
-            dplyr::select(PrimaryKey = PRIMARYKEY, RawDate = DATEVISITED)
+        # Standardize matching col names without mutating full frame
+        col_pk <- names(dat)[tolower(names(dat)) == "primarykey"][1]
+        col_date <- if (has_date_visited) {
+          names(dat)[tolower(names(dat)) == "datevisited"][1]
         } else {
-          res <- dat %>%
-            dplyr::select(PrimaryKey = PRIMARYKEY, RawDate = FORMDATE)
+          names(dat)[tolower(names(dat)) == "formdate"][1]
         }
 
-        res <- res %>%
+        res <- dat %>%
+          dplyr::select(PrimaryKey = !!col_pk, RawDate = !!col_date) %>%
           dplyr::filter(!is.na(RawDate) & RawDate != "") %>%
           dplyr::mutate(
-            # Robust multi-format parser for unpredictable date strings
             ParsedDate = lubridate::parse_date_time(
               RawDate,
               orders = c("ymd", "mdy", "dmy", "Ymd HMS", "mdy HMS", "dmy HMS", "Ymd HM", "mdy HM")
@@ -1022,15 +1004,12 @@ assign_keys_all <- function(dsn = NULL,
 
         return(res)
       }
-
       return(NULL)
     })
 
-    # Combine scanned combinations
     scanned_df <- dplyr::bind_rows(scan_results)
 
     if (nrow(scanned_df) > 0) {
-      # 3. Calculate date differences within 1 year (365 days) for identical PrimaryKeys
       scanned_df$DateVisited <- as.Date(scanned_df$DateVisited)
 
       date_qc_report <- scanned_df %>%
@@ -1049,106 +1028,77 @@ assign_keys_all <- function(dsn = NULL,
         dplyr::left_join(plots_base, by = "PrimaryKey") %>%
         dplyr::distinct()
 
-      # Save to QC path
       write.csv(date_qc_report, paste0(path_qc, "/date_discrepancy_report.csv"), row.names = FALSE)
     }
 
+    # Format output list keyed by clean file name
     dima_data_list <- list()
-
-    for (fpath in names(loaded_tables)) {
-      norm_fpath <- normalizePath(fpath, mustWork = FALSE)
-      norm_dima  <- normalizePath(DIMATables, mustWork = FALSE)
-
-      if (startsWith(norm_fpath, norm_dima)) {
-        # Extract table name without .csv suffix
-        clean_name <- gsub("\\.csv$", "", basename(fpath), ignore.case = TRUE)
-        dima_data_list[[clean_name]] <- loaded_tables[[fpath]]
-      }
+    for (fpath in names(dima_memory_tables)) {
+      clean_name <- gsub("\\.csv$", "", basename(fpath), ignore.case = TRUE)
+      dima_data_list[[clean_name]] <- dima_memory_tables[[fpath]]
     }
-    # Getting DateVisited for these DIMA tables
-    # -----------------------------------------------------------------------------
-    # STEP 1: Parse FormDate ONLY IF DateVisited doesn't already exist
-    # -----------------------------------------------------------------------------
-    dima_data_list <- map(dima_data_list, function(df) {
-      # Keep existing DateVisited if it already exists
+
+    # Standardize DateVisited across tables
+    dima_data_list <- purrr::map(dima_data_list, function(df) {
       if ("DateVisited" %in% names(df)) {
-        # Ensure it's formatted as character standard YYYY-MM-DD string
-        return(df %>% mutate(DateVisited = as.character(DateVisited)))
+        return(df %>% dplyr::mutate(DateVisited = as.character(DateVisited)))
       }
 
-      # Parse FormDate if DateVisited is missing but FormDate exists
       if ("FormDate" %in% names(df)) {
         df <- df %>%
-          mutate(
+          dplyr::mutate(
             parsed_date = lubridate::parse_date_time(
               FormDate,
               orders = c("ymd", "mdy", "dmy", "Ymd HMS", "mdy HMS", "dmy HMS")
             ),
             DateVisited = as.character(format(parsed_date, "%Y-%m-%d"))
           ) %>%
-          select(-parsed_date)
+          dplyr::select(-parsed_date)
       }
-
       return(df)
     })
 
-    # -----------------------------------------------------------------------------
-    # STEP 2: Build Master Lookup of earliest DateVisited per PrimaryKey
-    # -----------------------------------------------------------------------------
-    primarykey_date_lookup <- map_dfr(dima_data_list, function(df) {
+    primarykey_date_lookup <- purrr::map_dfr(dima_data_list, function(df) {
       if (all(c("PrimaryKey", "DateVisited") %in% names(df))) {
         df %>%
-          select(PrimaryKey, DateVisited) %>%
-          mutate(
+          dplyr::select(PrimaryKey, DateVisited) %>%
+          dplyr::mutate(
             PrimaryKey  = as.character(PrimaryKey),
             DateVisited = as.character(DateVisited)
           ) %>%
-          filter(!is.na(PrimaryKey) & PrimaryKey != "" & !is.na(DateVisited) & DateVisited != "")
+          dplyr::filter(!is.na(PrimaryKey) & PrimaryKey != "" & !is.na(DateVisited) & DateVisited != "")
       } else {
         NULL
       }
     }) %>%
-      group_by(PrimaryKey) %>%
-      summarise(
+      dplyr::group_by(PrimaryKey) %>%
+      dplyr::summarise(
         DateVisited = min(DateVisited, na.rm = TRUE),
         .groups = "drop"
       )
 
-    # -----------------------------------------------------------------------------
-    # STEP 3: Fallback join for remaining tables missing DateVisited
-    # -----------------------------------------------------------------------------
-    dima_data_list <- map(dima_data_list, function(df) {
+    dima_data_list <- purrr::map(dima_data_list, function(df) {
       if (!"DateVisited" %in% names(df) && "PrimaryKey" %in% names(df)) {
         df %>%
-          mutate(PrimaryKey = as.character(PrimaryKey)) %>%
-          left_join(primarykey_date_lookup, by = "PrimaryKey")
+          dplyr::mutate(PrimaryKey = as.character(PrimaryKey)) %>%
+          dplyr::left_join(primarykey_date_lookup, by = "PrimaryKey")
       } else {
         df
       }
     })
 
-    # -----------------------------------------------------------------------------
-    # STEP 4: Write CSVs to "DIMATables" directory using list element names
-    # -----------------------------------------------------------------------------
-    output_dir <- DIMATables
-    if (!dir.exists(output_dir)) {
-      dir.create(output_dir, recursive = TRUE)
+    # Save finalized CSVs back to DIMATables
+    if (!dir.exists(DIMATables)) {
+      dir.create(DIMATables, recursive = TRUE)
     }
 
-    iwalk(dima_data_list, function(df, tbl_name) {
-      # Append .csv extension if the element name doesn't already end in .csv
-      out_filename <- if (grepl("\\.csv$", tbl_name, ignore.case = TRUE)) {
-        tbl_name
-      } else {
-        paste0(tbl_name, ".csv")
-      }
-
-      file_path <- file.path(output_dir, out_filename)
-
-      # Export using readr::write_csv
+    purrr::iwalk(dima_data_list, function(df, tbl_name) {
+      out_filename <- if (grepl("\\.csv$", tbl_name, ignore.case = TRUE)) tbl_name else paste0(tbl_name, ".csv")
+      file_path <- file.path(DIMATables, out_filename)
       readr::write_csv(df, file_path, na = "")
       message("Saved: ", file_path)
     })
+
     return(dima_data_list)
   }
 }
