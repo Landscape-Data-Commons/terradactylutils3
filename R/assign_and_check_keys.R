@@ -738,7 +738,8 @@ assign_keys_all <- function(dsn = NULL,
         dat$DBKey <- basename(dsn)
         dat <- dat %>% dplyr::distinct()
         write.csv(dat, paste0(path_original_files, "/", toupper(X), ".csv"), row.names = FALSE)
-      })
+      }
+    )
 
     # QC
     terradactylutils3::nri_table_qc(nri = data_list, path_qc = path_qc)
@@ -748,6 +749,7 @@ assign_keys_all <- function(dsn = NULL,
   } else if (source %in% c("BLM_AIM", "lmf")) {
 
     message("PrimaryKey assigned by BLM")
+    return(NULL)
 
   } else if (source %in% c("DIMA", "Other") & is.null(pkey_assigned)) {
 
@@ -780,6 +782,9 @@ assign_keys_all <- function(dsn = NULL,
 
     # Read all CSV files into a named list for in-memory processing
     loaded_tables <- list()
+    global_project <- NA_character_
+    global_dbname  <- NA_character_
+
     for (file_path in files_to_rename) {
       dat <- tryCatch(read.csv(file_path, stringsAsFactors = FALSE), error = function(e) return(NULL))
       if (is.null(dat)) next
@@ -793,8 +798,8 @@ assign_keys_all <- function(dsn = NULL,
       # -----------------------------------------------------------------------
       # Extract 'project' and 'dbname' from file directory path
       # -----------------------------------------------------------------------
+      # Extract from file path
       clean_path_parts <- unlist(strsplit(chartr("\\", "/", file_path), "/"))
-
       # Priority 1: Search for 'dima_exports'
       dima_idx <- which(tolower(clean_path_parts) == "dima_exports")[1]
 
@@ -814,6 +819,11 @@ assign_keys_all <- function(dsn = NULL,
       }
 
       # Assign extracted project and dbname if valid
+      # Track globally if found
+      if (is.na(global_project) && !is.na(proj_val) && proj_val != "") global_project <- proj_val
+      if (is.na(global_dbname)  && !is.na(db_val)   && db_val != "")   global_dbname  <- db_val
+
+      # Attach local if present
       if (!is.na(proj_val) && proj_val != "") dat$project <- proj_val
       if (!is.na(db_val)   && db_val != "")   dat$dbname  <- db_val
 
@@ -821,6 +831,19 @@ assign_keys_all <- function(dsn = NULL,
     }
 
     key_cols <- c("PrimaryKey", "PlotKey", "LineKey", "RecKey")
+    # -------------------------------------------------------------------------
+    # BROADCAST PROJECT & DBNAME TO ALL TABLES
+    # -------------------------------------------------------------------------
+    # If project or dbname were captured anywhere in the path scan, enforce them across ALL tables
+    loaded_tables <- lapply(loaded_tables, function(df) {
+      if (!"project" %in% names(df) || all(is.na(df$project))) {
+        df$project <- global_project
+      }
+      if (!"dbname" %in% names(df) || all(is.na(df$dbname))) {
+        df$dbname <- global_dbname
+      }
+      return(df)
+    })
 
     loaded_tables <- lapply(loaded_tables, function(df) {
       df %>% dplyr::mutate(across(intersect(names(.), key_cols), as.character))
@@ -830,7 +853,7 @@ assign_keys_all <- function(dsn = NULL,
     all_have_pk <- all(sapply(loaded_tables, function(df) "PrimaryKey" %in% names(df)))
 
     # =========================================================================
-    # STEP 2: Conditional Logic for Missing PrimaryKeys (Cascading Strategy)
+    # STEP 2: Conditional Logic for Missing PrimaryKeys
     # =========================================================================
     if (!all_have_pk) {
       message("Not all tables have PrimaryKey. Building Master PrimaryKey-PlotKey Map...")
@@ -851,7 +874,6 @@ assign_keys_all <- function(dsn = NULL,
           dplyr::filter(!is.na(LineKey) & !is.na(PlotKey))
       }
 
-      # Build Master Map
       harvested_list <- list()
 
       for (fpath in names(loaded_tables)) {
@@ -963,7 +985,7 @@ assign_keys_all <- function(dsn = NULL,
     }
 
     # =========================================================================
-    # STEP 3: Save ALL updated tables into the target DIMATables directory
+    # STEP 3: Save ALL updated tables into target DIMATables directory
     # =========================================================================
     if (!dir.exists(DIMATables)) {
       dir.create(DIMATables, recursive = TRUE)
@@ -976,9 +998,8 @@ assign_keys_all <- function(dsn = NULL,
     }
 
     # =========================================================================
-    # STEP 4: Date Discrepancy QC and Final Import (STRICTLY FROM DIMATables DISK)
+    # STEP 4: Date Discrepancy QC & Final Import (STRICTLY FROM DIMATables DISK)
     # =========================================================================
-
     # 1. Re-read updated CSVs directly from the target DIMATables folder
     dima_file_paths <- list.files(DIMATables, pattern = "\\.csv$", full.names = TRUE)
 
@@ -987,6 +1008,11 @@ assign_keys_all <- function(dsn = NULL,
       clean_name <- gsub("\\.csv$", "", basename(fpath), ignore.case = TRUE)
       dat <- tryCatch(read.csv(fpath, stringsAsFactors = FALSE), error = function(e) NULL)
       if (!is.null(dat)) {
+
+        # Backup safety check: enforce project and dbname if missing from disk reads
+        if (!"project" %in% names(dat) || all(is.na(dat$project))) dat$project <- global_project
+        if (!"dbname" %in% names(dat)  || all(is.na(dat$dbname)))  dat$dbname  <- global_dbname
+
         dima_data_list[[clean_name]] <- dat
       }
     }
@@ -995,19 +1021,11 @@ assign_keys_all <- function(dsn = NULL,
     tbl_plots_idx <- which(grepl("^tblPlots(\\..*)?$", names(dima_data_list), ignore.case = TRUE))[1]
 
     if (is.na(tbl_plots_idx)) {
-      stop(
-        "tblPlots file not found in DIMATables directory.\n",
-        "Target directory: ", DIMATables, "\n",
-        "Available tables found: ", paste(names(dima_data_list), collapse = ", ")
-      )
+      stop("tblPlots file not found in DIMATables directory.")
     }
 
     tbl_plots_name <- names(dima_data_list)[tbl_plots_idx]
     tblPlots <- dima_data_list[[tbl_plots_name]]
-
-    if (!"PrimaryKey" %in% names(tblPlots)) {
-      stop("tblPlots in DIMATables is missing the 'PrimaryKey' column.")
-    }
 
     plots_base <- tblPlots %>%
       dplyr::select(PrimaryKey, Latitude, Longitude) %>%
@@ -1095,7 +1113,6 @@ assign_keys_all <- function(dsn = NULL,
       return(df)
     })
 
-    # Build Master Lookup safely
     primarykey_date_lookup <- purrr::map_dfr(dima_data_list, function(df) {
       if ("PrimaryKey" %in% names(df) && "DateVisited" %in% names(df)) {
         df %>%
@@ -1130,18 +1147,16 @@ assign_keys_all <- function(dsn = NULL,
       })
     }
 
-    # Save final updated files back to DIMATables
+    # Save final CSVs to disk with all columns (PrimaryKey, project, dbname, DateVisited) preserved
     purrr::iwalk(dima_data_list, function(df, tbl_name) {
       file_path <- file.path(DIMATables, paste0(tbl_name, ".csv"))
       readr::write_csv(df, file_path, na = "")
-      message("Saved: ", file_path)
     })
 
     return(dima_data_list)
+
   }
-
 }
-
 
 #' Quality Control Check for Primary Keys and Visit Dates
 #'
