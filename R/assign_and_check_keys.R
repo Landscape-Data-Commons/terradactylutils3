@@ -1075,7 +1075,7 @@ assign_keys_all <- function(dsn = NULL,
       write.csv(date_qc_report, paste0(path_qc, "/date_discrepancy_report.csv"), row.names = FALSE)
     }
 
-    # 4. Standardize DateVisited across dima_data_list
+    # 4. Standardize DateVisited across dima_data_list (preserving project and dbname)
     dima_data_list <- purrr::map(dima_data_list, function(df) {
       if ("DateVisited" %in% names(df)) {
         return(df %>% dplyr::mutate(DateVisited = as.character(DateVisited)))
@@ -1095,7 +1095,7 @@ assign_keys_all <- function(dsn = NULL,
       return(df)
     })
 
-    # Build Master Lookup safely (checking for PrimaryKey existence)
+    # Build Master Lookup safely
     primarykey_date_lookup <- purrr::map_dfr(dima_data_list, function(df) {
       if ("PrimaryKey" %in% names(df) && "DateVisited" %in% names(df)) {
         df %>%
@@ -1118,7 +1118,7 @@ assign_keys_all <- function(dsn = NULL,
           .groups = "drop"
         )
 
-      # Join back to tables missing DateVisited but having PrimaryKey
+      # Join back to tables missing DateVisited without dropping project or dbname
       dima_data_list <- purrr::map(dima_data_list, function(df) {
         if (!"DateVisited" %in% names(df) && "PrimaryKey" %in% names(df)) {
           df %>%
