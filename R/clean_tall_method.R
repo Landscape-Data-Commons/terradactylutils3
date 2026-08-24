@@ -153,7 +153,7 @@ clean_tall_soil_stability <- function(tall_soil_stability, dataHeader, path_tall
     dplyr::filter(PrimaryKey %in% pkeys) |> unique()
   # add back in cols that are currently being removed with the function
   tall_soil_stability$DBKey <- dataHeader$DBKey[match(tall_soil_stability$PrimaryKey, dataHeader$PrimaryKey)]
-  tall_soil_stability$Hydro <- rep(FALSE)
+  #tall_soil_stability$Hydro <- rep(FALSE)
   #tall_soil_stability$DateVisited <- as.character(tall_soil_stability$DateVisited)
   #rename
   tall_soil_stability <- tall_soil_stability |>
