@@ -12,7 +12,8 @@ qc_tall_all(
   data_list = NULL,
   path_qc,
   DIMATables = NULL,
-  subset_nbr = NULL
+  subset_nbr = NULL,
+  projectkey
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ qc_tall_all(
 \item{DIMATables}{folder path to raw DIMA tables - AIM and DIMA only - keys not yet assigned}
 
 \item{subset_nbr}{one or multiple numbers; an optional variable for running in subsets}
+
+\item{projectkey}{ProjectKey}
 }
 \description{
 QC tall files

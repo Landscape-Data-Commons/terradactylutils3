@@ -312,6 +312,27 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
     saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
     write.csv(dataHeader, paste0(gathered_data,"/header.csv"), row.names = F)
 
+  }else if(source == "lmf"){
+    POINT <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_POINT") # point info
+    ptcoords <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_POINTCOORDINATES") #coords
+    GPS <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_GPS") #elev etc
+    ESFSG <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_ESFSG") #mlra and coverage
+
+    header <- gather_header_lmf(dsn = dsn, POINT = POINT, source == "LMF",
+                                POINTCOORDINATES = ptcoords,
+                                GPS = GPS,
+                                ESFSG = ESFSG,
+                                verbose = verbose)
+    dataHeader$LocationStatus <- "Reported"
+    #header$State <- NA
+    #remove NAs
+    dataHeader <- dataHeader[!is.na(dataHeader$DateVisited),]
+    #dropcols_header <- header %>% dplyr::select(-"DBKey", -"DateLoadedInDb")
+    #header <- header[which(!duplicated(dropcols_header)),]
+    dataHeader$SpeciesState <- rep(projectkey)
+    write.csv(dataHeader, file.path(path_tall, "header.csv"), row.names = F)
+    saveRDS(dataHeader, file.path(path_tall, "header.rdata"))
+
   }else{
     gathered_data <- paste0(path_parent,"/gathered_data")
     dataHeader <- terradactylutils3::create_header(path_tall = path_tall, tblPlots = tblPlots, todaysDate = todaysDate, source = source,
@@ -333,39 +354,46 @@ create_header_all <- function(source, path_original_files = NULL, path_tall, dsn
 #' @return folders for data preparation for the LDC, if not already created
 #'
 #' @export
-create_dirs <- function(path_parent, source){
+create_dirs <- function(path_parent, source) {
 
-  #setting file path for directories that the user does not edit
-  path_cache <<- file.path(path_parent, "Cache")
-  path_qc <<- file.path(path_parent, "QC") # path where the QC data will be saved
-  path_tall <<- file.path(path_parent, "Tall") # path where the tall data will be saved
-  path_original_files <<- file.path(path_parent, "original_files")
-  path_qc <<- file.path(path_parent, "QC")
-  DIMATables <<- file.path(path_parent, "DIMATables")
-  sensitive_data <<- file.path(path_parent, "sensitive_data")
-  gathered_data <<-file.path(path_parent, "gathered_data")
+  # 1. Build a named list of paths
+  paths <- list(
+    path_cache          = file.path(path_parent, "Cache"),
+    path_qc             = file.path(path_parent, "QC"),
+    path_tall           = file.path(path_parent, "Tall"),
+    path_original_files = file.path(path_parent, "original_files"),
+    DIMATables          = file.path(path_parent, "DIMATables"),
+    sensitive_data      = file.path(path_parent, "sensitive_data"),
+    gathered_data       = file.path(path_parent, "gathered_data"),
+    Tables              = file.path(path_parent, "Tables"),
+    path_foringest      = file.path(path_parent, "For Ingest")
+  )
 
-  # set up directories if not yet in parent folder
+  # 2. Create the directories safely
   if(!dir.exists(path_parent)) dir.create(path_parent)
-  if(!dir.exists(path_cache)) dir.create(path_cache)
-  if(!dir.exists(path_qc)) dir.create(path_qc)
-  if(!dir.exists(gathered_data)) dir.create(gathered_data)
+  if(!dir.exists(paths$path_cache)) dir.create(paths$path_cache)
+  if(!dir.exists(paths$path_qc)) dir.create(paths$path_qc)
+  if(!dir.exists(paths$gathered_data)) dir.create(paths$gathered_data)
 
   if(source == "NRI"){
-    if(!dir.exists(path_original_files)) dir.create(path_original_files)
-    if(!dir.exists(path_qc)) dir.create(path_qc)
-    if(!dir.exists(sensitive_data)) dir.create(sensitive_data)
-
+    if(!dir.exists(paths$path_original_files)) dir.create(paths$path_original_files)
+    if(!dir.exists(paths$path_qc)) dir.create(paths$path_qc)
+    if(!dir.exists(paths$sensitive_data)) dir.create(paths$sensitive_data)
   }
 
-  path_tall <<- file.path(path_parent, "Tall")
-  if(!dir.exists(path_tall)) dir.create(path_tall)
-  path_foringest <<- file.path(path_parent, "For Ingest")
-  if(!dir.exists(path_foringest)) dir.create(path_foringest)
-  if(source == "DIMA"){
-    if(!dir.exists(DIMATables)) dir.create(DIMATables)}
-}
+  if(!dir.exists(paths$path_tall)) dir.create(paths$path_tall)
+  if(!dir.exists(paths$path_foringest)) dir.create(paths$path_foringest)
 
+  if(source == "DIMA"){
+    if(!dir.exists(paths$DIMATables)) dir.create(paths$DIMATables)
+  }
+  if(source == "DIMA" || source == "Other"){
+    if(!dir.exists(paths$Tables)) dir.create(paths$Tables)
+  }
+
+  # Return the list of paths to the user/parent function
+  return(paths)
+}
 
 
 
@@ -571,8 +599,8 @@ create_aim_og_files <- function(dsn, path_parent){
 
 # write the DIMATables
 #st_layers(dsn)
-DIMATables <- file.path(path_parent, "DIMATables")
-if(!dir.exists(DIMATables)) dir.create(DIMATables)
+Tables <- file.path(path_parent, "Tables")
+if(!dir.exists(Tables)) dir.create(Tables)
 
 tblLPIDetail <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblLPIDetail")
 tblGapDetail <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblGapDetail")
@@ -584,13 +612,14 @@ tblPlots <- st_read(dsn = dsn, layer = "AIM_TerrestrialTerradat__F_tblPlots")
 
 
 
-write.csv(tblLPIDetail, paste0(DIMATables, "/tblLPIDetail.csv"))
-write.csv(tblGapDetail, paste0(DIMATables, "/tblGapDetail.csv"))
-write.csv(tblSoilStabDetail, paste0(DIMATables, "/tblSoilStabDetail.csv"))
-write.csv(tblLPIHeader, paste0(DIMATables, "/tblLPIHeader.csv"))
-write.csv(tblLines, paste0(DIMATables, "/tblLines.csv"))
-write.csv(tblPlots, paste0(DIMATables, "/tblPlots.csv"))
-
+write.csv(tblLPIDetail, paste0(Tables, "/tblLPIDetail.csv"))
+write.csv(tblGapDetail, paste0(Tables, "/tblGapDetail.csv"))
+write.csv(tblSoilStabDetail, paste0(Tables, "/tblSoilStabDetail.csv"))
+write.csv(tblLPIHeader, paste0(Tables, "/tblLPIHeader.csv"))
+write.csv(tblLines, paste0(Tables, "/tblLines.csv"))
+write.csv(tblPlots, paste0(Tables, "/tblPlots.csv"))
+# Return the path string to the environment
+return(Tables)
 }
 
 
@@ -971,4 +1000,466 @@ create_dimatables_RW <- function(dsn, projectkey, path_dimatables, path_tall) {
   utils::write.csv(tblLines, file.path(path_dimatables, "tblLines.csv"), row.names = FALSE)
 
   #return(invisible(missing_plots))
+}
+
+
+
+#' Create tables in terradactyl expected format
+#'
+#' @description
+#' Reads core vegetation field data methods (LPI, Gap, Species Richness) from a spatial database
+#' (DSN geodatabase/shapefile), CSV files, or standard R dataframes and converts them to the format
+#' needed for terradactyl
+#'
+#' @param dsn Character. The file path to a spatial database (e.g., `.gdb` folder or folder containing shapefiles). Defaults to `NULL`.
+#' @param csv_path Character. The file path to a folder containing raw `.csv` input tables. Defaults to `NULL`.
+#' @param projectkey Character. Unique identifier assigned as the `ProjectKey`, `SpeciesState`, and default fallback tracker across tables.
+#' @param path_tables Character. The target output directory path where finalized `.csv` tables will be saved.
+#' @param tblPlots_input Character string name of the plot layer within the DSN/CSV path, or an inline dataframe object.
+#' @param tblLines_input Character string name of the lines layer within the DSN/CSV path, or an inline dataframe object.
+#' @param plots_map Named list. Direct mapping of required plot schema attributes to incoming column names (e.g., `list(PrimaryKey = "EvaluationID")`).
+#' @param lines_map Named list. Direct mapping of required line schema attributes to incoming column names.
+#' @param sites_map Named list. Optional tracking maps for sites schema attributes. Defaults to `NULL`.
+#' @param tblPlots_input_alt Optional alternative plot data structures. Defaults to `NULL`.
+#' @param tblSites_input Optional alternative site data structures or layer names. Defaults to `NULL`.
+#' @param tblLPIHeader_input Character string layer name or dataframe for LPI header data. Defaults to `NULL`.
+#' @param lpi_header_map Named list. Column mapping list for the LPI Header table. Defaults to `NULL`.
+#' @param tblLPIDetail_input Character string layer name or dataframe for LPI point-level detailed data. Defaults to `NULL`.
+#' @param lpi_detail_map Named list. Column mapping list for LPI point details. Defaults to `NULL`.
+#' @param tblSpecRichHeader_input Character string layer name or dataframe for Species Richness headers. Defaults to `NULL`.
+#' @param spec_rich_header_map Named list. Column mapping list for Species Richness headers. Defaults to `NULL`.
+#' @param tblSpecRichDetail_input Character string layer name or dataframe for Species Richness detailed species counts. Defaults to `NULL`.
+#' @param spec_rich_detail_map Named list. Column mapping list for Species Richness details. Defaults to `NULL`.
+#' @param tblGapHeader_input Character string layer name or dataframe for Canopy/Basal Gap intercept headers. Defaults to `NULL`.
+#' @param gap_header_map Named list. Column mapping list for Gap intercept headers. Defaults to `NULL`.
+#' @param tblGapDetail_input Character string layer name or dataframe for localized Gap intercept measurements. Defaults to `NULL`.
+#' @param gap_detail_map Named list. Column mapping list for raw Gap segments. Defaults to `NULL`.
+#' @param crs_option Character. Spatial coordinate reference system projection choice. Options are `"NAD83"` (EPSG 4269) or `"WGS84"` (EPSG 4326). Defaults to `"NAD83"`.
+#' @param DBKey the name of the DBKey that will be added to tblPlots
+#' @export
+create_tables <- function(dsn = NULL,
+                          csv_path = NULL,
+                          projectkey,
+                          path_tables,
+                          # Required base core data inputs
+                          tblPlots_input,
+                          tblLines_input,
+                          # Required mapping lists
+                          plots_map,
+                          lines_map,
+                          sites_map = NULL,
+                          # All structural tables are now completely optional (Default to NULL)
+                          tblPlots_input_alt = NULL,
+                          tblSites_input = NULL,
+                          tblLPIHeader_input = NULL,
+                          lpi_header_map = NULL,
+                          tblLPIDetail_input = NULL,
+                          lpi_detail_map = NULL,
+                          tblSpecRichHeader_input = NULL,
+                          spec_rich_header_map = NULL,
+                          tblSpecRichDetail_input = NULL,
+                          spec_rich_detail_map = NULL,
+                          tblGapHeader_input = NULL,
+                          gap_header_map = NULL,
+                          tblGapDetail_input = NULL,
+                          gap_detail_map = NULL,
+                          crs_option = "NAD83") {
+
+  library(dplyr)
+  library(sf)
+  library(utils)
+
+  # --- Helper function for robust date conversion ---
+  smart_date <- function(date_vec) {
+    if (is.null(date_vec)) return(as.character(NA))
+    parsed_date <- suppressWarnings(as.Date(as.character(date_vec)))
+    if (all(is.na(parsed_date)) && is.numeric(suppressWarnings(as.numeric(na.omit(date_vec))))) {
+      parsed_date <- suppressWarnings(as.Date(as.numeric(date_vec), origin = "1899-12-30"))
+    }
+    return(format(parsed_date, "%Y-%m-%d"))
+  }
+
+  # --- Helper function to build structured schema out of messy data ---
+  build_schema_table <- function(raw_input, layer_name, mapping_list, required_cols) {
+    df <- NULL
+    if (!is.null(dsn)) {
+      df <- suppressWarnings(tryCatch(sf::st_read(dsn = dsn, layer = layer_name, quiet = TRUE), error = function(e) NULL))
+    } else if (!is.null(csv_path)) {
+      file_target <- file.path(csv_path, paste0(raw_input, ".csv"))
+      if (file.exists(file_target)) df <- utils::read.csv(file_target, stringsAsFactors = FALSE)
+    } else if (is.data.frame(raw_input)) {
+      df <- raw_input
+    }
+
+    if (is.null(df)) return(NULL)
+    if (inherits(df, "sf")) df <- sf::st_drop_geometry(df)
+
+    out_df <- data.frame(matrix(ncol = length(required_cols), nrow = nrow(df)))
+    colnames(out_df) <- required_cols
+
+    if ("PrimaryKey" %in% names(mapping_list)) {
+      pkey_col <- mapping_list[["PrimaryKey"]]
+      if (!is.null(pkey_col) && pkey_col %in% names(df)) {
+        out_df$PrimaryKey <- df[[pkey_col]]
+      }
+    }
+
+    for (req_col in required_cols) {
+      if (req_col %in% names(mapping_list)) {
+        source_col <- mapping_list[[req_col]]
+        if (!is.null(source_col) && source_col %in% names(df)) {
+          out_df[[req_col]] <- df[[source_col]]
+        }
+      }
+    }
+    return(out_df)
+  }
+
+  # ==========================================
+  # 1. GENERATE TBLPLOTS
+  # ==========================================
+  plots_cols <- c("ProjectKey", "PlotKey", "PlotID", "DateVisited", "Latitude", "Longitude",
+                  "DateLoadedInDb", "source", "State", "SpeciesState", "wkb_geometry",
+                  "EcologicalSiteId", "PercentCoveredByEcoSite", "SiteKey", "EcolSite", "County", "PrimaryKey")
+
+  if (!is.null(dsn)) {
+    raw_plots <- sf::st_read(dsn = dsn, layer = tblPlots_input, quiet = TRUE)
+    target_epsg <- if (toupper(crs_option) == "WGS84") 4326 else 4269
+    raw_plots <- sf::st_transform(raw_plots, target_epsg)
+    coords <- sf::st_coordinates(raw_plots)
+
+    df_plots <- sf::st_drop_geometry(raw_plots)
+    df_plots$calc_lat <- coords[, "Y"]
+    df_plots$calc_lon <- coords[, "X"]
+
+    plots_map$Latitude <- "calc_lat"
+    plots_map$Longitude <- "calc_lon"
+  } else {
+    file_target <- if (!is.null(csv_path)) file.path(csv_path, paste0(tblPlots_input, ".csv")) else NULL
+    df_plots <- if (!is.null(file_target) && file.exists(file_target)) utils::read.csv(file_target, stringsAsFactors = FALSE) else tblPlots_input
+  }
+
+  tblPlots <- build_schema_table(df_plots, tblPlots_input, plots_map, plots_cols)
+
+  if (!is.null(tblPlots)) {
+    tblPlots$ProjectKey      <- projectkey
+    tblPlots$SpeciesState    <- projectkey
+    tblPlots$DateLoadedInDb  <- format(Sys.Date(), "%Y-%m-%d")
+    tblPlots$DateVisited     <- smart_date(tblPlots$DateVisited)
+
+    tblPlots$SiteKey         <- dplyr::coalesce(as.character(tblPlots$SiteKey), projectkey)
+    tblPlots$DBKey <- DBKey
+    if ("PrimaryKey" %in% colnames(tblPlots)) {
+      tblPlots <- tblPlots[!duplicated(tblPlots$PrimaryKey), ]
+    }
+    utils::write.csv(tblPlots, file.path(path_tables, "tblPlots.csv"), row.names = FALSE)
+  }
+
+  # ==========================================
+  # 2. GENERATE TBLSITES
+  # ==========================================
+  sites_cols <- c("SiteKey", "SiteID")
+  if (is.null(sites_map)) {
+    tblSites <- data.frame(SiteKey = projectkey, SiteID = projectkey, stringsAsFactors = FALSE)
+  } else {
+    # FIXED: Changed "tblSites" string to tblSites_input variable
+    tblSites <- build_schema_table(tblSites_input, tblSites_input, sites_map, sites_cols)
+    if (!is.null(tblSites)) {
+      tblSites$SiteKey <- dplyr::coalesce(tblSites$SiteKey, projectkey)
+      tblSites$SiteID  <- dplyr::coalesce(tblSites$SiteID, projectkey)
+    }
+  }
+  if (!is.null(tblSites)) utils::write.csv(tblSites, file.path(path_tables, "tblSites.csv"), row.names = FALSE)
+
+  # ==========================================
+  # 3. GENERATE TBLLINES
+  # ==========================================
+  lines_cols <- c("PlotKey", "LineKey", "LineID", "Azimuth", "PrimaryKey", "DateVisited", "RecKey")
+  # FIXED: Changed "tblLines" string to tblLines_input variable
+  tblLines <- build_schema_table(tblLines_input, tblLines_input, lines_map, lines_cols)
+  if (!is.null(tblLines)) {
+    tblLines$Azimuth     <- suppressWarnings(dplyr::if_else(is.na(tblLines$Azimuth), 999, as.numeric(tblLines$Azimuth)))
+    tblLines$DateVisited <- smart_date(tblLines$DateVisited)
+    tblLines$RecKey      <- dplyr::coalesce(as.character(tblLines$RecKey), as.character(tblLines$LineKey))
+    utils::write.csv(tblLines, file.path(path_tables, "tblLines.csv"), row.names = FALSE)
+  }
+
+  # ==========================================
+  # 4. CONDITIONAL METHODS & EXTRACTION BLOCKS
+  # ==========================================
+
+  # tblLPIHeader
+  if (!is.null(lpi_header_map)) {
+    lpi_header_cols <- c(
+      "LineKey", "RecKey", "DateModified", "FormType", "FormDate", "Observer", "Recorder",
+      "DataEntry", "DataErrorChecking", "Direction", "Measure", "LineLengthAmount",
+      "SpacingIntervalAmount", "SpacingType", "HeightOption", "HeightUOM", "ShowCheckbox",
+      "CheckboxLabel", "State", "DateVisited", "source", "ProjectKey", "SpeciesKey",
+      "DateLoadedInDb", "PlotKey", "LineNumber", "PrimaryKey"
+    )
+    tblLPIHeader <- build_schema_table(tblLPIHeader_input, tblLPIHeader_input, lpi_header_map, lpi_header_cols)
+    if (!is.null(tblLPIHeader)) {
+      tblLPIHeader$Measure        <- 1
+      tblLPIHeader$ProjectKey     <- projectkey
+      tblLPIHeader$SpeciesKey     <- paste0("sp_", projectkey)
+      tblLPIHeader$DateLoadedInDb <- format(Sys.Date(), "%Y-%m-%d")
+      tblLPIHeader$DateVisited    <- smart_date(tblLPIHeader$DateVisited)
+      tblLPIHeader$FormDate       <- tblLPIHeader$DateVisited
+      tblLPIHeader$RecKey         <- dplyr::coalesce(as.character(tblLPIHeader$RecKey), as.character(tblLPIHeader$LineKey))
+      utils::write.csv(tblLPIHeader, file.path(path_tables, "tblLPIHeader.csv"), row.names = FALSE)
+    }
+  }
+
+  # tblLPIDetail
+  if (!is.null(lpi_detail_map)) {
+    lpi_detail_cols <- c(
+      "PrimaryKey", "RecKey", "PointLoc", "PointNbr", "TopCanopy", "Lower1", "Lower2", "Lower3", "Lower4",
+      "SoilSurface", "HeightTop", "ChkboxTop", "ChkboxLower1", "ChkboxLower2", "ChkboxLower3", "ChkboxLower4",
+      "ChkboxSoil", "HeightLower1", "HeightLower2", "HeightLower3", "HeightLower4", "HeightSurface",
+      "HeightWoody", "HeightHerbaceous", "ShrubShape", "SpeciesWoody", "SpeciesHerbaceous", "ChkboxWoody",
+      "ChkboxHerbaceous", "Lower5", "Lower6", "Lower7", "ChkboxLower5", "ChkboxLower6", "ChkboxLower7",
+      "HeightLower5", "HeightLower6", "HeightLower7", "SpeciesLowerHerb", "HeightLowerHerb", "ChkboxLowerHerb"
+    )
+    # FIXED: Changed "tblLPIDetail" string to tblLPIDetail_input variable
+    tblLPIDetail <- build_schema_table(tblLPIDetail_input, tblLPIDetail_input, lpi_detail_map, lpi_detail_cols)
+    if (!is.null(tblLPIDetail)) utils::write.csv(tblLPIDetail, file.path(path_tables, "tblLPIDetail.csv"), row.names = FALSE)
+  }
+
+  # tblSpecRichHeader
+  if (!is.null(spec_rich_header_map)) {
+    sr_header_cols <- c(
+      "LineKey", "RecKey", "DateModified", "FormType", "FormDate", "Observer", "Recorder", "DataEntry",
+      "DataErrorChecking", "SpecRichMethod", "SpecRichMeasure", "SpecRichNbrSubPlots", "SpecRich1Container",
+      "SpecRich1Shape", "SpecRich1Dim1", "SpecRich1Dim2", "SpecRich1Area", "SpecRich2Container", "SpecRich2Shape",
+      "SpecRich2Dim1", "SpecRich2Dim2", "SpecRich2Area", "SpecRich3Container", "SpecRich3Shape", "SpecRich3Dim1",
+      "SpecRich3Dim2", "SpecRich3Area", "SpecRich4Container", "SpecRich4Shape", "SpecRich4Dim1", "SpecRich4Dim2",
+      "SpecRich4Area", "SpecRich5Container", "SpecRich5Shape", "SpecRich5Dim1", "SpecRich5Dim2", "SpecRich5Area",
+      "SpecRich6Container", "SpecRich6Shape", "SpecRich6Dim1", "SpecRich6Dim2", "SpecRich6Area", "Notes", "plotVisitKey", "PrimaryKey"
+    )
+    # FIXED: Changed "tblSpecRichHeader" string to tblSpecRichHeader_input variable
+    tblSpecRichHeader <- build_schema_table(tblSpecRichHeader_input, tblSpecRichHeader_input, spec_rich_header_map, sr_header_cols)
+    if (!is.null(tblSpecRichHeader)) utils::write.csv(tblSpecRichHeader, file.path(path_tables, "tblSpecRichHeader.csv"), row.names = FALSE)
+  }
+
+  # tblSpecRichDetail
+  if (!is.null(spec_rich_detail_map)) {
+    sr_detail_cols <- c("RecKey", "subPlotID", "subPlotDesc", "SpeciesCount", "SpeciesList", "PrimaryKey")
+    # FIXED: Changed "tblSpecRichDetail" string to tblSpecRichDetail_input variable
+    tblSpecRichDetail <- build_schema_table(tblSpecRichDetail_input, tblSpecRichDetail_input, spec_rich_detail_map, sr_detail_cols)
+    if (!is.null(tblSpecRichDetail)) utils::write.csv(tblSpecRichDetail, file.path(path_tables, "tblSpecRichDetail.csv"), row.names = FALSE)
+  }
+
+  # tblGapHeader
+  if (!is.null(gap_header_map)) {
+    gap_header_cols <- c(
+      "LineKey", "RecKey", "DateModified", "FormType", "FormDate", "Observer", "Recorder", "DataEntry",
+      "DataErrorChecking", "Direction", "Measure", "LineLengthAmount", "GapMin", "GapData", "PerennialsCanopy",
+      "AnnualGrassesCanopy", "AnnualForbsCanopy", "OtherCanopy", "sumCanCat1", "sumCanCat2", "sumCanCat3",
+      "sumCanCat4", "pctCanCat1", "pctCanCat2", "pctCanCat3", "pctCanCat4", "sumBasCat1", "sumBasCat2",
+      "sumBasCat3", "sumBasCat4", "pctBasCat1", "pctBasCat2", "pctBasCat3", "pctBasCat4", "Notes",
+      "NoCanopyGaps", "NoBasalGaps", "PerennialsBasal", "AnnualGrassesBasal", "AnnualForbsBasal", "OtherBasal", "PrimaryKey"
+    )
+    # FIXED: Changed "tblGapHeader" string to tblGapHeader_input variable
+    tblGapHeader <- build_schema_table(tblGapHeader_input, tblGapHeader_input, gap_header_map, gap_header_cols)
+    if (!is.null(tblGapHeader)) utils::write.csv(tblGapHeader, file.path(path_tables, "tblGapHeader.csv"), row.names = FALSE)
+  }
+
+  # tblGapDetail
+  if (!is.null(gap_detail_map)) {
+    gap_detail_cols <- c("RecKey", "SeqNo", "RecType", "GapStart", "GapEnd", "Gap", "PrimaryKey")
+    # FIXED: Changed "tblGapDetail" string to tblGapDetail_input variable
+    tblGapDetail <- build_schema_table(tblGapDetail_input, tblGapDetail_input, gap_detail_map, gap_detail_cols)
+    if (!is.null(tblGapDetail)) utils::write.csv(tblGapDetail, file.path(path_tables, "tblGapDetail.csv"), row.names = FALSE)
+  }
+
+  message("Table rendering batch finished successfully!")
+}
+
+
+
+###################################
+#' Gather soil horizons for lmf
+#'
+#' create soil horizon file from lmf dsn
+#'
+#' @param dsn dsn
+#' @param gathered_data path where gathered files are stored
+#' @param dataHeader as dataframe dataHeader
+#' @param path_schema file path to LDC schema plan
+#'
+#' @return gathered soil horizon table to path_tall
+#'
+#' @export
+create_soil_horizons_nri <- function(dsn, gathered_data, dataHeader, path_schema){
+
+  soilh <- sf::st_read(dsn = dsn, layer= "AIM_TerrestrialLMF__F_SOILHORIZON")
+
+  SH <- soilh
+  #drop duplicates
+  dropcols_hf <- SH  %>% dplyr::select_if(!(names(.) %in% c("rid", "DateModified", "SpeciesList")))
+  SH <- SH[which(!duplicated(dropcols_hf)),]
+
+  na_cols <- c("HorizonKey", "HorizonName", "pH", "EC", "ClayPct", "SandPct",
+               "SiltPct", "StructureGrade", "StructureSize", "StructureType",
+               "StructureQuality", "Hue", "Value", "Chroma", "ColorMoistDry",
+               "FragVolGravel", "FragVolCobble", "FragVolStone",
+               "FragVolNodule", "FragVolDurinode")
+  # Pre-create the columns
+  SH[na_cols] <- NA
+  # match columns to expected naming in LDC
+  SH <- SH %>%
+    # many cols are NA, assigning
+    mutate(across(all_of(na_cols), ~NA)) %>%
+    # match the remaining cols
+    mutate(
+      ProjectKey        = "NRI",
+      DateLoadedInDb    = todaysDate,
+      HorizonDepthUpper = DEPTH * 2.54,
+      HorizonDepthLower = DEPTH * 2.54,
+      DepthUOM          = "cm",
+      Texture           = HORIZON_TEXTURE,
+      TextureModifier   = TEXTURE_MODIFIER,
+      Effervescence     = EFFERVESCENCE_CLASS,
+      HorizonNotes      = UNUSUAL_FEATURES,
+      HorizonNumber     = SEQNUM,
+      source            = "NRI"
+    )
+  #match is failing - retrieving DateVisited
+  dates <- dataHeader %>%
+    select(PrimaryKey, DateVisited) %>%
+    distinct(PrimaryKey, .keep_all = TRUE) # Ensures one date per Key
+
+  #join to SH
+  SH <- SH %>%
+    left_join(dates, by = "PrimaryKey")
+
+  # only keep data in schema
+  schema <- read.csv(path_schema)
+  schema <- schema %>% dplyr::filter(Table == "dataSoilHorizons")
+  # schema column order
+  ordered_cols <- schema$Field
+
+  # reorder, keeping schema cols
+  SH <- SH %>%
+    dplyr::select(all_of(ordered_cols))
+
+
+  write.csv(SH, paste0(path_tall, "/soil_horizons_tall.csv"), row.names = FALSE)
+  write.csv(SH, paste0(path_foringest, "/dataSoilHorizons.csv"), row.names = FALSE)
+}
+
+
+#' Read and Process Plot Characterization Data
+#'
+#' @description Reads terrestrial AIM/LMF spatial feature classes from a geodatabase,
+#'   joins plot spatial attributes (coordinates, GPS, and point information) to a base
+#'   header dataset, aligns the output columns to a specified schema, and exports
+#'   the resulting table as a CSV file.
+#'
+#' @param dsn Character. The Data Source Name or path to the File Geodatabase (.gdb)
+#'   containing the AIM feature layers.
+#' @param dataHeader Data frame or tibble. The base header dataset containing
+#'   core plot fields (e.g., `ProjectKey`, `PrimaryKey`, `DateVisited`, etc.).
+#' @param path_schema Character. File path to the CSV schema definition file.
+#' @param path_foringest Character. Directory path where the processed
+#'   `dataPlotCharacterization.csv` output should be written.
+#'
+#' @return A tibble of the `dataPlotCharacterization` table, invisibly returning
+#'   the processed dataset alongside saving the CSV.
+#'
+#' @importFrom sf st_read
+#' @importFrom readr read_csv write_csv
+#' @importFrom dplyr %>% select filter pull left_join rename mutate all_of
+#'
+#' @export
+create_plot_characterization_lmf <- function(dsn,
+                                          dataHeader,
+                                          path_schema,
+                                          path_foringest) {
+
+  # --- 1. Read Spatial Layers ---
+  ptcoords <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_POINTCOORDINATES", quiet = TRUE)
+  gps      <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_GPS", quiet = TRUE)
+  pt       <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_POINT", quiet = TRUE)
+
+  # Supplementary layers (loaded in original script for downstream use)
+  concern  <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_CONCERN", quiet = TRUE)
+  disturb  <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_DISTURBANCE", quiet = TRUE)
+  esfsg    <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_ESFSG", quiet = TRUE)
+  ptwgt    <- sf::st_read(dsn = dsn, layer = "AIM_TerrestrialLMF__F_POINTWEIGHT", quiet = TRUE)
+
+  # --- 2. Extract Schema Field Order ---
+  schema <- readr::read_csv(path_schema, show_col_types = FALSE)
+
+  correct_field_order <- schema %>%
+    dplyr::filter(Table == "dataPlotCharacterization") %>%
+    dplyr::pull(Field)
+
+  # --- 3. Process & Join Data ---
+  dataPlotCharacterization <- dataHeader %>%
+    dplyr::select(
+      ProjectKey,
+      PrimaryKey,
+      DateVisited,
+      EcologicalSiteID,
+      Longitude_NAD83,
+      Latitude_NAD83,
+      DBKey,
+      DateLoadedInDb,
+      source
+    ) %>%
+    dplyr::rename(EcolSite = EcologicalSiteID) %>%
+
+    # Join coordinates & location metadata
+    dplyr::left_join(
+      ptcoords %>% dplyr::select(PrimaryKey, EstablishDate, STATE, COUNTY),
+      by = "PrimaryKey"
+    ) %>%
+    dplyr::rename(
+      State = STATE,
+      County = COUNTY
+    ) %>%
+
+    # Join elevation
+    dplyr::left_join(
+      gps %>% dplyr::select(PrimaryKey, ELEVATION),
+      by = "PrimaryKey"
+    ) %>%
+    dplyr::rename(Elevation = ELEVATION) %>%
+
+    # Join slope and aspect metadata
+    dplyr::left_join(
+      pt %>% dplyr::select(
+        PrimaryKey,
+        VERTICAL_SLOPE_SHAPE,
+        HORIZONTAL_SLOPE_SHAPE,
+        SLOPE_PERCENT,
+        SLOPE_ASPECT,
+        MLRA
+      ),
+      by = "PrimaryKey"
+    ) %>%
+    dplyr::rename(
+      SlopeShapeVertical   = VERTICAL_SLOPE_SHAPE,
+      SlopeShapeHorizontal = HORIZONTAL_SLOPE_SHAPE,
+      Slope                = SLOPE_PERCENT,
+      Aspect               = SLOPE_ASPECT
+    ) %>%
+
+    # Add required placeholder columns
+    dplyr::mutate(
+      LandscapeType          = NA_character_,
+      LandscapeTypeSecondary = NA_character_,
+      ParentMaterial         = NA_character_,
+      SoilSeries             = NA_character_
+    ) %>%
+
+    # Dynamic reordering based on schema definition
+    dplyr::select(dplyr::all_of(correct_field_order))
+
+  # --- 4. Export & Return ---
+  output_path <- file.path(path_foringest, "dataPlotCharacterization.csv")
+  readr::write_csv(dataPlotCharacterization, output_path)
+
+  return(dataPlotCharacterization)
 }

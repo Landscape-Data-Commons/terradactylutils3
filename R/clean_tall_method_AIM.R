@@ -335,3 +335,29 @@ clean_tall_height_aim <- function(tall_height, path_tall, dataHeader, tblLPIHead
 
   return(tall_height)
 }
+
+
+###################################
+#' Clean Tall RH AIM
+#'
+#'after gathering, this function makes adjustments to the tall table that are necessary to produce geofiles and the data prepared for the LDC
+#'
+#' @param tall_rangeland_health as a data.frame, the tall_height file
+#' @param path_tall where all tall files from terradactyl::gather_... were saved
+#'
+#' @return cleaned, in LDC format, file to path_tall
+#'
+#' @export
+clean_tall_rangeland_health_aim <- function(tall_rangeland_health, path_tall) {
+  tall_rangeland_health <- tall_rangeland_health
+dropcols_rangelandhealth <- tall_rangelandhealth  %>% dplyr::select_if(!(names(.) %in% c("DateLoadedInDB", "DBKey", "rid", "DateModified", "SpeciesList")))
+tall_rangelandhealth <- tall_rangelandhealth[which(!duplicated(dropcols_rangelandhealth)),] %>%
+  dplyr::filter(PrimaryKey %in% pkeys) %>% unique()
+
+saveRDS(tall_rangelandhealth, file.path(path_tall, "rangeland_health_tall.rdata"))
+write.csv(tall_rangelandhealth, file.path(path_tall, "rangeland_health_tall.csv"), row.names = F)
+return(tall_rangelandhealth)
+}
+
+
+

@@ -1624,3 +1624,126 @@ safe_parse_date <- function(date_vec) {
 
   return(parsed_dates)
 }
+
+
+#' Process and Export Project Data Assets (Tall Tables)
+#'
+#' Iterates through a vector of project keys to clean, filter, and subset
+#' data tracking assets by their valid primary keys. Handles a bypass save phase
+#' for raw flux and deposition data, followed by standard pipeline formatting and
+#' processing for remaining core indicators.
+#'
+#' @param projectkey Character vector. One or more project identification strings to iterate through.
+#' @param path_species Character string. The file path leading to the reference species lookup database or folder.
+#' @param path_tall Character string. The base target folder path where the project-specific "tall" directories will be created and written to.
+#' @param source Character string. The data source platform (e.g., "DIMA", "NRI").
+#' @param dataHeader Dataframe. The main header metadata frame mapping `PrimaryKey` and `ProjectKey` associations.
+#' @param gathered_file_list List. A named list containing un-segmented data asset dataframes.
+#' @param data_list List. A named list of native DIMA source dataframes. Only required or evaluated if \code{source = "DIMA"}. Defaults to NULL.
+#'
+#'
+#' @export
+process_project_tall <- function(projectkey,
+                                        path_species,
+                                        path_tall,
+                                        source,
+                                        dataHeader,
+                                        gathered_file_list,
+                                        data_list = NULL) {
+
+  # Fetch non-vascular codes for all project keys upfront
+  nonvasc_codes <- filter_nonvascular(project_keys = projectkey, path_species = path_species)
+
+  for (proj in projectkey) {
+    message("--- Processing Project: ", proj, " ---")
+
+    proj_subfolder <- file.path(path_tall, proj)
+    if (!dir.exists(proj_subfolder)) dir.create(proj_subfolder, recursive = TRUE)
+
+    valid_keys <- dataHeader$PrimaryKey[dataHeader$ProjectKey == proj]
+    sub_dataHeader <- dataHeader[dataHeader$ProjectKey == proj, , drop = FALSE]
+
+    # Work on a copy of the gathered file list for this specific project iteration
+    working_list <- gathered_file_list
+
+    # =========================================================================
+    # PHASE 1: GUARANTEED SAVE FOR FLUX & DEPOSITION (Runs always if present)
+    # =========================================================================
+    bypass_types <- c("HorizontalFlux", "DustDeposition")
+    found_bypass <- intersect(names(working_list), bypass_types)
+
+    if (length(found_bypass) > 0) {
+      for (file_name in found_bypass) {
+        df <- working_list[[file_name]]
+
+        if (!is.null(df) && is.data.frame(df)) {
+          # Filter by the project's valid PrimaryKeys
+          if ("PrimaryKey" %in% names(df)) {
+            df <- df[df$PrimaryKey %in% valid_keys, , drop = FALSE]
+          }
+
+          # Format the filename string (e.g., "horizontalflux_tall")
+          clean_name <- paste0(tolower(file_name), "_tall")
+
+          rds_path <- file.path(proj_subfolder, paste0(clean_name, ".rds"))
+          csv_path <- file.path(proj_subfolder, paste0(clean_name, ".csv"))
+
+          # Save straight to disk as-is
+          saveRDS(df, file = rds_path)
+          write.csv(df, file = csv_path, row.names = FALSE)
+
+          message("Successfully saved raw data asset to: ", csv_path)
+        }
+      }
+
+      # CRITICAL: Strip them out of the working list so clean_tall_all never sees them
+      working_list <- working_list[!names(working_list) %in% found_bypass]
+    }
+
+    # =========================================================================
+    # PHASE 2: STANDARD PIPELINE (Runs only if other data remains in the list)
+    # =========================================================================
+    if (length(working_list) == 0) {
+      message("No remaining data types requiring cleaning. Moving to next project.")
+      next
+    }
+
+    message("Processing remaining data types via standard pipeline...")
+
+    current_codes <- nonvasc_codes[[proj]]$SpeciesCode
+    if (length(current_codes) == 0) current_codes <- NULL
+
+    sub_gathered_data_list <- lapply(working_list, function(df) {
+      if ("PrimaryKey" %in% names(df)) return(df[df$PrimaryKey %in% valid_keys, , drop = FALSE])
+      return(df)
+    })
+    names(sub_gathered_data_list) <- names(working_list)
+
+    if (!is.null(names(sub_gathered_data_list))) {
+      names(sub_gathered_data_list) <- names(sub_gathered_data_list) %>%
+        tolower() %>%
+        {ifelse(stringr::str_detect(., "_tall$"), ., paste0(., "_tall"))}
+    }
+
+    sub_data_list <- NULL
+    if (source == "DIMA") {
+      sub_data_list <- lapply(data_list, function(df) {
+        if ("PrimaryKey" %in% names(df)) return(df[df$PrimaryKey %in% valid_keys, , drop = FALSE])
+        return(df)
+      })
+      names(sub_data_list) <- names(data_list)
+    }
+
+    process_and_save_tall(
+      gathered_data_list = sub_gathered_data_list,
+      dataHeader         = sub_dataHeader,
+      source             = source,
+      path_tall          = proj_subfolder,
+      save_dir           = proj_subfolder,
+      nonvasc_codes      = current_codes,
+      data_list          = sub_data_list
+    )
+  }
+
+  return(invisible(NULL))
+}

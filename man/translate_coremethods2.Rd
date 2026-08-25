@@ -4,7 +4,7 @@
 \alias{translate_coremethods2}
 \title{Translate Core Methods}
 \usage{
-translate_coremethods2(path_tall, path_out, path_schema, verbose = F)
+translate_coremethods2(path_tall, path_out, path_schema, verbose = FALSE)
 }
 \arguments{
 \item{path_tall}{path to the tall files produced from terradactylutils2::clean_tall_"method"()}

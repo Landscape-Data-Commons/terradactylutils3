@@ -63,10 +63,9 @@ translate_schema2 <- function(data,
     dplyr::filter(DropColumn)
 
   ## run translation and add data
-  outdata <- dplyr::rename_at(.tbl = data,
-                              .vars = ChangeColumn$terradactylAlias,
-                              .funs = ~ ChangeColumn$Field) |>
-    `is.na<-`(AddColumn$Field |> unique())
+  rename_vector <- setNames(ChangeColumn$terradactylAlias, ChangeColumn$Field)
+  outdata <- data |>
+    dplyr::rename(any_of(rename_vector))
 
 
   # select only the tables in the out schema
@@ -198,8 +197,11 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
     print("Translating height data")
     tall_ht$DateVisited <- as.Date(tall_ht$DateVisited, format = "%Y-%m-%d")
     tall_ht <- tall_ht |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
-    dataHeight <- tall_ht |>
+      left_join(dataHeader |> select(PrimaryKey, DateVisited), by = "PrimaryKey") |>
+            mutate(DateVisited = lubridate::as_date(coalesce(as.character(DateVisited.x),
+                                                       as.character(DateVisited.y)))) |>
+            select(-DateVisited.x, -DateVisited.y)
+        dataHeight <- tall_ht |>
       translate_schema2(schema = schema,
                         datatype = "dataHeight",
                         dropcols = TRUE,
@@ -246,8 +248,10 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
   if(!is.null(tall_gap)){
     print("Translating canopy gap data")
     tall_gap <- tall_gap |>
-      dplyr::left_join(dataHeader |> dplyr::select(PrimaryKey, DateVisited), by = "PrimaryKey")
-
+      left_join(dataHeader |> select(PrimaryKey, DateVisited), by = "PrimaryKey") |>
+      mutate(DateVisited = lubridate::as_date(coalesce(as.character(DateVisited.x),
+                                                       as.character(DateVisited.y)))) |>
+      select(-DateVisited.x, -DateVisited.y)
     dataGap <- tall_gap |>
       translate_schema2(schema = schema,
                         datatype = "dataGap",
@@ -256,6 +260,35 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
     write.csv(dataGap, file.path(path_out, "dataGap.csv"), row.names = FALSE)
   } else {
     print("Gap data not found")
+  }
+  # --- 7. DDT ---
+  tall_ddt <- smart_read(path_tall, "dustdeposition_tall")
+  if(!is.null(tall_ddt)){
+    print("Translating dust deposition data")
+
+    dataDustDeposition <- tall_ddt |>
+      translate_schema2(schema = schema,
+                        datatype = "dataDustDeposition",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataDustDeposition, file.path(path_out, "dataDustDeposition.csv"), row.names = FALSE)
+  } else {
+    print("Dust deposition data not found")
+  }
+
+  # --- 8. Horizontal Flux ---
+  tall_hf <- smart_read(path_tall, "horizontalflux_tall")
+  if(!is.null(tall_hf)){
+    print("Translating horizontal flux data")
+
+    dataHorizontalFlux <- tall_hf |>
+      translate_schema2(schema = schema,
+                        datatype = "dataHorizontalFlux",
+                        dropcols = TRUE,
+                        verbose = TRUE)
+    write.csv(dataHorizontalFlux, file.path(path_out, "dataHorizontalFlux.csv"), row.names = FALSE)
+  } else {
+    print("Horizontal Flux data not found")
   }
 
 }
@@ -270,12 +303,13 @@ translate_coremethods2 <- function(path_tall, path_out, path_schema, verbose = F
 #' @param path_foringest path where data for ingest are saved
 #' @param DateLoadedInDb in standard date format, the date you are running the code
 #' @param DBKey_date the date that will be associated with the DBKey. For DIMAs, this is the date the data were received in Y-m-d format
+#' @param source source indicating where the data are from
 #'
 #' @return CSVs of the for ingest files saved to the specified path_foringest
 #'
 #' @examples db_info(path_foringest = path_foringest,  DateLoadedInDb = format(Sys.Date(), "%m/%d/%Y"))
 #' @export
-db_info <- function(path_foringest, DateLoadedInDb, DBKey_date){
+db_info <- function(path_foringest, DateLoadedInDb, DBKey_date, source){
 
   # read in data
   header <- read.csv(paste0(path_foringest, "/dataHeader.csv"))
@@ -302,28 +336,34 @@ db_info <- function(path_foringest, DateLoadedInDb, DBKey_date){
 
   header$DateLoadedInDb <- rep(todaysDate)
   header$DBKey <- paste0(header$ProjectKey, DBKey_date)
+  header$source <- source
   ind$DateLoadedInDb <- header$DateLoadedInDb[match(ind$PrimaryKey, header$PrimaryKey)]
   ind$DBKey <- header$DBKey[match(ind$PrimaryKey, header$PrimaryKey)]
-
+  ind$source <- source
   if(file.exists(file.path(path_foringest, "/dataLPI.csv"))) {
     LPI$DateLoadedInDb <- header$DateLoadedInDb[match(LPI$PrimaryKey, header$PrimaryKey)]
-  LPI$DBKey <- header$DBKey[match(LPI$PrimaryKey, header$PrimaryKey)]}
+  LPI$DBKey <- header$DBKey[match(LPI$PrimaryKey, header$PrimaryKey)]
+  LPI$source <- source}
 
   if(file.exists(file.path(path_foringest, "/dataGap.csv"))) {
     gap$DateLoadedInDb <- header$DateLoadedInDb[match(gap$PrimaryKey, header$PrimaryKey)]
-gap$DBKey <- header$DBKey[match(gap$PrimaryKey, header$PrimaryKey)]}
+gap$DBKey <- header$DBKey[match(gap$PrimaryKey, header$PrimaryKey)]
+gap$source <- source}
 
   if(file.exists(file.path(path_foringest, "/dataHeight.csv"))) {
     hgt$DateLoadedInDb <- header$DateLoadedInDb[match(hgt$PrimaryKey, header$PrimaryKey)]
-  hgt$DBKey <- header$DBKey[match(hgt$PrimaryKey, header$PrimaryKey)]}
+  hgt$DBKey <- header$DBKey[match(hgt$PrimaryKey, header$PrimaryKey)]
+  hgt$source <- source}
 
   if(file.exists(file.path(path_foringest, "/dataSoilStability.csv"))) {
     ss$DateLoadedInDb <- header$DateLoadedInDb[match(ss$PrimaryKey, header$PrimaryKey)]
-  ss$DBKey <- header$DBKey[match(ss$PrimaryKey, header$PrimaryKey)]}
+  ss$DBKey <- header$DBKey[match(ss$PrimaryKey, header$PrimaryKey)]
+  ss$source <- source}
 
   if(file.exists(file.path(path_foringest, "/geoSpecies.csv"))) {
     sp$DateLoadedInDb <- header$DateLoadedInDb[match(sp$PrimaryKey, header$PrimaryKey)]
-  sp$DBKey <- header$DBKey[match(sp$PrimaryKey, header$PrimaryKey)]}
+  sp$DBKey <- header$DBKey[match(sp$PrimaryKey, header$PrimaryKey)]
+  sp$source <- source}
 
   if(file.exists(file.path(path_foringest, "/dataSpeciesInventory.csv"))) {
     spin$DateLoadedInDb <- header$DateLoadedInDb[match(spin$PrimaryKey, header$PrimaryKey)]
@@ -340,7 +380,8 @@ gap$DBKey <- header$DBKey[match(gap$PrimaryKey, header$PrimaryKey)]}
 
    if(file.exists(file.path(path_foringest, "/dataSoilHorizons.csv"))) {
     sh$DateLoadedInDb <- header$DateLoadedInDb[match(sh$PrimaryKey, header$PrimaryKey)]
-    sh$DBKey <- header$DBKey[match(sh$PrimaryKey, header$PrimaryKey)]}
+    sh$DBKey <- header$DBKey[match(sh$PrimaryKey, header$PrimaryKey)]
+    sh$source <- source}
 
 
 

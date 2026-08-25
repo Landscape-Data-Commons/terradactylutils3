@@ -1327,11 +1327,12 @@ ss_veg_issues <- tall_soil_stability[tall_soil_stability$Veg %notin% valid_veg,]
 #' @param path_qc file path where QC documents will be stored
 #' @param DIMATables folder path to raw DIMA tables - AIM and DIMA only - keys not yet assigned
 #' @param subset_nbr one or multiple numbers; an optional variable for running in subsets
+#' @param projectkey ProjectKey
 #'
 #' @export
 qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
                         data_list = NULL, path_qc, DIMATables = NULL,
-                        subset_nbr = NULL) {
+                        subset_nbr = NULL, projectkey) {
 
   tall_file_names <- c("lpi_tall", "height_tall", "gap_tall",
                        "species_inventory_tall", "soil_stability_tall")
@@ -1344,7 +1345,7 @@ qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
       file_path <- file.path(path_tall, paste0("subset", subset_nbr, "_", file_name, ".csv"))
     } else {
       # If processing the whole project at once, look for the standard file name
-      file_path <- file.path(path_tall, paste0(file_name, ".csv"))
+      file_path <- file.path(path_tall, projectkey, paste0(file_name, ".csv"))
     }
 
     if (file.exists(file_path)) {
@@ -1373,8 +1374,14 @@ qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
   if(exists("nri") && !is.null(nri$PINTERCEPT) && nrow(nri$PINTERCEPT) > 0){
     terradactylutils3::tall_lpi_qc_nri(tall_lpi = lpi_tall, speciescode = speciescode, USDA_plants = USDA_plants, PINTERCEPT = nri$PINTERCEPT, path_qc = subset_qc_path)
 
-  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && nrow(dima_data_list[["tblLPIHeader"]]) > 0){
-    terradactylutils3::tall_lpi_qc(cleaned_tall_lpi = lpi_tall, speciescode = speciescode, tblLPIDetail = dima_data_list$tblLPIDetail, USDA_plants = USDA_plants , path_qc = subset_qc_path)
+  } else if(exists("data_list") && !is.null(data_list[["tblLPIHeader"]]) && nrow(data_list[["tblLPIHeader"]]) > 0){
+    lpi_tall$LineKey <- as.numeric(lpi_tall$LineKey)
+    lpi_tall$RecKey <- as.character(lpi_tall$RecKey)
+    data_list[["tblLPIHeader"]]$LineKey <- as.numeric(data_list[["tblLPIHeader"]]$LineKey)
+    data_list[["tblLPIHeader"]]$RecKey <- as.character(data_list[["tblLPIHeader"]]$RecKey)
+    data_list[["tblLPIDetail"]]$LineKey <- as.numeric(data_list[["tblLPIDetail"]]$LineKey)
+    data_list[["tblLPIDetail"]]$RecKey <- as.character(data_list[["tblLPIDetail"]]$RecKey)
+    terradactylutils3::tall_lpi_qc(cleaned_tall_lpi = lpi_tall, speciescode = speciescode, tblLPIDetail = data_list$tblLPIDetail, USDA_plants = USDA_plants , path_qc = subset_qc_path)
 
   } else if (source == "BLM_AIM"){
     terradactylutils3::tall_lpi_qc_AIM(tall_lpi = lpi_tall, path_tall = path_tall, path_qc = subset_path_qc)
@@ -1387,9 +1394,17 @@ qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
   if(exists("nri") && !is.null(nri$GINTERCEPT) && nrow(nri$GINTERCEPT) > 0 ) {
     terradactylutils3::tall_gap_qc_nri(tall_gap = gap_tall, GINTERCEPT = nri$GINTERCEPT, path_qc = subset_qc_path)
 
-  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblGapHeader"]]) && nrow(dima_data_list[["tblGapHeader"]]) > 0){
+  } else if(exists("data_list") && !is.null(data_list[["tblGapHeader"]]) && nrow(data_list[["tblGapHeader"]]) > 0){
     message("Found DIMA gap data; processing")
-    terradactylutils3::tall_gap_qc(cleaned_tall_gap = gap_tall, tblGapDetail = dima_data_list$tblGapDetail, path_qc = subset_qc_path)
+    gap_tall$LineKey <- as.numeric(gap_tall$LineKey)
+    gap_tall$RecKey <- as.numeric(gap_tall$RecKey)
+    data_list[["tblGapHeader"]]$LineKey <- as.numeric(data_list[["tblGapHeader"]]$LineKey)
+    data_list[["tblGapHeader"]]$RecKey <- as.numeric(data_list[["tblGapHeader"]]$RecKey)
+    data_list[["tblGapDetail"]]$LineKey <- as.numeric(data_list[["tblGapDetail"]]$LineKey)
+    data_list[["tblGapDetail"]]$RecKey <- as.numeric(data_list[["tblGapDetail"]]$RecKey)
+
+
+    terradactylutils3::tall_gap_qc(cleaned_tall_gap = gap_tall, tblGapDetail = data_list$tblGapDetail, path_qc = subset_qc_path)
 
   } else if(source == "BLM_AIM"){
     # Fixed path and extension
@@ -1407,8 +1422,8 @@ qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
       SOILDISAG = nri$SOILDISAG,
       path_qc = subset_qc_path
     )
-  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblSoilStabHeader"]]) && nrow(dima_data_list[["tblSoilStabHeader"]]) > 0){
-    terradactylutils3::tall_soil_stability_qc(tblSoilStabDetail = dima_data_list$tblSoilStabDetail, cleaned_tall_soil_stability = soil_stability_tall, path_qc = subset_qc_path)
+  } else if(exists("data_list") && !is.null(data_list[["tblSoilStabHeader"]]) && nrow(data_list[["tblSoilStabHeader"]]) > 0){
+    terradactylutils3::tall_soil_stability_qc(tblSoilStabDetail = data_list$tblSoilStabDetail, cleaned_tall_soil_stability = soil_stability_tall, path_qc = subset_qc_path)
 
   } else if (source == "BLM_AIM"){
     message("Currently no QC for BLM AIM soil stability")
@@ -1424,8 +1439,8 @@ qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
   if(exists("nri") && !is.null(nri$PASTUREHEIGHTS) && nrow(nri$PASTUREHEIGHTS) > 0) {
     terradactylutils3::tall_height_qc_nri(PASTUREHEIGHTS = nri$PASTUREHEIGHTS, tall_height = height_tall, path_qc = subset_qc_path)
 
-  } else if(exists("dima_data_list") && !is.null(dima_data_list[["tblLPIHeader"]]) && sum(dima_data_list[["tblLPIDetail"]][["HeightHerbaceous"]], na.rm = T) > 0){
-    terradactylutils3::tall_height_qc(tblLPIDetail = dima_data_list$tblLPIDetail, cleaned_tall_height = height_tall, path_qc = subset_qc_path)
+  } else if(exists("data_list") && !is.null(data_list[["tblLPIHeader"]]) && sum(data_list[["tblLPIDetail"]][["HeightHerbaceous"]], na.rm = T) > 0){
+    terradactylutils3::tall_height_qc(tblLPIDetail = data_list$tblLPIDetail, cleaned_tall_height = height_tall, path_qc = subset_qc_path)
 
   } else if (source == "BLM_AIM"){
     message("Currently no BLM AIM height QC")
@@ -1433,4 +1448,110 @@ qc_tall_all <- function(source, path_tall, speciescode, USDA_plants,
   } else {
     message("No height data found")
   }
+}
+
+
+#' QC by ProjectKey
+#'
+#' Identifies which project directories physically exist within the tall output directory,
+#' and executes qc_tall_all checks. It dynamically determines whether a project
+#' has been broken down into multi-part subset chunks, processing chunks sequentially or
+#' processing the project as a single entity.
+#'
+#' @param projectkey Character vector. A list of target project identification strings/keys to validate.
+#' @param path_tall Character string. The base target folder path containing the project subdirectories.
+#' @param path_qc Character string. The base directory path where QC output project subfolders will be target routed.
+#' @param source Character string. The data source type; options include "BLM_AIM", "DIMA", or "NRI".
+#' @param speciescode Character vector or dataframe. Reference species code lookup table for checking data taxonomies.
+#' @param USDA_plants Dataframe or object. Reference matching layout for validation against the USDA PLANTS database.
+#' @param dima_data_list List. A named list of native DIMA source dataframes. Only required if \code{source = "DIMA"}. Defaults to NULL.
+#' @param nri List or object. Cleaned/parsed NRI master data list asset object. Only required if \code{source = "NRI"}. Defaults to NULL.
+#' @param DIMATables Character string. Path to the folder containing raw DIMA tables. Only evaluated if \code{source = "BLM_AIM"}. Defaults to NULL.
+#'
+#' @return Silently returns NULL. Executes processing validation and writes out metrics/reports directly to disk.
+#'
+#' @export
+qc_by_projkey <- function(projectkey,
+                                    path_tall,
+                                    path_qc,
+                                    source,
+                                    speciescode,
+                                    USDA_plants,
+                                    dima_data_list = NULL,
+                                    nri = NULL,
+                                    DIMATables = NULL) {
+
+  # =========================================================================
+  # HELPER INNER FUNCTION: EXECUTE QC ENGINE ROUTINES
+  # =========================================================================
+  execute_qc_call <- function(source, path_t, path_q, subset_nbr = NULL) {
+    if (source == "BLM_AIM") {
+      qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
+                  USDA_plants = USDA_plants, data_list = NULL, path_qc = path_q,
+                  DIMATables = DIMATables, subset_nbr = subset_nbr, projectkey = projectkey)
+    } else if (source == "DIMA") {
+      qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
+                  USDA_plants = USDA_plants, data_list = dima_data_list,
+                  path_qc = path_q, subset_nbr = subset_nbr, projectkey = projectkey)
+    } else if (source == "NRI") {
+      qc_tall_all(source = source, path_tall = path_t, speciescode = speciescode,
+                  USDA_plants = USDA_plants, data_list = nri,
+                  path_qc = path_q, subset_nbr = subset_nbr, projectkey = projectkey)
+    }
+  }
+
+  # =========================================================================
+  # STEP 1: RESOLVE VALID SYSTEM DIRECTORIES
+  # =========================================================================
+  # List all immediate directories inside path_tall
+  all_dirs <- list.dirs(path_tall, full.names = TRUE, recursive = FALSE)
+  dir_names <- basename(all_dirs)
+
+  # Define project_folders as only the project keys that physically exist as folders
+  project_folders <- dir_names[dir_names %in% projectkey]
+
+  if (length(project_folders) == 0) {
+    warning("No directories matching the provided 'projectkey' vector were found in: ", path_tall)
+    return(invisible(NULL))
+  }
+
+  # =========================================================================
+  # STEP 2: LOOP & EVALUATE METADATA SUBSETS
+  # =========================================================================
+  lapply(project_folders, function(proj) {
+
+    message("--- Starting QC for Project: ", proj, " ---")
+
+    # Define clean paths pointing directly to the project roots
+    current_path_tall <- file.path(path_tall, proj)
+    current_path_qc   <- file.path(path_qc, proj)
+
+    # Ensure target QC output folder structure exists before processing
+    if (!dir.exists(current_path_qc)) {
+      dir.create(current_path_qc, recursive = TRUE)
+    }
+
+    # Check if this specific project folder contains subset files
+    sub_files <- list.files(current_path_tall, pattern = "^subset\\d+_", full.names = FALSE)
+
+    if (length(sub_files) > 0) {
+      # Extract unique subset numbers found in this folder (e.g., "1", "2")
+      unique_subsets <- unique(gsub("^subset(\\d+)_.*$", "\\1", sub_files))
+      message("Found ", length(unique_subsets), " subset chunks inside ", proj, ". Processing sequentially...")
+
+      # Loop through each subset chunk present
+      for (s_nbr in unique_subsets) {
+        execute_qc_call(source, current_path_tall, current_path_qc, subset_nbr = s_nbr)
+      }
+
+    } else {
+      # No subsets found! Process the entire project asset as a single entity
+      message("No subsets found. Processing whole project at once...")
+      execute_qc_call(source, current_path_tall, current_path_qc, subset_nbr = NULL)
+    }
+
+    message("--- Finished QC for Project: ", proj, " ---")
+  })
+
+  return(invisible(NULL))
 }
