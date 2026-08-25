@@ -768,21 +768,14 @@ assign_keys_all <- function(dsn = NULL,
 
   } else if (source == "DIMA" & !is.null(pkey_assigned)) {
     # =========================================================================
-    # STEP 1: Scan, Load, Rename 'pkey_assigned', and Assign 'project' & 'dbname'
+    # STEP 1: Scan & Load Raw Project CSVs, Assign Metadata & Standardize Keys
     # =========================================================================
-    # Purpose: Scan all raw source directories for CSV files, load them into R memory,
-    # standardize legacy key names (e.g., mapping a custom key like 'PlotID' to 'PrimaryKey'),
-    # and infer workspace metadata ('project' and 'dbname') directly from the folder paths.
+    message(paste0("Scanning project files to replace '", pkey_assigned, "' with 'PrimaryKey' and assign project/dbname..."))
 
-    message(paste0("Scanning files to replace '", pkey_assigned, "' with 'PrimaryKey' and assign project/dbname..."))
-
-    # Identify all CSV targets across project and DIMA directories recursively
-    all_project_files <- list.files(path_project, pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
-    all_dima_files    <- list.files(DIMATables, pattern = "\\.csv$", full.names = TRUE)
-    files_to_rename   <- unique(c(all_project_files, all_dima_files))
+    # Identify all CSV targets strictly within path_project
+    files_to_rename <- list.files(path_project, pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
 
     # Extract the base directory name of path_project to use as a fallback folder anchor
-    # normalizePath ensures cross-platform path consistency (slashes vs backslashes)
     project_anchor_name <- tolower(basename(normalizePath(path_project, mustWork = FALSE)))
 
     # Prepare state trackers for in-memory tables and fallback global metadata
@@ -791,12 +784,11 @@ assign_keys_all <- function(dsn = NULL,
     global_dbname  <- NA_character_
 
     for (file_path in files_to_rename) {
-      # Safely attempt to read the CSV without crashing the loop if a file is corrupt/empty
+      # Safely attempt to read the CSV
       dat <- tryCatch(read.csv(file_path, stringsAsFactors = FALSE), error = function(e) return(NULL))
       if (is.null(dat)) next
 
-      # Standardize primary key column: Case-insensitive search to replace user-defined
-      # key alias (pkey_assigned) with the schema-standard name "PrimaryKey"
+      # Standardize primary key column if pkey_assigned matches an existing column
       matching_col <- names(dat)[tolower(names(dat)) == tolower(pkey_assigned)]
       if (length(matching_col) > 0) {
         names(dat)[names(dat) == matching_col] <- "PrimaryKey"
@@ -805,11 +797,9 @@ assign_keys_all <- function(dsn = NULL,
       # -----------------------------------------------------------------------
       # Extract 'project' and 'dbname' from file directory path structure
       # -----------------------------------------------------------------------
-      # Parse the directory hierarchy: split the path into individual folder strings
       clean_path_parts <- unlist(strsplit(chartr("\\", "/", file_path), "/"))
 
-      # Priority 1: Check if the file lives under a 'dima_exports' parent folder.
-      # If so, assume folder directly after is 'project' and the next is 'dbname'
+      # Priority 1: Check if the file lives under a 'dima_exports' parent folder
       dima_idx <- which(tolower(clean_path_parts) == "dima_exports")[1]
 
       proj_val <- NA_character_
@@ -819,7 +809,7 @@ assign_keys_all <- function(dsn = NULL,
         if (length(clean_path_parts) >= (dima_idx + 1)) proj_val <- clean_path_parts[dima_idx + 1]
         if (length(clean_path_parts) >= (dima_idx + 2)) db_val   <- clean_path_parts[dima_idx + 2]
       } else {
-        # Priority 2 Fallback: If 'dima_exports' isn't in the path, locate the anchor project directory
+        # Priority 2 Fallback: Locate the anchor project directory
         proj_idx <- which(tolower(clean_path_parts) == project_anchor_name)[1]
         if (!is.na(proj_idx)) {
           if (length(clean_path_parts) >= (proj_idx + 1)) proj_val <- clean_path_parts[proj_idx + 1]
@@ -827,18 +817,18 @@ assign_keys_all <- function(dsn = NULL,
         }
       }
 
-      # Store the first valid 'project' and 'dbname' globally so we can backfill missing tables later
+      # Store the first valid 'project' and 'dbname' globally for backfilling
       if (is.na(global_project) && !is.na(proj_val) && proj_val != "") global_project <- proj_val
       if (is.na(global_dbname)  && !is.na(db_val)   && db_val != "")   global_dbname  <- db_val
 
-      # Append metadata columns locally to the dataset if successfully extracted
+      # Append metadata columns locally to the dataset
       if (!is.na(proj_val) && proj_val != "") dat$project <- proj_val
       if (!is.na(db_val)   && db_val != "")   dat$dbname  <- db_val
 
       loaded_tables[[file_path]] <- dat
     }
 
-    # Define relational key columns to enforce character coercion (prevents numeric vs character join mismatches)
+    # Define relational key columns to enforce character coercion
     key_cols <- c("PrimaryKey", "PlotKey", "LineKey", "RecKey")
 
     # Broadcast captured global metadata to tables that failed path extraction
@@ -857,8 +847,9 @@ assign_keys_all <- function(dsn = NULL,
       df %>% dplyr::mutate(across(intersect(names(.), key_cols), as.character))
     })
 
-    # Flag whether every dataset has PrimaryKey populated or if cascading joins are needed
+    # Flag whether every dataset has PrimaryKey populated
     all_have_pk <- all(sapply(loaded_tables, function(df) "PrimaryKey" %in% names(df)))
+
 
     # =========================================================================
     # STEP 2A: Early In-Memory Date Standardization & Harvesting
@@ -982,6 +973,7 @@ assign_keys_all <- function(dsn = NULL,
     # 4. Construct master_key_map carrying PlotKey, PrimaryKey, and DateVisited
     harvested_df <- harvested_df_raw %>% dplyr::filter(!detail_mask)
 
+    # Construct master_key_map carrying PlotKey, PrimaryKey, and DateVisited
     master_key_map <- harvested_df %>%
       dplyr::group_by(PrimaryKey, PlotKey) %>%
       dplyr::summarise(
@@ -992,13 +984,18 @@ assign_keys_all <- function(dsn = NULL,
       dplyr::mutate(DateVisited = ifelse(is.infinite(DateVisited), NA_character_, DateVisited)) %>%
       dplyr::distinct()
 
+
     # =========================================================================
     # STEP 2B: Cascading PrimaryKey to Child/Detail Tables
     # =========================================================================
 
     for (fpath in names(loaded_tables)) {
       df <- loaded_tables[[fpath]]
-      if ("PrimaryKey" %in% names(df)) next
+
+      # Skip if PrimaryKey is already present or if table is tblLines/tblPlots
+      if ("PrimaryKey" %in% names(df) ||
+          grepl("tblLines", fpath, ignore.case = TRUE) ||
+          grepl("tblPlots", fpath, ignore.case = TRUE)) next
 
       tbl_name <- basename(fpath)
       method_name <- get_method_name(tbl_name)
@@ -1023,7 +1020,7 @@ assign_keys_all <- function(dsn = NULL,
         }
       }
 
-      # Tier 2 Join: Compound match on PlotKey + DateVisited (Disambiguates resamples)
+      # Tier 2 Join: Compound match on PlotKey + DateVisited
       if (!assigned && "PlotKey" %in% names(df) && "DateVisited" %in% names(df)) {
         date_map <- master_key_map %>%
           dplyr::filter(!is.na(PlotKey) & !is.na(DateVisited) & !is.na(PrimaryKey)) %>%
@@ -1091,6 +1088,31 @@ assign_keys_all <- function(dsn = NULL,
       loaded_tables[[fpath]] <- df
     }
 
+
+    # =========================================================================
+    # STEP 2C: Handle tblPlots Explicitly (Multi-PrimaryKey Duplication by PlotKey)
+    # =========================================================================
+
+    plots_path <- names(loaded_tables)[grepl("tblPlots(\\.csv)?$", names(loaded_tables), ignore.case = TRUE)][1]
+
+    if (!is.na(plots_path)) {
+      plots_df <- loaded_tables[[plots_path]]
+
+      if ("PlotKey" %in% names(plots_df)) {
+        plot_key_map <- master_key_map %>%
+          dplyr::filter(!is.na(PlotKey) & !is.na(PrimaryKey)) %>%
+          dplyr::select(PlotKey, PrimaryKey, DateVisited) %>%
+          dplyr::distinct()
+
+        # Joining on PlotKey duplicates tblPlots rows for each unique PrimaryKey/DateVisited combo
+        plots_df <- plots_df %>%
+          dplyr::left_join(plot_key_map, by = "PlotKey", relationship = "many-to-many")
+
+        loaded_tables[[plots_path]] <- plots_df
+      }
+    }
+
+
     # =========================================================================
     # STEP 3: Complete Missing Keys Across loaded_tables
     # =========================================================================
@@ -1136,13 +1158,18 @@ assign_keys_all <- function(dsn = NULL,
     })
 
     # =========================================================================
-    # STEP 4: Standardize Schema & Generate dima_data_list in Memory
+    # STEP 4: Standardize Schema, Format dima_data_list & Write to DIMATables
     # =========================================================================
+
+    # Ensure DIMATables target output directory exists
+    if (!dir.exists(DIMATables)) {
+      dir.create(DIMATables, recursive = TRUE)
+    }
 
     final_processed_tables <- purrr::imap(loaded_tables, function(df, fpath) {
       tbl_name <- basename(fpath)
 
-      # Standardize casing to DBName and Project while maintaining values extracted in Step 1
+      # Standardize casing to DBName and Project
       if ("dbname" %in% names(df) && !"DBName" %in% names(df)) {
         df <- df %>% dplyr::rename(DBName = dbname)
       }
@@ -1171,43 +1198,25 @@ assign_keys_all <- function(dsn = NULL,
       return(df)
     })
 
-    # Generate dima_data_list directly in memory with clean table names
+    # Construct in-memory dima_data_list with clean table names
     dima_data_list <- final_processed_tables
 
-    # =========================================================================
-    # STEP 4B: Generate Clean dima_data_list in Memory
-    # =========================================================================
-
-    # 1. Filter loaded tables: keep ONLY elements whose original file path contains "dima_exports"
-    dima_data_list <- final_processed_tables[
-      grepl("dima_exports", names(final_processed_tables), ignore.case = TRUE)
-    ]
-
-    # 2. Extract clean table names (stripping folder paths and .csv / .gdb extensions)
     names(dima_data_list) <- names(dima_data_list) %>%
       basename() %>%
       stringr::str_replace_all("(?i)\\.csv$", "") %>%
       stringr::str_replace_all("(?i)\\.gdb$", "")
 
-    # =========================================================================
-    # STEP 4C: save DIMATables
-    # =========================================================================
+    # Save all processed data frames as CSV files into DIMATables
+    purrr::iwalk(final_processed_tables, function(df, orig_path) {
+      clean_name <- basename(orig_path)
+      output_path <- file.path(DIMATables, clean_name)
 
-
-    # Filter for tables coming from the DIMATables directory
-    dima_tables_to_write <- final_processed_tables[
-      grepl(normalizePath(DIMATables, mustWork = FALSE), normalizePath(names(final_processed_tables), mustWork = FALSE), ignore.case = TRUE) |
-        grepl("DIMATables", names(final_processed_tables), ignore.case = TRUE)
-    ]
-
-    # Write out each updated table back to CSV
-    purrr::iwalk(dima_tables_to_write, function(df, orig_path) {
-      # Strip temporary source columns if you don't want them in the raw CSV exports
+      # Remove execution metadata column prior to exporting raw schema files
       df_export <- df %>% dplyr::select(-SourceTable)
 
-      # Export back to the original CSV path or target directory
-      write.csv(df_export, file = orig_path, row.names = FALSE, na = "")
+      write.csv(df_export, file = output_path, row.names = FALSE, na = "")
     })
+
     return(dima_data_list)
 }
 }
