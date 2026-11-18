@@ -878,7 +878,8 @@ geofiles_nri <- function(path_foringest,
                                                      c("Plant")
                                                    )
                                                  ),
-                                                apply_species_adjustment = TRUE) |>
+                                                apply_species_adjustment = TRUE,
+                                                expected_indicator_names = c("FH_SubShrubCover", "FH_Succulent",default_lpi_indicators("terradat"))) |>
       dplyr::rename(.data = _,
                     # Because lpi_calc() calls it BareSoilCover and the LDC
                     # (rightfully) does not include "Cover"
