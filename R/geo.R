@@ -690,9 +690,9 @@ header$State <- NA
                                                   datatype = "geoSpecies",
                                                   dropcols = TRUE,
                                                   verbose = verbose)
-    accumulated_species_data <- accumulated_species_data %>%
-      dplyr::filter(!is.na(Species),
-                    (AH_SpeciesCover != 0 | Hgt_Species_Avg != 0))
+    # accumulated_species_data <- accumulated_species_data %>%
+    #   dplyr::filter(!is.na(Species),
+    #                 (AH_SpeciesCover != 0 | Hgt_Species_Avg != 0))
     write.csv(x = accumulated_species_data,
               file.path(path_foringest,
                         "geoSpecies.csv"),
@@ -1052,9 +1052,9 @@ geofiles_nri <- function(path_foringest,
                                                   datatype = "geoSpecies",
                                                   dropcols = TRUE,
                                                   verbose = verbose)
-    accumulated_species_data <- accumulated_species_data %>%
-      dplyr::filter(!is.na(Species),
-                    (AH_SpeciesCover != 0 | Hgt_Species_Avg != 0))
+    # accumulated_species_data <- accumulated_species_data %>%
+    #   dplyr::filter(!is.na(Species),
+    #                 (AH_SpeciesCover != 0 | Hgt_Species_Avg != 0))
 
     write.csv(x = accumulated_species_data,
               file.path(path_foringest,
@@ -1844,9 +1844,9 @@ generate_geoSpecies <- function(path_foringest,
                                                     dropcols = TRUE,
                                                     verbose = verbose)
 
-      accumulated_species_data <- accumulated_species_data %>%
-        dplyr::filter(!is.na(Species),
-                      (AH_SpeciesCover != 0 | Hgt_Species_Avg != 0))
+      # accumulated_species_data <- accumulated_species_data %>%
+      #   dplyr::filter(!is.na(Species),
+      #                 (AH_SpeciesCover != 0 | Hgt_Species_Avg != 0))
 
       # Save subset output
       write.csv(x = accumulated_species_data,
